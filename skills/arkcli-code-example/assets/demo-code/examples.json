@@ -1,0 +1,9 @@
+[
+  {
+    "language": "python",
+    "task_type": "chat",
+    "auth_method": "apiKey",
+    "file_path": "python.py"
+  }
+]
+
