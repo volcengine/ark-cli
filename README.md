@@ -71,7 +71,7 @@ arkcli auth status
 arkcli +chat "你好，介绍下你自己"
 ```
 
-> **无浏览器环境**（CI / 远程开发机 / Agent 沙箱）：`arkcli auth login volc-sso --no-browser`，在任意设备完成授权后用 `--code <码>` 粘回。
+> **无浏览器环境**（CI / 远程开发机 / Agent 沙箱）：`arkcli auth login --no-browser`，在任意设备完成授权后用 `--code <码>` 粘回。
 
 ## 把能力装进你的 AI Agent
 
