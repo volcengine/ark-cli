@@ -83,7 +83,7 @@ arkcli +connect
 
 ## 浏览内置 Skills
 
-本仓库的 [`skills/`](./skills) 收录了 arkcli 全部内置 AI Agent Skills（对话 / 生成 / 理解 / 部署 / 模型 / 用量 / 账单 / 套餐 …），每个都是一份可读的 `SKILL.md`。`arkcli +connect` 装进你 Agent 的就是它们。
+本仓库的 [`skills/`](https://github.com/volcengine/ark-cli/tree/main/skills) 收录了 arkcli 全部内置 AI Agent Skills（对话 / 生成 / 理解 / 部署 / 模型 / 用量 / 账单 / 套餐 …），每个都是一份可读的 `SKILL.md`。`arkcli +connect` 装进你 Agent 的就是它们。
 
 ## 链接
 
