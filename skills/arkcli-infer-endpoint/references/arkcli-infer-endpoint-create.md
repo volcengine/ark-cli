@@ -88,16 +88,15 @@ arkcli infer endpoint stop "$endpoint_id"
 arkcli infer endpoint start "$endpoint_id"
 ```
 
-### 3. 生成带真实 endpoint-id 的调用示例
+### 3. 生成调用示例
 
-> ⚠️ `arkcli +code-example` **当前暂时下线** (NodeBFF 接口待迁移到 OpenTOP, 见 [`../../arkcli-code-example/SKILL.md`](../../arkcli-code-example/SKILL.md)). 替代做法: 用项目内 `ark-examples/` 离线静态示例或方舟控制台示例代码页, 把模板里的 model id 换成 `$endpoint_id`. 不要按下面写法执行 (运行会报错):
+`arkcli +code-example` 已迁到 OpenTOP，当前可用。按**基础模型名**生成示例（不接受 `--endpoint-id`）：
 
 ```bash
-# ⚠️ 暂不可用 — 仅供 OpenTOP 迁移恢复后语义参考
-arkcli +code-example \
-  --model doubao-seed-2-0-pro \
-  --endpoint-id "$endpoint_id"
+arkcli +code-example --model doubao-seed-2-0-pro --lang python
 ```
+
+详见 [`../../arkcli-code-example/SKILL.md`](../../arkcli-code-example/SKILL.md)。
 
 ### 4. 不要再调用 `+deploy`
 
@@ -114,7 +113,7 @@ arkcli +deploy ...
 ## 注意事项
 
 - `infer endpoint create` 偏向标准资源创建
-- `+deploy` 偏向“创建 Endpoint + 自动生成示例代码”的任务工作流
+- `+deploy` 偏向”创建 Endpoint + 模型开通/复用检查/profile 同步”的任务工作流
 - 二者都会创建 Endpoint，不应串行重复执行
 - `--billing-method` 目前只有 `token` 一个枚举值；传 `token` 时不会额外写入 CreateEndpoint 请求字段，只会在创建前校验对应模型是否支持 token 推理方式
 - 基础模型的支持方式来自 `ArkModels.data[].Features.ShareService`；自定义模型优先看可部署版本 `EndpointSupportedMethods.ShareService`，必要时兜底到 `AvailableDeploymentTypes=Shared`
@@ -125,4 +124,4 @@ arkcli +deploy ...
 - [arkcli-infer-endpoint-get](arkcli-infer-endpoint-get.md) -- 查看 Endpoint 详情
 - [arkcli-infer-endpoint-start](arkcli-infer-endpoint-start.md) -- 启动 Endpoint
 - [arkcli-infer-endpoint-stop](arkcli-infer-endpoint-stop.md) -- 停止 Endpoint
-- [arkcli-code-example](../../arkcli-code-example/SKILL.md) -- ⚠️ 暂不可用 (NodeBFF 下线); 替代: 用项目内 `ark-examples/` 静态示例或方舟控制台示例代码页
+- [arkcli-code-example](../../arkcli-code-example/SKILL.md) -- 生成多语言调用示例（已迁到 OpenTOP，当前可用）

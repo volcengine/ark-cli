@@ -25,7 +25,7 @@ arkcli usage balance --type free-quota
 arkcli usage balance --type free-quota --model doubao-seed-1-6
 arkcli usage balance --type free-quota --modality LLM --page-size 20
 
-# 媒资库容量(走 BAM /open/GetAssetQuota,业务模块对齐 maas-fe `mediaAsset`)
+# 媒资库容量(走 /open/GetAssetQuota)
 arkcli usage balance --type media-asset
 arkcli usage balance --type media-asset --project my-project
 
@@ -198,7 +198,7 @@ arkcli usage balance --type plan --all
 |---|---|---|
 | `--type is required` | 没传 `--type` | 三选一:`free-quota` / `media-asset` / `plan` |
 | `--product is not valid for --type free-quota` | 跨 type flag | 检查 flag 跟 `--type` 是否匹配(见上表) |
-| `tier` 为空 + 全部 0 | 账号没订阅媒资库 | 后端返 free tier 零容量,没问题;要订阅请走 maas-fe 控制台 |
+| `tier` 为空 + 全部 0 | 账号没订阅媒资库 | 后端返 free tier 零容量,没问题;要订阅请走火山方舟控制台 |
 | `foundation model "X" not found in pricing list` (exit=2) | `--model X` 名字打错或不在 pricing list | 检查拼写;或不传 `--model` 拉全量看支持的名字 |
 | `free-quota` 返回 `items: []` | `--modality` 传了别名(`text` / `video`)而不是后端枚举(没传 `--model` 时才会走到这条) | 翻译成 `LLM` / `ComputerVision` 再传 |
 | plan 行 `error: "no seat bound"` | 团队版订了但 caller 没分到席位 | 联系 admin 分配席位,或传 `--seat <id>` 显式指定 |

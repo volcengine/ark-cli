@@ -5,7 +5,7 @@
 > **跟 `stats` / `billing` 的区别（务必先看）：**
 > - `usage stats` — 按 token 计费的 **inference 用量**（按时间序列,有 5–30 分钟延迟）
 > - `usage billing` — 按月**结算金额**(火山计费中心拆账,T+1 出账)
-> - `usage plan` — **订阅类套餐(AgentPlan / CodingPlan)的 quota 快照**(后端"我的套餐"实时数据,跟 maas-fe 控制台 1:1)
+> - `usage plan` — **订阅类套餐(AgentPlan / CodingPlan)的 quota 快照**(后端"我的套餐"实时数据,跟火山方舟控制台 1:1)
 >
 > 用户问「我用了多少 token / 多少次请求」走 stats;问「花了多少钱」走 billing;问「我的套餐还剩多少额度 / 用了百分之几 / 几号刷新」走 **plan**。
 
@@ -125,8 +125,8 @@ viewer.project_name = active project
 | `product` | `agent-plan` / `coding-plan` / `agent-plan-team` / `coding-plan-team`(跟 `profile.Type` 一致) |
 | `edition` | `personal` / `team` |
 | `tier` | 实际订阅档位(`small/medium/large/max` 或 `lite/pro`),由后端返;AgentPlan 才有,CodingPlan 通常缺 |
-| `subscribed` | 当前身份是否有有效订阅。AgentPlan: `Result != nil`; CodingPlan: `QuotaUsage` 数组非空(跟 maas-fe `if (!data?.QuotaUsage)` 一致) |
-| `periods[].label` | AgentPlan: `5h` / `weekly` / `monthly`(跟 maas-fe `useGetAgentPlanAFPUsage` UI 渲染一致,后端返的 `daily` 不展示)。CodingPlan: `session` / `weekly` / `monthly`,按 canonical order 稳定排序 |
+| `subscribed` | 当前身份是否有有效订阅。AgentPlan: `Result != nil`; CodingPlan: `QuotaUsage` 数组非空 |
+| `periods[].label` | AgentPlan: `5h` / `weekly` / `monthly`(后端返的 `daily` 不展示)。CodingPlan: `session` / `weekly` / `monthly`,按 canonical order 稳定排序 |
 | `periods[].used` / `total` | AgentPlan 给的是绝对值,CodingPlan 后端只返 `Percent`,`used`/`total` 字段缺(JSON 通过 `omitempty` 不出现) |
 | `periods[].percent` | 已用百分比(0-100). AgentPlan 由 `used/total*100` 算; CodingPlan 直接透传后端 `Percent` |
 | `periods[].reset_at` | 下次刷新时间,**统一 epoch ms**。AgentPlan 后端原本就是 ms; CodingPlan 后端返秒,service 层 ×1000 归一。`-1` 表示该周期内无数据(sentinel,不参与单位换算) |
@@ -150,11 +150,11 @@ viewer.project_name = active project
 - 用户问「为啥 plan 出了空 items」→ 大概率当前身份名下所有 product 都没订阅,转 [arkcli-pricing](../../arkcli-pricing/SKILL.md) 查 catalog 价格
 - 用户问「按模型看我哪个模型用得多」→ 这条命令只给 quota 快照,**没有按模型的拆分**,转 [`usage plan-details`](arkcli-usage-plan-details.md)(仅 AgentPlan)
 
-## 跟 maas-fe 调用面对齐
+## 调用面对齐
 
-- AgentPlan personal: `/open/GetAFPUsage`(OpenAPI,AK/SK + SSO 都支持)。maas-fe 控制台用的是 `ArkService.GetAgentPlanAFPUsage`(`/api/...` 路由,SSO-only),response shape 一致;arkcli 用公网 OpenTOP 入口,不带 AgentPlan 前缀
-- CodingPlan personal: `/open/GetCodingPlanUsage`(OpenAPI),跟 maas-fe `useGetCodingPlanUsage` 共享同一 endpoint
-- AgentPlan team: `/open/GetSeatAFPUsage`(**公网 OpenAPI**,AK/SK + SSO 都可调)。maas-fe 控制台用的是 `ArkService.GetAgentPlanSeatAFPUsage`(`/api/...` 路由,SSO-only),wire schema 一致;arkcli 用公网 OpenTOP 不带 AgentPlan 前缀的入口
-- CodingPlan team: `/open/GetSeatInfoUsage`(OpenAPI),跟 maas-fe CodingPlanEnterprisePane `useUserState` 同源
-- 自动探的 `ListSubscribeTrade` payload(personal × 2)跟 maas-fe `useGetAgentPlanInfo` / `useGetCodingPlanInfo` 一字不差;**企业版**不在 `ListSubscribeTrade` 暴露,改通过 `GetSeatInfo(Scene)` 探 caller seat 绑定状态(跟 maas-fe `AgentPlanEnterprisePane/useUserState` 同模式)
+- AgentPlan personal: `/open/GetAFPUsage`(OpenAPI,AK/SK + SSO 都支持)。arkcli 用公网 OpenTOP 入口,不带 AgentPlan 前缀
+- CodingPlan personal: `/open/GetCodingPlanUsage`(OpenAPI)
+- AgentPlan team: `/open/GetSeatAFPUsage`(**公网 OpenAPI**,AK/SK + SSO 都可调)。arkcli 用公网 OpenTOP 不带 AgentPlan 前缀的入口
+- CodingPlan team: `/open/GetSeatInfoUsage`(OpenAPI)
+- 自动探的 `ListSubscribeTrade` payload(personal × 2);**企业版**不在 `ListSubscribeTrade` 暴露,改通过 `GetSeatInfo(Scene)` 探 caller seat 绑定状态
 - Team SeatID 解析: `/open/GetSeatInfo` 不传 SeatID,后端按 caller 身份 + Scene 返绑定的 seat。**Scene 必须用 `agent_plan_enterprise`**(AgentPlan 企业版)或**空字符串**(CodingPlan 企业版,后端默认即 enterprise)— 早期错用 `agent_plan` / `coding_plan` 会返空 SeatID 不报错

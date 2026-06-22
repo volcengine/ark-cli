@@ -35,6 +35,22 @@ arkcli profile keys refresh --profile platform_cn-beijing_default
    - stderr 打 warn：`控制面拉 API Key 列表失败 (NotLogin), 用 .env 缓存单 key 兜底`
    - `profile.available_api_keys` 仅含 1 项，恢复后再 refresh
 
+## `keys refresh` 的防御用途（后端 key 变更 → 自愈）
+
+refresh 本质是「**以后端为 SSOT、单向把当前 profile 的 key 同步下来**」，所以它是「**后端 key 被改 / 轮换 → 本地 profile.yaml 变旧 → 业务命令报鉴权错**」这类故障的**第一线自愈动作**：比 `auth login` 重登、`auth apikey` 交互重选都轻，一条非交互命令即可，适合 agent 自动自愈（agent 完整恢复流程见 [`../../arkcli-auth/references/auth-modes.md`](../../arkcli-auth/references/auth-modes.md) 的「API Key 错误恢复」playbook）。
+
+**但 refresh 不是万能 —— 它能/不能自愈什么：**
+
+| 症状 | refresh 能否自愈 | 正确动作 |
+|---|---|---|
+| `InvalidApiKey` / `Unauthorized` / `AuthenticationError`（key 旧 / 被轮换，且没主动换过 key） | ✅ 能（后端有有效 key 可拉） | `keys refresh` → 重试原命令 |
+| key 来自 `ARK_API_KEY` env / `--api-key` flag | ❌ 不能（覆盖优先级高于 profile.yaml，refresh 写盘不生效） | 先去掉覆盖，再 refresh |
+| `AccessDenied` 针对某资源（key 缺权限） | ❌ 不能（同账号同权限，refresh 后还是同样被拒） | console 给 key 加权限 / 建带权限新 key |
+| SSO / 身份过期（refresh 自己的控制面调用也 401） | ❌ 不能 | `arkcli auth login volc-sso` 重登 |
+| team 档无 Running 席位 | ❌ 不能（refresh 直接报错） | 查席位 / 套餐（`arkcli-plans`） |
+
+**refresh ≠ rotate**：refresh 同步「已被改的」key；主动「换一把 / 废弃泄露的 key」走 `arkcli plans personal|team rotate-apikey`。**单 profile 范围**：只治当前 / `--profile` 那条，不影响其它 profile。
+
 ## 输出形态
 
 ### `keys list`

@@ -107,8 +107,8 @@ JSON 形态:
 ## V1 限制
 
 - **仅 AgentPlan 个人版**(`profile.Type=agent-plan` 或当前身份名下有 AgentPlan personal 订阅时数据非空)。AgentPlan 团队版(席位维度明细)对应后端 endpoint `GetSeatUsageDetails`,V1 未实装
-- **不依赖 `ListAgentPlanModelMappingMeta`**: maas-fe 控制台用它做"模型下拉框 + 'all models' 时塞全量 ObjectName 列表",CLI V1 简化掉:不传 `--model` 就让后端返聚合行,要拆模型自己传 `--model`
-- **没有 PlanType filter**: maas-fe 后端支持按套餐档位过滤(small/medium/large/max),CLI V1 没暴露;通常按身份当前生效订阅自动返,用户没有跨档位查询的必要
+- **不依赖 `ListAgentPlanModelMappingMeta`**: 控制台用它做"模型下拉框 + 'all models' 时塞全量 ObjectName 列表",CLI V1 简化掉:不传 `--model` 就让后端返聚合行,要拆模型自己传 `--model`
+- **没有 PlanType filter**: 后端支持按套餐档位过滤(small/medium/large/max),CLI V1 没暴露;通常按身份当前生效订阅自动返,用户没有跨档位查询的必要
 - **CodingPlan 不支持**: CodingPlan 后端没有按模型的调用明细 API(其 `GetCodingPlanUsage` 只返周期 `Percent`),这条命令对 CodingPlan profile 也只能查 AgentPlan,**故不开 `--product` flag**
 
 ## AI Agent 决策路径
@@ -126,9 +126,9 @@ JSON 形态:
 - **AccessDenied**: 通常是 sub-user 没 AgentPlan 权限,转 [arkcli-auth](../../arkcli-auth/SKILL.md) 排查身份
 - **范围错误**: 看 ErrValidation 提示(31 天限 / 6 月历史窗口 / YYYY-MM-DD 格式)直接修 flag
 
-## 跟 maas-fe 调用面对齐
+## 调用面对齐
 
-- 个人版调 OpenAPI **`/open/GetUsageDetails`**(AK/SK + SSO 都支持);maas-fe 控制台 `ArkService.GetAgentPlanUsageDetails`(`/api/...` 路由,SSO-only),wire schema 一致;arkcli 用公网 OpenTOP 不带 AgentPlan 前缀的入口
+- 个人版调 OpenAPI **`/open/GetUsageDetails`**(AK/SK + SSO 都支持);arkcli 用公网 OpenTOP 不带 AgentPlan 前缀的入口
 - 团队版调 OpenAPI **`/open/GetSeatUsageDetails`** + **`/open/GetSeatInfo`**(找 caller seat),都是公网入口,AK/SK + SSO 都行
-- 默认窗口 `今天 - 6 天 ~ 今天` 跟 [maas-fe `useGetAgentPlanUsageDetails.tsx`](https://maas-fe/apps/model-settings/src/pages/AgentPlanPane/hooks/useGetAgentPlanUsageDetails.tsx) `dayjs().subtract(6, 'day')` 一致
+- 默认窗口 `今天 - 6 天 ~ 今天`
 - 后端 31 天 / 6 月窗口约束 client-side 前置校验,不发请求,把错误暴露在 CLI 层

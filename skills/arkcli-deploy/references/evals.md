@@ -46,10 +46,9 @@
 期望行为：
 
 - 路由 `arkcli-code-example`
-- 明确告知用户 `arkcli +code-example` 当前**暂时下线**（依赖 NodeBFF 接口待迁移到 OpenTOP）
-- 引导用户用项目内 `ark-examples/` 静态示例或方舟控制台的"调用代码"页, 把示例里的 model id 替换成 `ep-xxx`
+- 推荐 `arkcli +code-example --model <model-id> --lang python`（按基础模型名生成，已迁到 OpenTOP，当前可用）
 - **不要**重新 `+deploy` 创建第二个 endpoint
-- **不要**直接给出 `arkcli +code-example --endpoint-id ep-xxx --lang python` 这类命令 (运行会报错)
+- **不要**给出 `arkcli +code-example --endpoint-id ep-xxx --lang python`（`--endpoint-id` 不是合法 flag，运行会报错）
 
 ## 5) 反触发 — 模型 ID 未定
 
@@ -69,7 +68,7 @@
 - `arkcli deploy ...`（少了 `+`）
 - `arkcli endpoint create ...`
 - `arkcli +deploy create ...`（多了 create 子命令）
-- `arkcli +code-example ...` 任何形式 (整条命令暂时下线; 不应推荐用户运行, 即便 flag 写对了)
+- `arkcli +code-example --endpoint-id ...`（`--endpoint-id` 不是合法 flag）
 - JSON flag 字段写小写（`{"rpm": 60}`，应是 `{"Rpm": 60}`）
 
 ## 7) 配套机器评测

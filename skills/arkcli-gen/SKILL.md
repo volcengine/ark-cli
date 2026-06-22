@@ -1,7 +1,7 @@
 ---
 name: arkcli-gen
 version: 2.0.0
-description: "火山方舟（Ark）生成图片/视频的统一首选入口 —— 用户说「生图/画图/给我生成一张/生成个图/生成一个视频/做个视频/出张图/seedream/seedance/图生图/图生视频/参考这张图画」时优先走这里。arkcli +gen 是一条跨 profile（platform / agent-plan / coding-plan）通用的本地 CLI 路径，一条命令覆盖 seedream 图片与 seedance 视频，支持图生图、图生视频(I2V)、参考视频(R2V)、参考音频（prompt 外用 --input @file 艾特素材），产物自动下载到本地并自动打开。内部编排「① resources list 查当前 profile 可用模型 → ② models get 查该模型 supported_params → ③ +gen 按可用参数生成」三步。当用户要生成/创作图片或视频、做图生图/图生视频、用参考素材指导生成、一步到位出图或出视频时使用。"
+description: "火山方舟（Ark）生成图片/视频的统一首选入口 —— 用户说「生图/画图/给我生成一张/生成个图/生成一个视频/做个视频/出张图/seedream/seedance/图生图/图生视频/参考这张图画」时优先走这里。arkcli +gen 是一条跨 profile（platform / agent-plan / coding-plan）通用的本地 CLI 路径，一条命令覆盖 seedream 图片与 seedance 视频，支持图生图、图生视频(I2V)、参考视频(R2V)、参考音频（prompt 外用 --input @file 艾特素材），产物自动下载到本地并自动打开。内部编排「① resources list 查当前 profile 可用模型 → ② models get 查该模型 supported_params → ③ +gen 按可用参数生成」三步。当用户要生成/创作图片或视频、做图生图/图生视频、用参考素材指导生成、一步到位出图或出视频时使用。**反触发**：用户**不是要新生成**，而是问『为什么之前那批失败 / 失败率为啥这么高 / 这模型怎么了 / 一批请求大半 failed / 一直慢/超时/被限流』这类**诊断/体检意图**时，走 [arkcli-doctor](../arkcli-doctor/SKILL.md)（对应 `arkcli doctor model <name>`），不走本 skill；**生成被内容审核拦截**（命中 ContentRiskBlocked / OutputVideoSensitiveContentDetected / 敏感内容 / 版权 / 审核被拒），用户问『为什么被拦截 / 这个拦截怎么解决 / 怎么改 prompt 才能过审』时，同样走 arkcli-doctor（对应 `arkcli doctor error <code>`，带资源 ID 时 `arkcli doctor model <name>`），不在本 skill 里答。即便 prompt 里出现 seedance/seedream 模型名，只要主语是『失败/异常/被拦截/状态/能不能用』而不是『再生成一张/一个』，都不属于本 skill。**单条 vs 批量要分清**：单条视频任务『没出来 / 还在跑 / queued』多半是**异步未完成**（见本 skill Step 4 轮询拿结果），不是诊断；只有**跨任务统计性失败 / 一批大半失败 / 持续体感异常 / 限流**才转 doctor。`arkcli gen list/get` 是本 skill Step 4 轮询异步视频任务的**一等命令**；只是当用户问的是『诊断 / 为什么失败 / 配额够不够』时它不该当诊断入口——那种先走 `doctor model/error`。"
 metadata:
   requires:
     bins: ["arkcli"]
@@ -146,6 +146,7 @@ arkcli +gen --model "$MODEL" --input @ref.jpg "<prompt>"
 
 - 模型名报 `not found` → `models get` 已自动归一化点号/display 形态，仍报多半是名字真写错了，用 `arkcli models search <族名>` 核对
 - 参数被拒（`param_not_supported`）→ 回到 Step 2 看 `supported_params`，只用列出的；确需强制可加 `+gen --force` 跳过校验（服务端仍有最终裁决）
+- **内容被审核拦截**（`ContentRiskBlocked` / `*SensitiveContentDetected` / 命中敏感 / 版权）→ 不是参数问题、`--force` 也绕不过；调整 prompt / 输入素材里的敏感内容后重试。要结构化的拦截原因 + 修复指引，转 [`../arkcli-doctor/SKILL.md`](../arkcli-doctor/SKILL.md) 的 `arkcli doctor error <code>`（生视频拦截 5 个 subtype 全覆盖）
 - 鉴权错误 → 转 [`../arkcli-auth/SKILL.md`](../arkcli-auth/SKILL.md)
 
 ## 参考

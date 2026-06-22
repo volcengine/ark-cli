@@ -140,7 +140,7 @@ arkcli usage seats --seat-id sa --user-name alice
 | `biz_info` | 档位 |
 | `billing_status` | 计费状态(`Running` 才计费;`Reclaimed` 已回收) |
 | `seat_status` | 席位本身状态(跟 billing 解耦,例如 admin 主动停用) |
-| `user_id` / `user_name` | **绑定的子用户**(后端原 schema 是 `IdentityId` / `IdentityDetail`,arkcli 改名跟 maas-fe SeatManageTable 列名对齐) |
+| `user_id` / `user_name` | **绑定的子用户**(后端原 schema 是 `IdentityId` / `IdentityDetail`,arkcli 改名) |
 | `bind_count` | 本月绑定换绑次数 |
 | `order_time` / `expired_time` | 订单 / 过期 epoch ms |
 | `total` | 后端口径下满足 filter 的总数 |
@@ -183,12 +183,11 @@ arkcli usage seats --product agent-plan-team --seat-id seat-001 --seat-id seat-0
 - Admin 想看团队**用量明细**(不只 seat 列表) → [`usage plan-details --product agent-plan-team`](arkcli-usage-plan-details.md)
 - 查模型免费额度(账户级) → [`usage balance --type free-quota`](arkcli-usage-balance.md)
 
-## 跟 maas-fe 调用面对齐
+## 调用面对齐
 
 - wire path:`/open/ListSeatInfos`(OpenAPI)。`--with-usage` 增量调:
   - AgentPlan team → `/open/ListSeatAFPUsage`(admin 列全 + 翻页)
   - CodingPlan team → `/open/ListSeatInfoUsages`(SeatIDs 必传,从 ListSeatInfos 收齐后批量喂,单次 ≤ 1000)
-- 入参 schema 跟 maas-fe `useAdminListSeatInfos` 一致
-- 翻页用 `NextToken`(cursor)而不是 PageNum,跟 maas-fe `useSeatManageTableModel` 同模式
-- `IdentityId` / `IdentityDetail` 字段在前端 `SeatManageTable` 也叫 `user_id` / `user_name`,arkcli 跟前端列名对齐而非 wire 字段名
+- 翻页用 `NextToken`(cursor)而不是 PageNum
+- `IdentityId` / `IdentityDetail` 字段在控制台前端也叫 `user_id` / `user_name`,arkcli 跟前端列名对齐而非 wire 字段名
 - `ListSeatAFPUsage` 用的是 page-based 分页(`PageNumber/PageSize`,后端约束 PageSize 10-100),跟 `ListSeatInfos` 的 cursor 翻页不同;service 层独立翻页拉全后再 join

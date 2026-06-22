@@ -1,6 +1,6 @@
 ---
 name: arkcli-shared
-version: 2.0.0
+version: 2.0.1
 description: "arkcli 共享执行协议：首次配置入口、业务命令执行前的认证闸门、命令路由与选择顺序、输出/安全/二次确认规则。深度细节（身份解析、AK-SK 边界、API Key 恢复、实名闸门、profile 默认与漂移、全局 flags、故障分流）按需在 references/ 加载。当用户第一次使用 arkcli、遇到未登录/鉴权失败、需要判断该走产品命令还是 raw api、或任何 arkcli-* skill 需要公共上下文时触发。"
 metadata:
   requires:
@@ -30,6 +30,7 @@ metadata:
 - 看可用资源（endpoint / plan 模型 ID）走 [`../arkcli-resources/SKILL.md`](../arkcli-resources/SKILL.md)
 - 首次远端调用前，先看 [`../arkcli-auth/SKILL.md`](../arkcli-auth/SKILL.md)
 - `arkcli` 是产品 CLI，不是 OpenAPI Action 浏览器；不要从 Action 名反推命令设计
+- 安装: `npm i @volcengine/ark-cli -g`（公开版）
 
 ## 统一 CLI 与 Profile
 

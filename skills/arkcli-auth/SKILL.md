@@ -1,6 +1,6 @@
 ---
 name: arkcli-auth
-version: 1.2.0
+version: 1.3.0
 description: "arkcli 认证管理：交互式登录、Volc SSO 登录、查看状态、退出登录、生成 ARK API Key (apikey)、以及云开发机/CI 用 `arkcli init-volc` 从 VOLC_INIT_* 环境变量无交互引导 platform profile。0.1.16 起 SSO 登录走 Gate 1+2 自动绑定 Profile 切面 (type/region/project/owner_trn)；AK/SK login 通道暂关。当用户需要初始化凭证、排查鉴权问题、切换认证方式、生成或重选 ARK API Key、或在已注入凭证的环境无交互引导时使用。"
 metadata:
   requires:
@@ -83,6 +83,7 @@ metadata:
 | "我是谁/我的身份/当前用户/哪个账号/我自己的 IAM 用户 ID" | `arkcli auth whoami` |
 | "查同事 zhangsan 的 IAM 用户 ID/查别人的 IAM 用户 ID" | **转 `arkcli-profile`**（查看当前 profile 并列出可用 API Key）+ 提示用户使用 `arkcli iam` 命令（如有） |
 | "API Key 泄露/废弃旧 Key/换新 Key/rotate/轮换 API Key" | **转 `arkcli-plans`**：`plans personal rotate-apikey` 或 `plans team rotate-apikey` |
+| "命令突然报 key 失效/401/InvalidApiKey 但我没换过 key"（疑似后端轮换） | **转 `arkcli-profile`**：先 `arkcli profile keys refresh` 同步后端 key 再重试（**遇失败才触发的反应式自愈，非预防性**）；refresh 救不了再看 [`references/auth-modes.md`](references/auth-modes.md) |
 | "看我有哪些 Key/Key 列表/可用 Key" | **转 `arkcli-profile`**：`arkcli profile keys list` |
 | "切换默认 Key/用另一个 Key" | **转 `arkcli-profile`**：`arkcli profile keys use <key>` |
 | "AK/SK 登录/access key/secret key" | **告知通道暂关**：当前版本 AK/SK 登录通道暂时关闭，请使用 SSO 登录，运行 `arkcli auth login`

@@ -9,8 +9,8 @@
 ## 命令
 
 ```bash
-# 查询当日用量（不传日期默认今天）
-arkcli usage stats
+# 查询当日用量（--start 必填，缺失会报 required flag(s) "start" not set；查今天就把 start 填成今天）
+arkcli usage stats --start <YYYY-MM-DD>
 
 # 查询本月按天用量
 arkcli usage stats --start 2025-09-01 --end 2025-09-30
@@ -41,16 +41,16 @@ arkcli usage stats --start 2025-09-01 --end 2025-09-30 --show-window-detail
 
 # ─── “我的用量” 入口（AI Agent 高频调用） ───
 # 默认走 endpoint 维度：列出我创建的全部 Endpoint，合并查它们的用量
-arkcli usage stats --mine
+arkcli usage stats --start <YYYY-MM-DD> --mine
 
 # 显式 endpoint 维度（语义同 --mine）
-arkcli usage stats --mine --mine-by=endpoint
+arkcli usage stats --start <YYYY-MM-DD> --mine --mine-by=endpoint
 
 # apikey 维度：列出我账号下全部 active APIKey，分别查后合并
 arkcli usage stats --start 2026-05-01 --end 2026-05-08 --mine --mine-by=apikey
 
 # 按 APIKey 后缀模糊匹配（与 console "AuthToken ValueLike" 对齐）
-arkcli usage stats --apikey-suffix d9bcce38dab0
+arkcli usage stats --start <YYYY-MM-DD> --apikey-suffix d9bcce38dab0
 ```
 
 ## 参数
@@ -143,6 +143,7 @@ JSON 格式：
 
 ## 注意事项
 
+- **`--start` 必填**：缺失直接报 `required flag(s) "start" not set`，CLI **不会**默认今天；用户未给任何日期时，默认 `--start`=今天、`--end` 缺省同今天再跑，不要裸跑省略 `--start`
 - **数据有 5–30 分钟延迟**：上游聚合管道行为，arkcli 仅透传，不可缩短；做实时预算 / 限流 / 告警请改走 per-request `.usage`，不要轮询本接口
 - arkcli 自动过滤掉 `free_for_coding_plan` 的用量行，始终保留有 `ModelUnitID` 的行
 - `--interval Hour` 时返回的 `Hour` 字段为 STRING 类型

@@ -1,7 +1,7 @@
 ---
 name: arkcli-code-example
 version: 1.2.0
-description: "arkcli +code-example：为指定基础模型生成多语言（Python / Go / Java / Node / curl）调用示例代码并写入本地文件。数据源已从下线的 NodeBFF 迁到 OpenTOP OpenGetSampleCode。当用户需要拿某个基础模型的 SDK / curl 调用示例、保存为本地接入模板时使用。"
+description: "arkcli +code-example：为指定基础模型生成多语言（Python / Go / Java / Node / curl）调用示例代码并写入本地文件。数据源是火山方舟 OpenTOP OpenGetSampleCode。当用户需要拿某个基础模型的 SDK / curl 调用示例、保存为本地接入模板时使用。"
 metadata:
   requires:
     bins: ["arkcli"]
@@ -12,7 +12,7 @@ metadata:
 
 > **前置条件：** 先阅读 [`../arkcli-shared/SKILL.md`](../arkcli-shared/SKILL.md) 了解认证、全局参数和安全规则。
 
-为指定基础模型生成多语言 SDK 调用示例代码，同时写入本地文件。数据源是火山方舟 OpenTOP `OpenGetSampleCode`（取代已下线的 NodeBFF `GetExampleCodeItems`）。
+为指定基础模型生成多语言 SDK 调用示例代码，同时写入本地文件。数据源是火山方舟 OpenTOP `OpenGetSampleCode`。
 
 ## 什么时候用
 

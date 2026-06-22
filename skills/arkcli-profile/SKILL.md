@@ -1,6 +1,6 @@
 ---
 name: arkcli-profile
-version: 1.0.0
+version: 1.1.0
 description: "arkcli profile 切面管理：列出、查看、新建、切换、删除、重命名 profile；管理 profile 内 API Key 列表；管理 plan 类 profile 的 default 模型（text/image/video）；设置某 modality 的默认资源 ID。0.1.16 把原 `arkcli config init/list/show/switch/delete` 全部迁过来，是 profile 类操作的唯一入口；旧 config 子命令已 deprecated。"
 metadata:
   requires:

@@ -7,7 +7,7 @@
 1. 子命令穷举：只有 `arkcli +deploy`。**不存在** `arkcli deploy ...` / `arkcli endpoint create` / `arkcli +deploy create`。
 2. **写操作 + 计费**：默认就是真实创建，`--dry-run` 才是预演。
 3. JSON 类 flag 字段名一律 **PascalCase**：`Rpm`、`Tpm`、`Strategy`、`Mode`，不是小写。
-4. **`+code-example` 已暂时下线** (依赖的 NodeBFF 接口待迁移到 OpenTOP)，不要再引导跑 `arkcli +code-example`；引导用户用项目内 `ark-examples/` 静态示例或方舟控制台的"调用代码"页替换 `endpoint-id`。
+4. **`+code-example` 已迁到 OpenTOP，当前可用**：`arkcli +code-example --model <model-id> --lang python`（按基础模型名生成，不接受 `--endpoint-id`）；详见 [`../../arkcli-code-example/SKILL.md`](../../arkcli-code-example/SKILL.md)。
 5. `--model cm-xxxxx` 真实执行时会先复用已有 Running Endpoint；只有找不到可复用 Endpoint 时才创建。
 6. ~~创建成功后示例代码落到 `./ark-examples/<endpoint-id>/`~~ — 0.1.16 暂不生成示例文件。
 

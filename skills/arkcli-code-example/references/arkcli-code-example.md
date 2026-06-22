@@ -4,7 +4,7 @@
 
 为指定基础模型生成多语言 SDK 调用示例代码，同时写入本地文件。
 
-数据源是火山方舟 OpenTOP `OpenGetSampleCode`（取代已下线的 NodeBFF `GetExampleCodeItems`）：按 `(model, version)` + `scenario` 拉取一批"代码块"，arkcli 自动按 `(语言 × IO 任务类型)` 去重、配好安装命令后渲染落盘。
+数据源是火山方舟 OpenTOP `OpenGetSampleCode`：按 `(model, version)` + `scenario` 拉取一批"代码块"，arkcli 自动按 `(语言 × IO 任务类型)` 去重、配好安装命令后渲染落盘。
 
 ## 什么时候用
 

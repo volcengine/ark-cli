@@ -72,7 +72,7 @@ arkcli train finetune delete --help
 - `pause` 用于希望后续继续的任务。
 - `resume` 仅在当前阶段允许时执行。
 - `stop` 是不可逆终止，必须明确说明影响并获得确认。
-- `delete` 删除任务记录，必须展示目标 job id、名称和当前阶段，并获得单独确认。
+- `delete` 删除任务记录，必须展示目标 job id、名称和当前阶段，并获得单独确认。**Phase 强校验**：仅终态（`Completed` / `Failed` / `Terminated`）可删，非终态在客户端直接拒绝并提示先执行 `train finetune stop`，避免用户输 y 后被 backend `phase_mismatch` 拒。
 - Agent 环境要求 `--yes` 时，只能在用户确认后添加。
 - 阶段不允许时，根据 CLI/backend hint 给出下一步，不通过反复重试绕过限制。
 

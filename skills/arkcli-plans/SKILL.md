@@ -1,7 +1,7 @@
 ---
 name: arkcli-plans
 version: 1.2.0
-description: "ARK 套餐管理(Agent Plan / Coding Plan,个人版 + 企业版):查询持有 / 购买 / 续费 / 模型清单 / 轮换 APIKey,**以及企业版席位的全部管理操作**:列出席位(`plans team seat-list`)、给员工分配席位(`plans team seat-assign`)、查谁绑了哪个 seat、轮换席位 APIKey(`plans team rotate-apikey`)。命中关键词:套餐 / 买 / 续费 / 列席位 / 看 seat 绑定 / 谁绑了哪个 seat / 给员工分席位 / 解绑 / 团队席位 admin 视图 / 轮换 APIKey。**用量类问题(还剩多少额度 / 用了几成 / 每个 seat 用了多少)走 [arkcli-usage](../arkcli-usage/SKILL.md)。**动词路由:**列 / 绑 / 分 / 轮换 / 解绑** → 这里;**用 / 消耗 / 多少** → arkcli-usage。另含 harness-status:只读查看本机 AI Agent(claude-code/opencode/openclaw/trae)上 Agent Plan 内置 MCP(联网搜索/dataPro/OpenViking)装没装、key 就没就绪;命中:我的 MCP 装好了吗 / 查 MCP 安装状态 / 看 agent 上的 MCP / harness 状态。"
+description: "ARK 套餐管理(Agent Plan / Coding Plan,个人版 + 企业版):查询持有 / 购买 / 续费 / 模型清单 / 轮换 APIKey,**以及企业版席位的全部管理操作**:列出席位(`plans team seat-list`)、给员工分配席位(`plans team seat-assign`)、查谁绑了哪个 seat、轮换席位 APIKey(`plans team rotate-apikey`)。命中关键词:套餐 / 买 / 续费 / 列席位 / 看 seat 绑定 / 谁绑了哪个 seat / 给员工分席位 / 解绑 / 团队席位 admin 视图 / 轮换 APIKey。**用量类问题(还剩多少额度 / 用了几成 / 每个 seat 用了多少)走 [arkcli-usage](../arkcli-usage/SKILL.md)。**动词路由:**列 / 绑 / 分 / 轮换 / 解绑** → 这里;**用 / 消耗 / 多少** → arkcli-usage。另含 harness-status:只读查看本机 AI Agent(claude-code/opencode/openclaw/trae)上 Agent Plan 内置 MCP(豆包搜索/dataPro/OpenViking)装没装、key 就没就绪;命中:我的 MCP 装好了吗 / 查 MCP 安装状态 / 看 agent 上的 MCP / harness 状态。"
 metadata:
   requires:
     bins: ["arkcli"]
@@ -64,7 +64,7 @@ metadata:
 - 列出 / 筛选企业版席位 → `plans team seat-list`
 - 把企业版席位绑给子用户 → `plans team seat-assign`
 - 轮换企业版席位的 APIKey（自己 or 管理员批量）→ `plans team rotate-apikey`
-- 查本机 AI Agent 上 Agent Plan 内置 MCP 装没装（只读）→ `plans harness-status`
+- 查本机 AI Agent 上专属 Harness 能力装没装（只读）→ `plans harness-status`：按能力卡报豆包搜索 / 专业数据集 / Agent 记忆（MCP），外加全局**火山引擎Supabase**（CLI+Skill 装没装）。「我的 supabase / MCP 装好了吗」都走这里（Agent 记忆卡仅个人版 `agent-plan`；团队版报 `absent` 是预期、非漏装，详见其 reference）
 
 ## 快速决策
 
