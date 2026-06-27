@@ -93,3 +93,11 @@ arkcli +connect
 ## License
 
 [Apache-2.0](./LICENSE)
+
+## 用户交流群
+
+扫码加入 Ark CLI 飞书用户交流群，获取使用答疑、问题排查、Bug 反馈和使用经验交流支持。你可以在群里咨询安装、登录、模型调用、Skill 使用、版本升级等问题，也欢迎反馈 GitHub Issues 中未覆盖的异常。
+
+请勿在群内发送 API Key、AK/SK、Token 等敏感信息。对于可稳定复现的 Bug，建议同步提交 GitHub Issue，便于跟踪和修复。
+
+<img src="./assets/lark-user-group.png" width="360" alt="Ark CLI 飞书用户交流群二维码" />
