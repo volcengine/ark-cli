@@ -248,7 +248,7 @@ arkcli profile list
 arkcli profile use <profile-name>
 ```
 
-`arkcli config show` 等旧配置子命令已迁移到 `arkcli profile` 命令树；需要排查历史配置或重置本地状态时再使用 `arkcli config --help`。
+更多 profile 管理能力可查看 `arkcli profile --help`。
 
 ## AI Agent Skills
 
