@@ -241,12 +241,14 @@ arkcli auth logout
 # 查看当前 profile
 arkcli profile show
 
+# 列出所有 profile
+arkcli profile list
+
 # 切换 profile
 arkcli profile use <profile-name>
-
-# 查看配置
-arkcli config show
 ```
+
+`arkcli config show` 等旧配置子命令已迁移到 `arkcli profile` 命令树；需要排查历史配置或重置本地状态时再使用 `arkcli config --help`。
 
 ## AI Agent Skills
 
