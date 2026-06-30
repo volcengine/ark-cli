@@ -1,7 +1,7 @@
 ---
 name: arkcli-helper
 version: 1.0.0
-description: "arkcli helper:把本机 AI Agent(Claude Code / OpenCode / OpenClaw / Trae)配置到火山方舟 Plan,核心能力是给 Agent 注入 Agent Plan 内置 MCP(豆包搜索 mcp-server-askecho-search-infinity + dataPro-search + OpenViking openviking-dataplane + OpenViking 控制面 openviking-controlplane)。当用户说『给当前/某个 Agent 配上(我的)MCP / 豆包搜索 / 联网搜索 / dataPro / OpenViking』『把 MCP 装进 Claude Code/OpenCode/OpenClaw/Trae』『设置 Agent Plan 的 MCP』时,用 `arkcli helper mcp`(只注入 MCP、不改 model)。也覆盖 `helper configure`(连带配 model/provider)、`helper list`(查状态)、`helper reset`(移除注入)。反触发:把 arkcli skills 安装进 agent → arkcli-connect;登录/401/鉴权 → arkcli-auth;生图生视频 → arkcli-gen。注意:MCP 注入仅 Agent Plan 支持(个人版 agent-plan + 团队版 agent-plan-team 都能配),但 OpenViking 两台(数据面/控制面)仅个人版 agent-plan —— 团队版 agent-plan-team 与 OpenViking 无关,只配豆包搜索 + dataPro;只能配 claude-code/opencode/openclaw/trae(Trae 是 IDE,仅注 MCP、不配 model,支持 --scope project 写项目级 ./.trae/mcp.json)。另有 `arkcli helper supabase`:它**不是 MCP**,而是装 byted-supabase-cli + skill 并注入火山登录态打通 byted-supabase 数据库能力(仅 Agent Plan:个人版 large/max + 团队版全档,个人版 small/medium 不支持);用户说『配 byted-supabase / 打通数据库 / 装 supabase cli / 连接 supabase』时用它。"
+description: "arkcli helper:把 Claude Code / Codex / OpenCode / OpenClaw / Trae 配到火山方舟 Plan。用户说给当前或某个 Agent 配 MCP、豆包搜索、联网搜索、dataPro、OpenViking 时,用 `arkcli helper mcp`(只注入 MCP,不改 model);要连 model/provider 一起配用 `helper configure`;查状态用 `helper list`;移除注入用 `helper reset`。MCP 仅 Agent Plan 支持:个人版 agent-plan 配豆包搜索、dataPro、OpenViking 数据面/控制面;团队版 agent-plan-team 只配豆包搜索 + dataPro。Codex 支持 profile/global 配置范围;Trae 仅注 MCP,支持 `--scope project`。`helper supabase` 不是 MCP,用于安装 byted-supabase-cli + skill 并注入火山登录态。反触发:安装 arkcli skills → arkcli-connect;登录/401/鉴权 → arkcli-auth;生图生视频 → arkcli-gen。"
 metadata:
   requires:
     bins: ["arkcli"]
@@ -31,23 +31,23 @@ metadata:
 - **target** = 要把 MCP 写进谁的配置 —— 可以是 host 自己,也可以是另一个 agent。
 - 二者解耦:人在 OpenCode 里,也能给 Claude Code 配 MCP。
 
-→ 用户在 prompt 里**点名了某个 agent**(如"给 opencode 配"):跑 `arkcli helper mcp opencode`
+→ 用户在 prompt 里**点名了某个 agent**(如"给 opencode / codex 配"):跑 `arkcli helper mcp opencode` / `arkcli helper mcp codex`
 → 用户说"**当前 / 这个 Agent**"或没点名:跑 `arkcli helper mcp`(自动检测当前 host)
 
 ## 子命令穷举
 
 | 调用 | 说明 |
 |------|------|
-| `arkcli helper mcp [target] [--ov-resource <库名>] [--scope project]` | **只注入 MCP,不改 model**。不传 target 自动检测当前 agent;账号多个 OpenViking 库时用 `--ov-resource` 指定;`--scope project`(仅 Trae)写项目级 `./.trae/mcp.json` |
-| `arkcli helper configure <harness> [--with-mcp] [--with-supabase]` | 配 model/provider 指向 plan;`--with-mcp` 连带注入 MCP,`--with-supabase` 连带配 byted-supabase。**非交互/agent 场景的全套入口** |
+| `arkcli helper mcp [target] [--ov-resource <库名>] [--scope project] [--codex-config-scope profile|global] [--codex-profile <name>]` | **只注入 MCP,不改 model**。不传 target 自动检测当前 agent;账号多个 OpenViking 库时用 `--ov-resource` 指定;`--scope project`(仅 Trae)写项目级 `./.trae/mcp.json`;Codex 默认写 profile `~/.codex/arkcli.config.toml` |
+| `arkcli helper configure <harness> [--with-mcp] [--with-supabase] [--codex-config-scope profile|global] [--codex-profile <name>]` | 配 model/provider 指向 plan;`--with-mcp` 连带注入 MCP,`--with-supabase` 连带配 byted-supabase。**非交互/agent 场景的全套入口** |
 | `arkcli helper list` | 查支持的 agent + 安装/配置状态(只读) |
 | `arkcli helper supabase [--profile P]` | **非 MCP**:装 byted-supabase-cli + skill + 注入火山登录态(打通 byted-supabase 数据库能力);跟 harness 无关。仅 Agent Plan(个人版 large/max + 团队版全档) |
 | `arkcli helper reset <harness>` | 移除 arkcli 注入的配置(含 MCP) |
-| `arkcli helper` | TTY 交互向导(需终端;非交互场景改用上面的);末尾会问是否顺便配 byted-supabase |
+| `arkcli helper` | TTY 交互向导(需终端;非交互场景改用上面的);进入向导前会检查登录态,未登录/SSO 过期时按当前登录上下文拉起 SSO(火山走 volc-sso;全新用户无明确上下文时走 auth login 菜单),成功后继续向导;末尾会问是否顺便配 byted-supabase |
 
 > ⚠️ 想"只加 MCP" → `helper mcp`;想"把 agent 接到 plan、连模型一起" → `helper configure --with-mcp`。别用 `configure` 去只加 MCP(它会一并(重)写 model)。
 >
-> 🎯 用户说"**把(我 plan 的)全套 harness 工具都配上 / 都给我 set 好**"(MCP + Supabase 一次到位)→ `arkcli helper configure <harness> --with-mcp --with-supabase`。这是 agent 唯一能一条命令配齐 MCP 三件套 + Supabase 的路径(交互向导 `arkcli helper` 要 TTY、agent 跑不了);`--with-mcp` 只配 MCP、不含 Supabase,想带 Supabase **必须显式加 `--with-supabase`**(资格不够 / 失败只 warn,不阻断 harness 配置)。
+> 🎯 用户说"**把(我 plan 的)全套 harness 工具都配上 / 都给我 set 好**"(MCP + Supabase 一次到位)→ `arkcli helper configure <harness> --with-mcp --with-supabase`。这是 agent 唯一能一条命令配齐 MCP 三件套 + Supabase 的路径(交互向导 `arkcli helper` 要 TTY、agent 跑不了;它的自动 SSO 只服务真人终端);`--with-mcp` 只配 MCP、不含 Supabase,想带 Supabase **必须显式加 `--with-supabase`**(资格不够 / 失败只 warn,不阻断 harness 配置)。
 
 ## byted-supabase 数据库能力(`helper supabase`;**非 MCP**)
 
@@ -60,15 +60,16 @@ metadata:
 
 ## 范围边界(管好,别越界)
 
-- **可注入 target 有 4 个**:`claude-code` / `opencode` / `openclaw` / `trae`。
-- 本 skill 会被 `arkcli +connect` 装进很多 agent(cursor / gemini-cli / codex …40+),但**只能配上面这 4 个**。host 是其它 agent 时:要么用户点名其一作 target,要么命令会报"请显式指定" —— **绝不静默配错对象**。
+- **可注入 target 有 5 个**:`claude-code` / `codex` / `opencode` / `openclaw` / `trae`。
+- 本 skill 会被 `arkcli +connect` 装进很多 agent(cursor / gemini-cli / codex …40+),但**只能配上面这 5 个**。host 是其它 agent 时:要么用户点名其一作 target,要么命令会报"请显式指定" —— **绝不静默配错对象**。
+- `codex` 支持 model/provider + MCP。默认 **profile 模式**写 `~/.codex/arkcli.config.toml`,需用 `codex --profile arkcli` 启动 terminal/TUI 才生效;传 `--codex-config-scope global` 才写 `~/.codex/config.toml`,该范围可能被 Codex CLI/TUI、Codex App、IDE extension 共享读取。
 - `trae`(AI IDE)是 MCP-only:只注入 MCP、不配 model/provider;**无运行态宿主检测**(不会被自动当成 host),只能显式 `arkcli helper mcp trae`。默认写用户级 `~/.trae/mcp.json`,加 `--scope project` 写项目级 `./.trae/mcp.json`(项目级需在 Trae「设置 → MCP」开启「启用项目级 MCP」开关 + 重开项目)。
 - `hermes` 暂不支持 MCP 注入 → 命中就直说"暂不支持"。
 
 ## 前提
 
 - **必须有 Agent Plan 订阅**(豆包搜索 / dataPro 要 Agent Plan 的 key;OpenViking 两台是个人版专属)。命令自动定位账号下的 Agent Plan profile,**与当前 active profile 无关**;个人版 `agent-plan` 与团队版 `agent-plan-team` 都能注入,但**两者不等价**:个人版注入四台,**团队版 `agent-plan-team` 与 OpenViking 无关,只注入豆包搜索 + dataPro 两台**。没有就引导 `arkcli auth login` 开通;账号同时有多个 Agent Plan profile(如个人版 + 团队版)时让用户用 `--profile` 指定。
-- 注入后 **agent 需重启**才会加载新 MCP。Trae 还需去「设置 → MCP」面板确认 MCP 已启用(项目级文件额外要开「启用项目级 MCP」开关)后重开项目。
+- 注入后 **agent 需重启**才会加载新 MCP。Codex profile 模式还需用 `codex --profile <name>` 启动;Trae 还需去「设置 → MCP」面板确认 MCP 已启用(项目级文件额外要开「启用项目级 MCP」开关)后重开项目。
 
 ## OpenViking 库的选择(openviking-dataplane 专属;**仅个人版 agent-plan**)
 

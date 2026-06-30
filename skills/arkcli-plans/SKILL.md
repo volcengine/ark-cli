@@ -1,7 +1,7 @@
 ---
 name: arkcli-plans
 version: 1.2.0
-description: "ARK 套餐管理(Agent Plan / Coding Plan,个人版 + 企业版):查询持有 / 购买 / 续费 / 模型清单 / 轮换 APIKey,**以及企业版席位的全部管理操作**:列出席位(`plans team seat-list`)、给员工分配席位(`plans team seat-assign`)、查谁绑了哪个 seat、轮换席位 APIKey(`plans team rotate-apikey`)。命中关键词:套餐 / 买 / 续费 / 列席位 / 看 seat 绑定 / 谁绑了哪个 seat / 给员工分席位 / 解绑 / 团队席位 admin 视图 / 轮换 APIKey。**用量类问题(还剩多少额度 / 用了几成 / 每个 seat 用了多少)走 [arkcli-usage](../arkcli-usage/SKILL.md)。**动词路由:**列 / 绑 / 分 / 轮换 / 解绑** → 这里;**用 / 消耗 / 多少** → arkcli-usage。另含 harness-status:只读查看本机 AI Agent(claude-code/opencode/openclaw/trae)上 Agent Plan 内置 MCP(豆包搜索/dataPro/OpenViking)装没装、key 就没就绪;命中:我的 MCP 装好了吗 / 查 MCP 安装状态 / 看 agent 上的 MCP / harness 状态。"
+description: "ARK 套餐管理(Agent Plan / Coding Plan,个人版 + 企业版):查询持有 / 购买 / 续费 / 模型清单 / 轮换 APIKey,**以及企业版席位的全部管理操作**:列出席位(`plans team seat-list`)、给员工分配席位(`plans team seat-assign`)、查谁绑了哪个 seat、轮换席位 APIKey(`plans team rotate-apikey`)。命中关键词:套餐 / 买 / 续费 / 列席位 / 看 seat 绑定 / 谁绑了哪个 seat / 给员工分席位 / 解绑 / 团队席位 admin 视图 / 轮换 APIKey。**用量类问题(还剩多少额度 / 用了几成 / 每个 seat 用了多少)走 [arkcli-usage](../arkcli-usage/SKILL.md)。**动词路由:**列 / 绑 / 分 / 轮换 / 解绑** → 这里;**用 / 消耗 / 多少** → arkcli-usage。另含 harness-status:只读查看本机 AI Agent(claude-code/codex/opencode/openclaw/trae)上 Agent Plan 内置 MCP(豆包搜索/dataPro/OpenViking)装没装、key 就没就绪;命中:我的 MCP 装好了吗 / 查 MCP 安装状态 / 看 agent 上的 MCP / harness 状态。"
 metadata:
   requires:
     bins: ["arkcli"]
@@ -112,7 +112,7 @@ metadata:
 | [`plans team seat-list`](references/arkcli-plans-team-seat-list.md) | 读 | 列出企业版席位 + 多维度筛选 |
 | [`plans team seat-assign`](references/arkcli-plans-team-seat-assign.md) | 写 | 批量绑定企业版席位到子用户 |
 | [`plans team rotate-apikey`](references/arkcli-plans-team-rotate-apikey.md) | 写（毁坏） | 轮换企业版席位 APIKey（self / admin batch） |
-| [`plans harness-status`](references/arkcli-plans-harness-status.md) | 读 | 查本机 AI Agent(claude-code/opencode/openclaw/trae)上 Agent Plan 内置 MCP 的安装状态(只读、免登录) |
+| [`plans harness-status`](references/arkcli-plans-harness-status.md) | 读 | 查本机 AI Agent(claude-code/codex/opencode/openclaw/trae)上 Agent Plan 内置 MCP 的安装状态(只读、免登录) |
 
 ## 常见降级
 

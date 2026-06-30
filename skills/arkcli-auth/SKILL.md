@@ -1,7 +1,7 @@
 ---
 name: arkcli-auth
 version: 1.3.0
-description: "arkcli 认证管理：交互式登录、Volc SSO 登录、查看状态、退出登录、生成 ARK API Key (apikey)、以及云开发机/CI 用 `arkcli init-volc` 从 VOLC_INIT_* 环境变量无交互引导 platform profile。0.1.16 起 SSO 登录走 Gate 1+2 自动绑定 Profile 切面 (type/region/project/owner_trn)；AK/SK login 通道暂关。当用户需要初始化凭证、排查鉴权问题、切换认证方式、生成或重选 ARK API Key、或在已注入凭证的环境无交互引导时使用。"
+description: "arkcli 认证管理：交互式登录、Volc SSO 登录、查看状态、退出登录、生成 ARK API Key (apikey)、以及云开发机/CI 用 `arkcli init-volc` 从 VOLC_INIT_* 环境变量无交互引导 platform profile。0.1.16 起 SSO 登录走 Gate 1+2 自动绑定 Profile 切面 (type/region/project/owner_trn)；AK/SK login 通道暂关。当用户需要初始化凭证、排查鉴权问题、切换认证方式、生成或重选 ARK API Key、或在已注入凭证的环境无交互引导时使用。反触发：用户问 TTS/ASR/语音模型能力、接入或调用时，不要引导 `auth apikey`，只转 models search 说明 arkcli 当前仅支持广场发现。"
 metadata:
   requires:
     bins: ["arkcli"]
@@ -68,6 +68,8 @@ metadata:
 - `auth status` 会对敏感字段做掩码，可直接用于排障，并会展示当前生效的 `project_name`
 - `auth login` 成功后会输出 `auth_method`；凭证存储位置是实现细节，不再回显路径
 - SSO 登录（`arkcli auth login volc-sso`）与 `auth apikey` 都会在选中 API Key 之后写入凭证存储；0.1.16 final clean-slate 模型: 整 arkcli 同一时间只 active 一个 identity, 新 SSO 跟旧 sub 不一致时清空所有 profile (含跨 tenant) 重建
+- `arkcli auth apikey` 管的是 arkcli 方舟数据面/控制面链路使用的 **ARK API Key**。它不能让广场语音模型获得 `+chat` / `+gen` / `+deploy` / `+code-example` / `usage` / `pricing` 能力；用户问 TTS、ASR、配音、语音模型接入时，不要把问题引导成"先 auth apikey"。
+- 语音模型能力边界回答只说明 arkcli 不支持；不要主动给"先控制台开通再 API Key/SDK 调用"这类替代流程，除非用户另问官方接入文档。
 - **只查不切的 list API Key**(只想看 account 下有哪些 key,不想切换当前 key): 跑 `arkcli api apikey.list --params '{"PageSize":100}' --page-all --format json`,**不要**跑 `auth apikey` — 后者是交互式选择并写入凭证存储,会改变当前生效 key
 - **当前已选 key 的元信息**(name / suffix / project / 状态): 看 `auth status` 输出里的 `ark_api_key` 字段,不需要再调远端
 

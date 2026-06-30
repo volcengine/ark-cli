@@ -115,6 +115,7 @@ arkcli +deploy ...
 - `infer endpoint create` 偏向标准资源创建
 - `+deploy` 偏向”创建 Endpoint + 模型开通/复用检查/profile 同步”的任务工作流
 - 二者都会创建 Endpoint，不应串行重复执行
+- 语音模型（TTS / ASR / 配音 / 播客 / 音色 / 实时语音交互，或 `doubao-seed-tts-*` / `doubao-seed-asr-*` / `seedasr-*`）当前不能用本命令创建 Endpoint；只能通过 `arkcli models search <keyword>` 做广场发现和选型说明
 - `--billing-method` 目前只有 `token` 一个枚举值；传 `token` 时不会额外写入 CreateEndpoint 请求字段，只会在创建前校验对应模型是否支持 token 推理方式
 - 基础模型的支持方式来自 `ArkModels.data[].Features.ShareService`；自定义模型优先看可部署版本 `EndpointSupportedMethods.ShareService`，必要时兜底到 `AvailableDeploymentTypes=Shared`
 

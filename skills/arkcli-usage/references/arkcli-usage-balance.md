@@ -148,8 +148,8 @@ arkcli usage balance --type plan --all
       "edition": "personal",
       "tier": "small",
       "periods": [
-        { "label": "5h",     "used": 10, "total": 100, "percent": 10, "reset_at": 1717491600000 },
-        { "label": "weekly", "used": 50, "total": 1000, "percent": 5, "reset_at": 1718064000000 }
+        { "label": "5h",     "used": 10, "total": 100, "percent": 10, "reset_at": "2024-06-04T17:00:00+08:00" },
+        { "label": "weekly", "used": 50, "total": 1000, "percent": 5, "reset_at": "2024-06-11T08:00:00+08:00" }
       ]
     },
     {
@@ -158,9 +158,9 @@ arkcli usage balance --type plan --all
       "tier": "large",
       "seat_id": "seat-001",
       "periods": [
-        { "label": "5h",      "used": 50,    "total": 200,    "percent": 25, "reset_at": 1717491600000 },
-        { "label": "weekly",  "used": 800,   "total": 5000,   "percent": 16, "reset_at": 1718064000000 },
-        { "label": "monthly", "used": 4000,  "total": 20000,  "percent": 20, "reset_at": 1719608800000 }
+        { "label": "5h",      "used": 50,    "total": 200,    "percent": 25, "reset_at": "2024-06-04T17:00:00+08:00" },
+        { "label": "weekly",  "used": 800,   "total": 5000,   "percent": 16, "reset_at": "2024-06-11T08:00:00+08:00" },
+        { "label": "monthly", "used": 4000,  "total": 20000,  "percent": 20, "reset_at": "2024-06-29T05:06:40+08:00" }
       ]
     },
     {
@@ -180,6 +180,7 @@ arkcli usage balance --type plan --all
 - `error: "not subscribed"` 是 balance 层补的 hint,后端原始是 `Subscribed=false` + 空 periods,直接展示对用户不可读
 - **Team 套餐自动找 caller seat**:不传 `--seat` 时 service 层自动调 `GetSeatInfo` 找你绑定的席位。订了套餐但没分到席位时返 `error: "no seat bound to caller for ..."`(区分于"未订阅")
 - `coding-plan` 后端只返 `percent`,`used` / `total` 字段缺(JSON `omitempty` 不出现)
+- `periods[].reset_at` 跟 `usage plan` 同 schema,输出 **RFC3339 北京时间(UTC+08:00)**;周期内无数据时不输出该字段
 
 ## Agent 决策
 

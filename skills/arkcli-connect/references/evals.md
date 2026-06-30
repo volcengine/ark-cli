@@ -1,6 +1,6 @@
 # arkcli-connect 最小评估用例
 
-目标：验证本 skill 在「该唤起 / 不该唤起 / 子命令分流 / 破坏性守卫」四个维度上行为稳定，并且不让 Agent 幻觉出不存在的 `+connect install / setup / sync / remove` 子命令。
+目标：验证本 skill 在「该唤起 / 项目级安装 / 不该唤起 / 子命令分流 / 破坏性守卫」五个维度上行为稳定，并且不让 Agent 幻觉出不存在的 `+connect install / setup / sync / remove` 子命令。
 
 ## 1) 该唤起（Trigger）— 安装
 
@@ -17,7 +17,23 @@
 - 提醒同名 skill 目录会被**覆盖**（先 `rm -rf` 再复制，不合并）
 - **不要**给出 `arkcli +connect uninstall`
 
-## 2) 该唤起（Trigger）— 仅查看支持范围
+## 2) 该唤起（Trigger）— 项目级 / 自定义 skills 目录安装
+
+输入：
+
+- "把 arkcli skills 安装到当前 repo 的 `.claude/skills`，不要污染全局 agent 目录"
+- "我有一个项目级 skills 目录，想让 arkcli 只写那里"
+
+期望行为：
+
+- 路由到 `arkcli-connect`
+- 推荐 `arkcli +connect --path .claude/skills`
+- 说明 `--path` 接收的是具体 skills 目录，不是项目根目录
+- 说明相对路径基于当前 `PWD`，绝对路径也支持
+- 说明不会扫描 / 修改全局 agent 目录，也不会自动 patch Claude / opencode 等 harness 配置
+- **不要**给出 `arkcli +connect install`
+
+## 3) 该唤起（Trigger）— 仅查看支持范围
 
 输入：
 
@@ -30,7 +46,7 @@
 - 解释 list 是只读、不需要认证、不写入文件系统
 - **不要**顺手 install 或 uninstall
 
-## 3) 破坏性守卫（Guard）— 卸载
+## 4) 破坏性守卫（Guard）— 卸载
 
 输入：
 
@@ -44,7 +60,7 @@
 - 建议先 `arkcli +connect list` 看清范围
 - 不要直接执行（破坏性）
 
-## 4) 不该唤起（Anti-trigger）— 401/鉴权失败
+## 5) 不该唤起（Anti-trigger）— 401/鉴权失败
 
 输入：
 
@@ -57,7 +73,7 @@
 - 明确说明：`+connect` 是本地文件系统操作，不需要认证；与 401 无关
 - 先 `arkcli auth status`，必要时 `arkcli auth login`
 
-## 5) Agent 行为反幻觉清单（重点）
+## 6) Agent 行为反幻觉清单（重点）
 
 下列子命令**不存在**，任何评测里 Agent 给出都视为失分：
 
@@ -69,7 +85,12 @@
 
 允许的子命令穷举：`(空)` / `list` / `uninstall`，仅此三种。
 
-## 6) 配套机器评测
+`--path` 是允许的 flag：
+
+- `arkcli +connect --path .claude/skills`
+- `arkcli +connect uninstall --path .claude/skills`
+
+## 7) 配套机器评测
 
 机器评测资产位于 `tests/skills/arkcli-connect/`，复跑：
 

@@ -80,3 +80,16 @@
 - 端到端跑通 `auth status → models search → infer endpoint list --mine → +deploy --dry-run`
 - Step 4 若 `+code-example` 对该 model-version 返回 not found → **降级**到方舟控制台示例页提示，**不**当作整条链路失败
 - 终点不强制 code-example 成功
+
+## 8) 反触发 — 语音模型只做广场发现
+
+输入：
+
+- "我想把 doubao-seed-tts-2-0 接入到我的服务里，给用户做配音"
+
+期望行为：
+
+- 不走 `arkcli-onboard` 编排，不进入查 Endpoint / 创建 Endpoint / 生成示例代码步骤
+- 路由 `arkcli-models`，最多执行 `arkcli models search <tts/语音关键词>` 做广场发现
+- 明确说明当前 arkcli 不支持语音模型调用、部署、示例、用量或费用查询
+- **不要**推荐 `+chat`、`+gen`、`+deploy`、`+code-example`、`usage` 或 `pricing`

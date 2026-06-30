@@ -56,7 +56,7 @@ arkcli usage seats --product coding-plan-team --with-usage  # 仅 percent(Coding
 | `--page-size` | 否 | int | 单页大小,默认 100 |
 | `--page-number` | 否 | int | 1-based 页码;**显式传则关闭 auto-paginate**,只拉单页 |
 | `--sort-by` / `--sort-order` | 否 | string | 排序字段 / 升降序 |
-| `--with-usage` | 否 | bool | **Team product only**:join 每个 seat 的用量。AgentPlan team 走 `ListSeatAFPUsage` 出 `afp_usage{plan_type, periods[5h/weekly/monthly with used/total/percent]}`;CodingPlan team 走 `ListSeatInfoUsages` 出 `coding_usage{periods[session/weekly/monthly with percent only]}` |
+| `--with-usage` | 否 | bool | **Team product only**:join 每个 seat 的用量。AgentPlan team 走 `ListSeatAFPUsage` 出 `afp_usage{plan_type, periods[5h/weekly/monthly with used/total/percent/reset_at]}`;CodingPlan team 走 `ListSeatInfoUsages` 出 `coding_usage{periods[session/weekly/monthly with percent/reset_at]}`。`reset_at` 输出 RFC3339 北京时间(UTC+08:00) |
 
 ## 默认行为:auto-paginate
 

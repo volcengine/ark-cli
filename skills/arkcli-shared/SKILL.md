@@ -52,6 +52,7 @@ arkcli profile use <name>                                    # 切换默认 prof
 |---|---|---|
 | 试用模型 / 快速验证效果 | `auth` → `models`（可选）→ [`+chat`](../arkcli-chat/SKILL.md) / [`+gen`](../arkcli-gen/SKILL.md) | **不需要** Endpoint |
 | 专项多模态理解（转写/抽取/字幕/框目标…） | `auth` → [`+understand`](../arkcli-understand/SKILL.md) | 有明确产出形态时走 understand，不是 chat |
+| 语音模型发现 / 选型（TTS / ASR / 播客 / 音色 / 实时语音交互） | `auth` → [`models search`](../arkcli-models/SKILL.md) | **仅支持广场检索**；不支持 `+chat` / `+gen` / `+deploy` / `+code-example` / `usage` / `pricing` / `onboard` |
 | 正式接入 / 稳定调用 | `auth` → `models` → [`infer endpoint list`](../arkcli-infer-endpoint/SKILL.md) → 没有就 [`+deploy`](../arkcli-deploy/SKILL.md) | 核心资源是 Endpoint，不是 +chat/+gen |
 | 排查存量调用 / 看消耗 | `auth` → [`usage`](../arkcli-usage/SKILL.md) | — |
 | 本地 AI Agent 集成 | [`+connect`](../arkcli-connect/SKILL.md) | — |
@@ -61,6 +62,7 @@ arkcli profile use <name>                                    # 切换默认 prof
 - **列 / 绑 / 分 / 轮换席位 APIKey** → [`arkcli-plans`](../arkcli-plans/SKILL.md)；**用 / 消耗 / 还剩多少额度** → [`arkcli-usage`](../arkcli-usage/SKILL.md)
 - profile **写操作**（create/use/set-default/keys）→ [`arkcli-profile`](../arkcli-profile/SKILL.md)；配置**排障 / 老 yaml** → [`arkcli-config`](../arkcli-config/SKILL.md)
 - 开放式带图**对话** → `+chat`；**生成**图/视频 → `+gen`；有产出形态的**理解** → `+understand`
+- **语音合成 / TTS / 配音 / 朗读**、或用户点名 `doubao-seed-tts-*` 等广场语音模型 → 只允许 `models search` 做发现与选型说明；不要转 `+chat` / `+gen` / `+deploy` / `+code-example` / `usage` / `pricing`。不要主动补充控制台 / OpenAPI / SDK 等非 arkcli 接入路径或链接，除非用户另问"官方文档在哪里"。如果用户只是要"把一个音频文件转文字"且未要求使用广场语音模型，可另走 `+understand asr`；不要把 `+understand` 解释成支持广场 ASR 模型。
 
 **命令选择顺序**（始终按此）：
 
@@ -119,6 +121,8 @@ arkcli profile use <name>                                    # 切换默认 prof
 - 不要把中间步骤当最终结果；登录、查模型、切 profile 完成后应回到用户原始任务
 - 不要在业务 skill 里重复共享规则；共享规则统一以本 skill（及其 references）为准
 - 不要把"试用模型"误写成"需要先创建 Endpoint"（试用走 `+chat`/`+gen`）；也不要把"正式接入"误导到一次性试用命令（正式接入走 `+deploy`）
+- 不要把广场可搜到的语音模型误写成 arkcli 已支持调用、部署、示例、用量或费用查询；语音模型在 arkcli 当前只承认 `models search` 发现能力。
+- 不要把语音模型边界回答扩展成"去控制台开通 / 用 OpenAPI / 用 SDK 接入"的替代方案；当前 skill 只负责说明 arkcli 支持边界。
 - 不要为单个业务命令加 `--project` / `--project-name`；Project Name 只有全局 `--project-name` 一个入口，持久化优先走 `arkcli profile create --project <name>`，不要写进 `.env` / 老 `config.json`
 
 ## 参考

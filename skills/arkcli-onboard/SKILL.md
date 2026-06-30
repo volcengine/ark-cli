@@ -1,7 +1,7 @@
 ---
 name: arkcli-onboard
 version: 1.0.0
-description: "arkcli 接入向导(workflow):把某个模型接入到自己的应用/服务的端到端引导 —— 从'我想用某模型'到拿到可调用的 Endpoint(+ 可选示例代码)。当用户说'我想在我的 app/服务里用豆包/某模型''怎么把方舟模型接进来''帮我接入 XX 模型''想正式用上某模型'这类**不含 deploy/部署关键词、但本质是正式接入**的意图时触发。已明确说'部署/创建 endpoint'的直接走 arkcli-deploy;只想试效果/问一句的走 +chat/+gen。"
+description: "arkcli 接入向导(workflow):把某个模型接入到自己的应用/服务的端到端引导 —— 从'我想用某模型'到拿到可调用的 Endpoint(+ 可选示例代码)。当用户说'我想在我的 app/服务里用豆包/某模型''怎么把方舟模型接进来''帮我接入 XX 模型''想正式用上某模型'这类**不含 deploy/部署关键词、但本质是正式接入**的意图时触发。已明确说'部署/创建 endpoint'的直接走 arkcli-deploy;只想试效果/问一句的走 +chat/+gen。反触发：TTS/ASR/语音模型接入不走本向导，只能转 models search 说明 arkcli 当前不支持调用/部署/示例/用量/费用/接入。"
 metadata:
   requires:
     bins: ["arkcli"]
@@ -21,6 +21,7 @@ metadata:
 ## 触发 vs 不触发
 
 - ✅ "我想在我的 app/服务里用豆包" / "怎么把方舟模型接到我的服务" / "帮我接入 seedream" / "想正式用上某模型"
+- ❌ 语音模型接入 / TTS / ASR / 配音 / 朗读 / 播客 / 音色 / 实时语音交互，或模型名命中 `doubao-seed-tts-*`、`doubao-seed-asr-*`、`seedasr-*` → 不走本向导；只转 [`arkcli-models`](../arkcli-models/SKILL.md) 做广场发现，并说明当前 arkcli 不支持语音模型调用、部署、示例、用量、费用或接入向导
 - ❌ 用户已说"**部署 / 创建 endpoint / deploy**" → 直接走 [`arkcli-deploy`](../arkcli-deploy/SKILL.md)（已在 deploy 意图里，不必经本向导）
 - ❌ 只想"**试效果 / 问一句 / 生成一张图**" → [`+chat`](../arkcli-chat/SKILL.md) / [`+gen`](../arkcli-gen/SKILL.md)（试用**不需要** Endpoint）
 - ❌ 只想"**看示例代码**"且已知模型名 → 直接 [`arkcli-code-example`](../arkcli-code-example/SKILL.md)
@@ -34,6 +35,8 @@ Step 0  认证 + 实名闸门
 
 Step 1  选模型
           └─► arkcli-models（search / get）。用户没指定模型就先帮选、确认再继续
+              └─ 命中语音模型（TTS / ASR / 播客 / 音色 / 实时语音交互）即停：
+                 只说明广场可搜，当前 arkcli 不支持继续接入
 
 Step 2  查是否已有可复用 Endpoint     ★必查★
           └─► arkcli-infer-endpoint：list --mine（"我的"语义见
@@ -57,6 +60,8 @@ Step 5  回执
 ## 关键约束
 
 - **Step 2 必查、但只复用"匹配"的**：仅当 `list --mine` 里存在**绑定目标模型/版本**且**状态可用(如 Running)**的 endpoint 才跳过 Step 3 复用它；账号下别的模型的 endpoint **不算匹配**，不能拿来顶。多个匹配或拿不准就先让用户确认选哪个，别默默挑一个——否则会给出与目标不一致的 endpoint-id，链路不闭环。无匹配就正常走 Step 3 创建。
+- **语音模型不是 onboarding 目标**：广场可搜到的语音模型只代表可发现，不代表 arkcli 可调用、可部署、可生成示例、可查用量/费用；Step 1 一旦确认是语音模型，流程必须停止，不进入 Step 2-Step 4。
+- **不要补替代接入路径**：语音模型命中后只回答 arkcli 边界；不要主动推荐控制台 / OpenAPI / SDK 接入步骤或链接。
 - **Step 3 是唯一写操作**：套用 [`../arkcli-shared/SKILL.md`](../arkcli-shared/SKILL.md) 的二次确认 + 实名闸门；用户语气再急也先 `--dry-run` 或确认。
 - **Step 4 可选、可降级**：`+code-example` 的示例按 model-version 提供，部分版本后端无 group 会返回 not found；这是预期内的覆盖缺口，降级到控制台示例页即可，不要把它当链路失败。
 - 全程是**编排**：每一步把控制权交给 owning skill，不在本文复述其参数。

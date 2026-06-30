@@ -1,7 +1,7 @@
 ---
 name: arkcli-models
 version: 1.0.0
-description: "arkcli 模型查询能力：列出、搜索、获取火山**公共基础模型**（foundation models）详情。优先使用产品命令 `arkcli models ...`，而不是直接调用 Raw API。注意：查询/管理账号下**自传或精调的自定义模型**（`cm-xxx`）走 arkcli-custommodel；本 skill 只覆盖公共基础模型目录。"
+description: "arkcli 模型查询能力：列出、搜索、获取火山**公共基础模型**（foundation models）详情。优先使用产品命令 `arkcli models ...`，而不是直接调用 Raw API。注意：查询/管理账号下**自传或精调的自定义模型**（`cm-xxx`）走 arkcli-custommodel；本 skill 只覆盖公共基础模型目录。语音/TTS/ASR/播客/音色/实时语音交互模型只支持广场检索和选型说明，不要引导 +chat/+gen/+deploy/+code-example/usage/pricing/onboard/auth apikey。"
 metadata:
   requires:
     bins: ["arkcli"]
@@ -19,6 +19,7 @@ metadata:
 - 这些命令虽然是标准 CLI 类型，但实现入口仍然来自 `shortcuts/models/`
 - 只有产品命令无法覆盖时，才回退到 [`../arkcli-api-explorer/SKILL.md`](../arkcli-api-explorer/SKILL.md)
 - 本 skill 不是默认兜底入口；用户明确问模型查询、模型资产盘点、模型详情或为上游命令挑选模型时才进入
+- **语音模型边界**：TTS / ASR / 播客 / 音色 / 实时语音交互等语音模型在 arkcli 中只支持广场检索与选型说明；`models search` 能搜到不代表可 `+deploy`、可 `+code-example`、可查 `usage` 或可查 `pricing`。除非用户另问官方文档，不要主动给控制台 / OpenAPI / SDK 等非 arkcli 接入步骤或链接。
 
 ## 适用场景
 
@@ -26,6 +27,7 @@ metadata:
 - 用户要查看模型详情、版本、上下文、模态或 lifecycle 状态
 - 用户要统计或列出"我的模型"、"自定义模型"、"最近创建的模型"
 - 上游 `+chat` / `+gen` / `+deploy` 需要先确定可用模型名
+- 用户问语音模型是否存在、有哪些语音模型、TTS/ASR 模型在广场叫什么：只回答广场可搜事实和当前 arkcli 不支持后续场景能力的边界
 
 ## 反唤起信号
 
@@ -42,6 +44,7 @@ metadata:
   - 给 `+deploy` 确认可部署模型
   - 给业务排障确认模型详情和版本
 - 除非用户明确就是在做模型查询，否则查完模型后应回到原始任务
+- **例外**：语音模型查询本身就是终点。查到 `doubao-seed-tts-*`、`doubao-seed-asr-*`、`seedasr-*`、播客、音色设计、实时语音交互等广场语音模型后，停在"可搜到但 arkcli 不支持调用/部署/示例/用量/费用"说明，不继续交给 `+deploy` / `+code-example` / `usage` / `pricing` / `onboard`，也不主动补非 arkcli 接入路径。
 
 ## 快速决策
 

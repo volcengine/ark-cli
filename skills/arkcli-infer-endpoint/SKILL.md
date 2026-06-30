@@ -1,7 +1,7 @@
 ---
 name: arkcli-infer-endpoint
 version: 1.2.0
-description: "arkcli 推理接入点**管理**能力：对**已有** Endpoint 做获取、列表、启动、停止、更新（生命周期管理 + 启停）。优先使用产品命令 `arkcli infer endpoint ...`，而不是直接调用 Raw API。**反触发（重要）：用户说『创建/新建/create/部署/deploy 一个 endpoint/接入点』这类新建接入点的意图，一律走 arkcli-deploy（`+deploy`），不要用本 skill 的 `infer endpoint create`**；本 skill 的 `create` 仅用于脚本化 / CI / 需要无护栏的可预测 raw CRUD 行为（不做复用检查、不渲染示例）、且明确要绕过 +deploy 工作流护栏的场景。"
+description: "arkcli 推理接入点**管理**能力：对**已有** Endpoint 做获取、列表、启动、停止、更新（生命周期管理 + 启停）。优先使用产品命令 `arkcli infer endpoint ...`，而不是直接调用 Raw API。**反触发（重要）：用户说『创建/新建/create/部署/deploy 一个 endpoint/接入点』这类新建接入点的意图，一律走 arkcli-deploy（`+deploy`），不要用本 skill 的 `infer endpoint create`**；本 skill 的 `create` 仅用于脚本化 / CI / 需要无护栏的可预测 raw CRUD 行为（不做复用检查、不渲染示例）、且明确要绕过 +deploy 工作流护栏的场景。TTS/ASR/语音模型连 raw create 也不要引导，只能转 models search 说明 arkcli 不支持 Endpoint 创建。"
 metadata:
   requires:
     bins: ["arkcli"]
@@ -21,6 +21,7 @@ metadata:
 - 这个 `Id` 应作为后续 `get / start / stop` 的输入，也可以传给 [`../arkcli-code-example/SKILL.md`](../arkcli-code-example/SKILL.md) 生成带真实 `endpoint-id` 的调用示例
 - 如果已经通过 `infer endpoint create` 拿到 `Id`，不要再调用 `+deploy` 试图"二次部署"；`+deploy` 本身就是创建 Endpoint 的工作流
 - `infer endpoint create --billing-method` 当前只支持 `token`；它是可选项，显式传 `token` 时会先校验模型是否支持 token 推理方式，创建请求本身保持默认行为
+- **语音模型不是 Endpoint create 目标**：TTS / ASR / 配音 / 播客 / 音色 / 实时语音交互，或模型名命中 `doubao-seed-tts-*`、`doubao-seed-asr-*`、`seedasr-*` 时，不要用 `infer endpoint create` 或 Raw CRUD 绕过；只转 [`arkcli-models`](../arkcli-models/SKILL.md) 说明"广场可搜，但当前 arkcli 不支持 Endpoint 创建"。
 
 ## 「我的接入点」语义
 
@@ -45,6 +46,8 @@ arkcli infer endpoint list --mine --page-all --page-size 100 --format json
 | 部署后 profile 默认资源同步（`--set-default`） | ✅ | ❌ |
 
 **路由判定**：只要用户意图是"创建 / 新建 / create 一个 endpoint / 接入点"或"把模型部署 / 上线"（无论用词是 create 还是 deploy），一律路由到 `+deploy`（[arkcli-deploy](../arkcli-deploy/SKILL.md)）；**只有**用户明确需要绕过工作流护栏、脚本化 / CI、或要无护栏的可预测 raw CRUD 行为时，才使用 `infer endpoint create`。
+
+**例外**：如果目标是语音模型（TTS / ASR / 播客 / 音色 / 实时语音交互），不要因为用户说了"create endpoint"就进入本 skill；语音模型在 arkcli 当前只支持 `models search` 发现，不支持 Endpoint 创建。
 
 ## 命令一览
 

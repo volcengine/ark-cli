@@ -81,9 +81,9 @@ JSON 形态(顶层 `viewer` + `items` 数组):
       "tier": "medium",
       "subscribed": true,
       "periods": [
-        { "label": "5h",      "used": 250,    "total": 1000,   "percent": 25,   "reset_at": 1717018000000 },
-        { "label": "weekly",  "used": 12500,  "total": 50000,  "percent": 25,   "reset_at": 1717604800000 },
-        { "label": "monthly", "used": 50000,  "total": 200000, "percent": 25,   "reset_at": 1719608800000 }
+        { "label": "5h",      "used": 250,    "total": 1000,   "percent": 25,   "reset_at": "2024-05-30T05:26:40+08:00" },
+        { "label": "weekly",  "used": 12500,  "total": 50000,  "percent": 25,   "reset_at": "2024-06-06T00:26:40+08:00" },
+        { "label": "monthly", "used": 50000,  "total": 200000, "percent": 25,   "reset_at": "2024-06-29T05:06:40+08:00" }
       ]
     },
     {
@@ -129,7 +129,7 @@ viewer.project_name = active project
 | `periods[].label` | AgentPlan: `5h` / `weekly` / `monthly`(后端返的 `daily` 不展示)。CodingPlan: `session` / `weekly` / `monthly`,按 canonical order 稳定排序 |
 | `periods[].used` / `total` | AgentPlan 给的是绝对值,CodingPlan 后端只返 `Percent`,`used`/`total` 字段缺(JSON 通过 `omitempty` 不出现) |
 | `periods[].percent` | 已用百分比(0-100). AgentPlan 由 `used/total*100` 算; CodingPlan 直接透传后端 `Percent` |
-| `periods[].reset_at` | 下次刷新时间,**统一 epoch ms**。AgentPlan 后端原本就是 ms; CodingPlan 后端返秒,service 层 ×1000 归一。`-1` 表示该周期内无数据(sentinel,不参与单位换算) |
+| `periods[].reset_at` | 下次刷新时间,**RFC3339 北京时间(UTC+08:00)**。service 内部仍把 AgentPlan 后端 ms / CodingPlan 后端秒统一成 epoch ms,输出层再格式化;周期内无数据的 sentinel 不输出该字段 |
 | `updated_at` | 仅 CodingPlan,后端 `UpdateTimestamp` 透传(epoch ms) |
 | `error` | 该桶失败原因(per-bucket error isolation,一桶失败不挡其它桶)。team product NotImpl 也走这个字段 |
 

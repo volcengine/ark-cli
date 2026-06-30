@@ -16,6 +16,7 @@
 - 只是想快速试模型效果：转 `arkcli +chat` 或 `arkcli +gen`
 - 还不知道模型名：先 `arkcli models search/get`
 - 需要先创建 Endpoint：先 `arkcli +deploy` 或 `arkcli infer endpoint create`
+- 目标是语音模型（TTS / ASR / 配音 / 朗读 / 播客 / 音色 / 实时语音交互，或 `doubao-seed-tts-*` / `doubao-seed-asr-*` / `seedasr-*`）：只允许 `arkcli models search <keyword>` 做广场发现；当前 arkcli 不支持语音模型示例代码，不能通过补 `--version` 解决
 
 ## 用法
 
@@ -107,6 +108,7 @@ arkcli +code-example \
 - 模型名称可通过 `arkcli models search <keyword>` 查找
 - 本命令会写入本地文件；如果不希望写到当前目录，请显式指定 `--output-dir`
 - 示例只覆盖 API Key 鉴权方式（`Authorization: Bearer $ARK_API_KEY`）
+- 语音模型广场可搜不等于有示例代码；遇到 `ModelVersion required` 或 no group 之类响应时，不要引导用户为 TTS / ASR 猜版本号，应说明当前不支持
 
 ## 常见问题
 
@@ -116,6 +118,7 @@ arkcli +code-example \
 | 不知道该填哪个模型名 | 只有模糊关键词，没有确定模型 ID | 先执行 `arkcli models search <keyword>` |
 | 想让代码指向现有 endpoint | `--endpoint-id` 已移除 | 生成后把代码里的 `model="..."` 手动改成你的 `ep-xxx` |
 | 下游脚本难以解析输出 | 直接消费了默认的人类可读输出 | 追加 `--format json` |
+| TTS / ASR 模型生成示例失败 | 语音模型当前不在 arkcli 示例代码支持范围内 | 停在 `models search` 的可发现说明，不要继续补版本或改走 `+chat` / `+gen` / `+deploy` |
 
 ## 参考
 

@@ -67,7 +67,7 @@
    ├─ exact   族名命中、版本一致        → 拼 <name>-<primary_version> 置顶推荐
    ├─ drift   族名命中、版本不同        → 用 search 返回的真实版本（它已按 gen/time 排好序，取 top）
    │                                     并提示"推荐表快照 X，当前 Y"
-   ├─ bare    命中但 primary_version=None（语音/音频类）→ 直接用裸名当 ID，不拼版本
+   ├─ bare    命中但 primary_version=None（语音/音频类）→ 停在广场发现层：只说明可搜到，不拼版本，不交给下游能力
    └─ miss    词干完全无命中            → 表 id 可能陈旧；改用场景中文词或更短词干再 search
 ④ 用 search 同 modality 结果补 2–3 个备选候选
 ⑤ 用户点名第三方/开源/历史模型（Seedream 4.5、qwen、glm…）→ 跳过本表，直接 search，不强替
@@ -77,6 +77,6 @@
 
 - **不要把表里的 full-id 直接拼给 `+chat` / `+gen`，也不要凭记忆给模型名加后缀**。图片生成的真实模型就是 `doubao-seedream-5-0`（**没有 `-lite` 后缀，缓存里不存在带 `-lite` 的变体，硬查会返回 no items**）。这类命名漂移会反复发生——**用族名词干 search，永远以返回结果为准，不要自行补 `-lite` / `-pro` 等后缀**。
 - **search 容错 DisplayName**：`Doubao-Seed-2.0-lite`（带点号大小写）也能命中 `doubao-seed-2-0-lite`，但**族名词干（小写连字符）最稳**，优先用它当 search keyword。
-- **语音 / 音频 6 项是 bare 路径**：它们在 models 目录里但 `primary_version=None`、无 enrich（ctx/lifecycle 为空）。命中后直接用裸名（如 `doubao-seed-tts-2-0`、`seedasr-streaming`、`doubao-seed-asr-2-0`、`doubao-seed-podcast`、`doubao-seed-voice-design`），不要尝试拼版本号。它们大多走独立 TTS/ASR API，不是 Responses API，提醒用户按对应能力接入。
+- **语音 / 音频 6 项是 bare 路径，且在 arkcli 当前只支持广场发现**：它们在 models 目录里但 `primary_version=None`、无 enrich（ctx/lifecycle 为空）。命中后直接说明裸名（如 `doubao-seed-tts-2-0`、`seedasr-streaming`、`doubao-seed-asr-2-0`、`doubao-seed-podcast`、`doubao-seed-voice-design`）能在广场搜到，但不要尝试拼版本号，也不要继续交给 `+chat` / `+gen` / `+deploy` / `+code-example` / `usage` / `pricing` / `onboard`。对 arkcli 来说，广场可搜不代表可调用、可开 Endpoint、可生成示例、可查费用或可查用量。
 - **避开 `-internal` 变体**：search 可能返回 `doubao-seed-2-0-lite-internal` 等内部变体，不要推荐给用户。
 - **lifecycle**：命中 `Retiring` 的候选要主动提示用户它在下线，并在同族找更新版本（与主 SKILL 一致）。

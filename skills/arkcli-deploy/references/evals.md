@@ -71,7 +71,20 @@
 - `arkcli +code-example --endpoint-id ...`（`--endpoint-id` 不是合法 flag）
 - JSON flag 字段写小写（`{"rpm": 60}`，应是 `{"Rpm": 60}`）
 
-## 7) 配套机器评测
+## 7) 反触发 — 语音模型不可部署
+
+输入：
+
+- "我想把 doubao-seed-tts-2-0 部署成 endpoint"
+
+期望行为：
+
+- 路由 `arkcli-models`，最多执行 `arkcli models search <tts/语音关键词>` 做广场发现
+- 明确说明当前 arkcli 不支持语音模型创建 Endpoint / `+deploy`
+- **不要**推荐 `arkcli +deploy --model doubao-seed-tts-2-0`
+- **不要**引导用户先 `auth apikey`、补版本号或改走 `infer endpoint create`
+
+## 8) 配套机器评测
 
 机器评测资产位于 `tests/skills/arkcli-deploy/`，复跑：
 

@@ -1,7 +1,7 @@
 ---
 name: arkcli-pricing
 version: 1.0.0
-description: "查询火山引擎 ARK 基础模型结算单价（含当前账号折扣）以及 AgentPlan / CodingPlan 套餐订阅价格。Price 字段就是后端按账号合同 / 活动 / 套餐折后的最终单价，OriginalPrice 是公示原价。当用户问模型多少钱、定价、单价、价格、Agent Plan 多少钱、Coding Plan 多少钱、套餐价格、折扣价、按 token 收费、不同模态价格对比、模型免费额度时使用。"
+description: "查询火山引擎 ARK 基础模型结算单价（含当前账号折扣）以及 AgentPlan / CodingPlan 套餐订阅价格。Price 字段就是后端按账号合同 / 活动 / 套餐折后的最终单价，OriginalPrice 是公示原价。当用户问模型多少钱、定价、单价、价格、Agent Plan 多少钱、Coding Plan 多少钱、套餐价格、折扣价、按 token 收费、不同模态价格对比、模型免费额度时使用。反触发：TTS/ASR/语音模型费用不支持查询，不要用 Audio pricing，只能转 models search 说明广场发现边界。"
 metadata:
   requires:
     bins: ["arkcli"]
@@ -27,6 +27,7 @@ metadata:
 - **后端 API** 不返回 custom 模型(精调出来的 `cm-*`)单独条目——费率本来就嵌在 base 模型 ChargeItems 数组里。但 **arkcli 已经做了反查糖衣**:`pricing models --model cm-xxx` 会自动调 GetCustomModel 拿到 base name 后再查价,响应顶层多挂一个 `resolved_custom_model` 字段(`customization_type` + `foundation_model_name` / `foundation_model_version`),Agent 据此挑对应 ChargeItem.Type 即可,不需要手动做两段式
 - 不覆盖 Endpoint 维度的实际消耗 → 用 [arkcli-usage](../arkcli-usage/SKILL.md)
 - **不含限速 / Token 上限 / context window**:这些是 `arkcli-models` 的范畴,转 [`../arkcli-models/SKILL.md`](../arkcli-models/SKILL.md)。pricing 只管"钱"
+- **不覆盖语音模型费用**：TTS / ASR / 配音 / 朗读 / 播客 / 音色 / 实时语音交互，或 `doubao-seed-tts-*` / `doubao-seed-asr-*` / `seedasr-*` 等广场语音模型，当前在 arkcli 只支持 `models search` 发现；不要用 `pricing models --model` 或 `--modality Audio` 回答其价格
 - **Price = 含当前账号折扣的最终单价**(后端已按合同/活动/套餐计算),不需要再做客户端折扣计算
 - **OriginalPrice = 公示原价**;`Price < OriginalPrice` 即说明账号有折扣
 
@@ -44,7 +45,8 @@ metadata:
 | 用户措辞 | 该用 | 理由 |
 |---|---|---|
 | "DeepSeek-V4 多少钱" / "doubao-seed 多少钱" / "GPT-X 价格" | `pricing models` | 模型名 → 按 token 计费 |
-| "图生图多少钱一张" / "音频识别每分钟多少" | `pricing models` | 按调用计费,在 ChargeItems 里 |
+| "图生图多少钱一张" | `pricing models` | 按调用计费,在 ChargeItems 里 |
+| "音频识别每分钟多少" / "TTS 多少钱" / "语音模型费用" | `arkcli-models` | 当前 arkcli 仅支持语音模型广场发现，不支持费用查询 |
 | "做精调多少钱" / "精调一个模型多少 token 钱" | `pricing models` | 精调费率在 base 模型 ChargeItems 内嵌(看 `Finetune` / `LoraFinetune` type) |
 | "我的 cm-xxx 调用多少钱" / "这个精调出来的模型多少钱" | `pricing models --model cm-xxx` | CLI 自动反查 base + 透出 `resolved_custom_model.customization_type`,按下表抽 ChargeItem |
 | "Agent Plan 多少钱" / "Agent Plan 个人版 small 多少钱" | `pricing plans` | 套餐名 → 包月订阅 |
@@ -63,7 +65,7 @@ metadata:
 | 图像 / 图片 / image / 视觉 / vision | `ComputerVision` | |
 | 视频 / video | `ComputerVision` | ⚠️ 后端不区分 image/video/3D,**返回包含 image 和 3D 模型** |
 | 3D / hyper3d | `ComputerVision` | 同上 |
-| 音频 / audio / 语音 / voice / TTS / ASR | `Audio` | |
+| 音频 / audio / 语音 / voice / TTS / ASR | 不查询 | `Audio` 是后端枚举，但当前 arkcli skill 不用它回答广场语音模型费用；只说明不支持 |
 | 向量 / embedding / 嵌入 | `Embedding` | |
 | 路由 / router | `Router` | |
 
@@ -99,6 +101,7 @@ metadata:
 - 用户问"X 模型多少钱":`arkcli pricing models --model X`,从 `ChargeItems` 抽 `InferencePrompt` / `InferenceCompletion`
 - 用户问"我的 cm-xxx 多少钱":`arkcli pricing models --model cm-xxx`,看响应 `resolved_custom_model.customization_type` → 按上面映射表抽 `Finetune*` 那条;`resolved_custom_model.foundation_model_name` 顺带告知用户它的 base 是什么
 - 用户问"所有 LLM 价格":`arkcli pricing models --modality LLM`
+- 用户问"TTS / ASR / 语音模型多少钱":不执行 pricing；转 `arkcli models search <keyword>` 只说明可发现与当前不支持费用查询
 - 用户问"Agent Plan / Coding Plan 多少钱":`arkcli pricing plans` 列全 12 档,或带 `--plan agent-plan-personal-small` 单查
 - 用户问"我有什么免费额度":`pricing models`,看 `InferenceFreeUsage` 和 `ResourcePackItems[Type=FreeInference]`
 - 用户问"我账号有折扣吗":对比 `Price` vs `OriginalPrice`,差值即折扣(两个命令都支持)
@@ -109,6 +112,7 @@ metadata:
 
 - 鉴权错误:转 [`../arkcli-auth/SKILL.md`](../arkcli-auth/SKILL.md)
 - 用户在问消耗(已发生的用量)而非单价:转 [`../arkcli-usage/SKILL.md`](../arkcli-usage/SKILL.md)
+- 用户在问语音模型费用 / TTS 定价 / ASR 价格:转 [`../arkcli-models/SKILL.md`](../arkcli-models/SKILL.md) 只说明广场可搜和当前 arkcli 不支持费用查询
 
 ## 参考
 

@@ -6,6 +6,8 @@
 
 查询指定时间范围内的 ARK 推理用量，支持按接入点、模型、API Key 等多维度过滤与分组。
 
+**语音模型不支持**：TTS / ASR / 配音 / 播客 / 音色 / 实时语音交互，或模型名命中 `doubao-seed-tts-*`、`doubao-seed-asr-*`、`seedasr-*` 时，不要用 `usage stats --model` 查询。广场可搜不代表 usage 管道有可查用量；应回到 `arkcli models search <keyword>` 的可发现说明。
+
 ## 命令
 
 ```bash
@@ -145,6 +147,7 @@ JSON 格式：
 
 - **`--start` 必填**：缺失直接报 `required flag(s) "start" not set`，CLI **不会**默认今天；用户未给任何日期时，默认 `--start`=今天、`--end` 缺省同今天再跑，不要裸跑省略 `--start`
 - **数据有 5–30 分钟延迟**：上游聚合管道行为，arkcli 仅透传，不可缩短；做实时预算 / 限流 / 告警请改走 per-request `.usage`，不要轮询本接口
+- **语音模型不在本命令支持范围**：不要为 TTS / ASR / 语音交互构造 `--model`、`--by model` 或 API Key fallback；当前只说明 arkcli 不支持语音模型用量查询
 - arkcli 自动过滤掉 `free_for_coding_plan` 的用量行，始终保留有 `ModelUnitID` 的行
 - `--interval Hour` 时返回的 `Hour` 字段为 STRING 类型
 - 日期范围不能超过 31 天

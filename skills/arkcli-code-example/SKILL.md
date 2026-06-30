@@ -1,7 +1,7 @@
 ---
 name: arkcli-code-example
 version: 1.2.0
-description: "arkcli +code-example：为指定基础模型生成多语言（Python / Go / Java / Node / curl）调用示例代码并写入本地文件。数据源是火山方舟 OpenTOP OpenGetSampleCode。当用户需要拿某个基础模型的 SDK / curl 调用示例、保存为本地接入模板时使用。"
+description: "arkcli +code-example：为指定基础模型生成多语言（Python / Go / Java / Node / curl）调用示例代码并写入本地文件。数据源是火山方舟 OpenTOP OpenGetSampleCode。当用户需要拿某个基础模型的 SDK / curl 调用示例、保存为本地接入模板时使用。反触发：TTS/ASR/语音模型没有 arkcli 示例代码路径，不能靠补版本解决，只能转 models search 说明当前不支持。"
 metadata:
   requires:
     bins: ["arkcli"]
@@ -24,6 +24,7 @@ metadata:
 - 只是想试模型效果 → [`../arkcli-chat/SKILL.md`](../arkcli-chat/SKILL.md)（文本/多模态对话）或 [`../arkcli-gen/SKILL.md`](../arkcli-gen/SKILL.md)（出图/视频）
 - 还不知道模型名 → 先 [`../arkcli-models/SKILL.md`](../arkcli-models/SKILL.md) `models search/get`
 - 需要先创建接入点 → [`../arkcli-deploy/SKILL.md`](../arkcli-deploy/SKILL.md)
+- 语音模型（TTS / ASR / 配音 / 朗读 / 播客 / 音色 / 实时语音交互，或 `doubao-seed-tts-*` / `doubao-seed-asr-*` / `seedasr-*`）→ 不使用 `+code-example`。`models search` 能搜到不代表 OpenGetSampleCode 有示例；不要把后端 `ModelVersion required` 理解成"补一个版本就能生成"，应说明当前 arkcli 不支持语音模型示例代码。
 
 ## 快速开始
 
@@ -40,6 +41,7 @@ arkcli +code-example --model doubao-seedream-5-0 --version 260128 --lang python 
 - `--lang` 可选：`python` / `go` / `java` / `node` / `curl`（`shell` 是 `curl` 别名），默认全部
 - `--output-dir` 可选，默认 `./ark-examples/<model>`
 - `--format json` 输出结构化条目（含 `language` / `io_type` / `install` / `code`）
+- 语音模型没有 arkcli 示例代码路径；命中 TTS / ASR / 语音交互时停在 `arkcli models search <keyword>` 的发现说明，不要继续调用本命令
 
 > **0.1.17 变更**：旧版 `--endpoint-id` 已移除——新数据源按基础模型取码，不再支持按已有接入点 ID 取码。如需指向某 endpoint，生成后把代码里的 `model="..."` 手动改成你的 `ep-xxx`。
 

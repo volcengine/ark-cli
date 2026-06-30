@@ -1,7 +1,7 @@
 ---
 name: arkcli-usage
 version: 1.3.2
-description: "ARK 用量查询:`usage stats`(Token / 请求数,5-30 分钟延迟)、`usage plan` / `usage balance --type plan`(套餐额度快照)、`usage plan-details`(按模型时间序列,套餐内/外拆分)、`usage balance`(余额:免费额度 / 媒资库 / 套餐)、`usage seats --with-usage`(团队席位用量 by seat)。命中关键词:用量 / 用了多少 / 还剩多少额度 / 套餐用了几成 / 套餐内套餐外 / 每个 seat 消耗。**席位的列表 / 绑定 / 分配 / 轮换 APIKey 属管理范畴,走 arkcli-plans;本 skill 只回答用量。**动词路由:**用 / 消耗 / 多少** → 这里;**列 / 绑 / 分 / 轮换** → arkcli-plans。"
+description: "ARK 用量查询:`usage stats`(Token / 请求数,5-30 分钟延迟)、`usage plan` / `usage balance --type plan`(套餐额度快照)、`usage plan-details`(按模型时间序列,套餐内/外拆分)、`usage balance`(余额:免费额度 / 媒资库 / 套餐)、`usage seats --with-usage`(团队席位用量 by seat)。命中关键词:用量 / 用了多少 / 还剩多少额度 / 套餐用了几成 / 套餐内套餐外 / 每个 seat 消耗。**席位的列表 / 绑定 / 分配 / 轮换 APIKey 属管理范畴,走 arkcli-plans;本 skill 只回答用量。**动词路由:**用 / 消耗 / 多少** → 这里;**列 / 绑 / 分 / 轮换** → arkcli-plans。反触发：TTS/ASR/语音模型用量不支持查询，只能转 models search 说明广场发现边界。"
 metadata:
   requires:
     bins: ["arkcli"]
@@ -18,6 +18,8 @@ metadata:
 **CRITICAL — `usage seats` 在执行之前,务必先用 Read 工具读取 [`references/arkcli-usage-seats.md`](references/arkcli-usage-seats.md),禁止直接盲目调用命令。**
 
 > **数据时效(务必先看):`usage stats` 走的是上游 BFF 的聚合管道,数据有 5–30 分钟延迟,定位为「日级 / 聚合分析」。** 不要把它用于实时预算监控、限流、实时告警等需要秒级精度的控制场景——这类场景请直接读 `+chat` / `+gen` 等推理命令返回里的 `.usage` 字段(per-request、零延迟,详见 [arkcli-chat](../arkcli-chat/SKILL.md) 与 [arkcli-gen](../arkcli-gen/SKILL.md))。
+
+> **语音模型边界**：TTS / ASR / 配音 / 朗读 / 播客 / 音色 / 实时语音交互，或 `doubao-seed-tts-*` / `doubao-seed-asr-*` / `seedasr-*` 等广场语音模型，当前在 arkcli 只支持 `models search` 发现。不要用 `usage stats --model`、`usage plan-details` 或套餐/余额命令回答语音模型用量；直接说明 arkcli 不支持查询语音模型费用或用量。
 
 > **stats / plan / plan-details / balance 区分:**
 > - `stats` 出"按 token 计费的 inference 用量"(任何身份,5–30 分钟延迟)
@@ -60,6 +62,7 @@ metadata:
 - 看 AgentPlan 套餐内 vs 套餐外的按模型拆分明细
 - 按模型、接入点、API Key 维度分组统计(stats)
 - 分析 Token 消耗趋势、出对账报表
+- **不适用于语音模型用量**：用户问 TTS / ASR / 语音模型用了多少、剩余额度、调用次数时，不执行本 skill，转 `arkcli-models` 说明只支持广场发现
 
 ## 业务定位
 
@@ -83,6 +86,7 @@ metadata:
   - `arkcli usage plan-details --product=agent-plan-team`(团队版,自动找 caller seat 或显式 `--seat <id>`)
 - 用户问"我的用量 / 我今天用了多少 token / 我的 endpoint 消耗":
   - **先过 Step 0(本文档顶部)定 profile.type + 模态**:agent-plan / coding-plan(text 模态)要**先**查套餐桶(`usage plan`;agent-plan 再加 `usage plan-details`),再做下面的 endpoint 桶;platform、或 coding-plan 的 image/video 模态直接进 endpoint 桶 —— 别把"我的用量"等同于"我的 endpoint 用量"
+  - 如果用户点名的是语音模型或 TTS / ASR 场景 → **不要继续查 usage**；当前 arkcli 只承认语音模型广场发现，不支持语音模型用量查询
   - **火山:** 先 `arkcli usage stats --start <YYYY-MM-DD> --mine`（默认 endpoint 维度）
     - 返回 `data_count > 0` → 直接从 `totals` 取合计
     - 返回 `data_count=0`（用户没有 Endpoint 或近期未通过 Endpoint 调用）→ 立即重试 `arkcli usage stats --start <YYYY-MM-DD> --mine --mine-by=apikey`
@@ -112,6 +116,7 @@ metadata:
 - 用户其实还没有 Endpoint,只是在准备正式接入:转 [`../arkcli-deploy/SKILL.md`](../arkcli-deploy/SKILL.md)
 - 用户想看套餐**价格**(不是用量):转 [`../arkcli-pricing/SKILL.md`](../arkcli-pricing/SKILL.md)(`pricing plans` 出 catalog 询价,`usage plan` 出 quota 快照,两者是不同视角)
 - 用户想看**结算金额 / 账单 / 花了多少钱**(不是 token 用量):转 [`../arkcli-billing/SKILL.md`](../arkcli-billing/SKILL.md)(数据源是火山计费中心, T+1 出账; usage stats 是 BFF 推理聚合, 近实时)
+- 用户问语音模型 / TTS / ASR 的用量或额度:转 [`../arkcli-models/SKILL.md`](../arkcli-models/SKILL.md) 只说明广场可搜与 arkcli 不支持用量查询，不转 pricing / billing
 
 ## 命令一览
 

@@ -16,7 +16,7 @@
 ## 命令
 
 ```bash
-arkcli plans harness-status [agent] [--scope project]
+arkcli plans harness-status [agent] [--scope project] [--codex-config-scope profile|global] [--codex-profile <name>]
 ```
 
 ## 目标 agent 的选择（三种模式）
@@ -27,14 +27,16 @@ arkcli plans harness-status [agent] [--scope project]
 | `plans harness-status`（裸终端 / 脚本，识别不出宿主） | **全量兜底**：列出全部支持 MCP 的 agent，不报错 |
 | `plans harness-status <agent>` | 只报指定 agent；随处可用，被查 agent 此刻没在跑也能查（读磁盘配置） |
 
-> 宿主识别靠宿主注入的环境变量（`CLAUDECODE` / `OPENCODE` / `OPENCLAW_*`）。脱离宿主就没有这些信号 —— 此时**不报错**，改列全部（只读、零风险）。Trae 不被自动识别（无环境信号），始终在"列全部"兜底里出现，或显式 `harness-status trae`。
+> 宿主识别靠宿主注入的环境变量（`CLAUDECODE` / `OPENCODE` / `OPENCLAW_*`）。脱离宿主就没有这些信号 —— 此时**不报错**，改列全部（只读、零风险）。Codex / Trae 不被自动识别（无环境信号），始终在"列全部"兜底里出现，或显式 `harness-status codex` / `harness-status trae`。
 
 ## 参数
 
 | 参数 | 必填 | 说明 |
 |---|---|---|
-| `[agent]` | 否 | `claude-code` / `opencode` / `openclaw` / `trae` 之一。不传 = 按上表自动决定。传非法名或 `hermes`（不支持 MCP）→ `validation` 报错并列出合法值 |
+| `[agent]` | 否 | `claude-code` / `codex` / `opencode` / `openclaw` / `trae` 之一。不传 = 按上表自动决定。传非法名或 `hermes`（不支持 MCP）→ `validation` 报错并列出合法值 |
 | `--scope` | 否 | **仅 Trae**:`global`(默认)读 `~/.trae/mcp.json`;`project` 读当前目录 `./.trae/mcp.json`。对非 Trae agent 传 `project` 会报错 |
+| `--codex-config-scope` | 否 | **仅 Codex**:`profile`(默认)读 `~/.codex/<profile>.config.toml`;`global` 读 `~/.codex/config.toml` |
+| `--codex-profile` | 否 | **仅 Codex profile 模式**:Codex profile 名,默认 `arkcli` |
 
 ## 返回值
 
@@ -79,7 +81,7 @@ arkcli plans harness-status [agent] [--scope project]
 
 | 字段 | 含义 |
 |---|---|
-| `agent` | harness 稳定标识：claude-code / opencode / openclaw / trae |
+| `agent` | harness 稳定标识：claude-code / codex / opencode / openclaw / trae |
 | `mcp_config_path` | 实际读取的配置文件路径（诊断"为什么说没装"时看这里） |
 | `capabilities[].key` | 能力稳定标识：`web-search` / `datapro` / `agent-memory` |
 | `capabilities[].name` | 能力展示名（对齐控制台卡）：豆包搜索 / 专业数据集 / Agent 记忆 |
@@ -126,13 +128,14 @@ arkcli plans harness-status [agent] [--scope project]
 
 | 错误 | 原因 | 处理 |
 |---|---|---|
-| `{"type":"validation","message":"未知 agent ..."}` exit 2 | `[agent]` 传了不认识的名字 | 用 claude-code / opencode / openclaw / trae |
+| `{"type":"validation","message":"未知 agent ..."}` exit 2 | `[agent]` 传了不认识的名字 | 用 claude-code / codex / opencode / openclaw / trae |
 | `{"type":"validation","message":"agent \"hermes\" 不支持 MCP ..."}` exit 2 | 指定了不支持 MCP 注入的 agent | hermes 不支持 MCP |
 | `parse ... 非法 JSON` | agent 配置文件被手改坏了 | 修复该 agent 的 JSON 配置 |
 
 ## 注意事项
 
 - 只读、免登录、零副作用 —— 跟 `helper mcp` / `helper reset`（写操作）相反方向
+- Codex:默认查 profile `~/.codex/arkcli.config.toml`;查全局配置用 `harness-status codex --codex-config-scope global`;查其它 profile 用 `--codex-profile <name>`
 - Trae:默认查全局 `~/.trae/mcp.json`;查项目级用 `harness-status trae --scope project`（读当前目录 `./.trae/mcp.json`）
 - **先分 plan 类型再解读「Agent 记忆」卡**：它仅对**个人版 `agent-plan`** 有意义。**团队版 `agent-plan-team` 与 OpenViking 无关** —— 团队版下该卡 `installed:false`、卡内两台 `absent` 是**预期正确状态**，别据此提示用户去注入 OpenViking（团队版本就不该有这两台）
 - 解读「Agent 记忆」卡时**展开卡内 `mcp_servers` 看两台**：（**个人版**）`openviking-dataplane` 报 `absent` 不一定是"漏装"——账号下没有 OpenViking 库时，注入本就会跳过它；`openviking-controlplane` 报 `absent` 才是真漏装（它始终随个人版 Agent Plan 注入、不依赖 OV 库），说明该 agent 从未跑过 `helper mcp`。**卡级 `installed` 取的就是 controlplane**，所以卡级 `installed:false` ≈ controlplane 漏装

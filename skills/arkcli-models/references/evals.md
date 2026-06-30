@@ -36,6 +36,7 @@ arkcli models search --modality text --min-context-window 200000 --capability th
 | `uat-models-list-recent-custom-001` | 我在方舟最近 7 天建了多少个自定义模型？列下来。 | 使用 `arkcli models list --page-all --format json`，本地过滤 `create_time` 和 Custom 字段；禁止 `arkcli api --list`，禁止建议去控制台 |
 | `models-list-owned-custom` | 帮我看一下我有哪些自定义模型，输出数量和模型名。 | 使用 `arkcli models list` 做资产清单枚举，再做客户端过滤和统计 |
 | `models-search-task-fit` | 帮我找一个支持 thinking、上下文 200K 以上的文本模型用于 +chat。 | 使用 `arkcli models search --min-context-window ... --capability thinking` |
+| `models-search-speech-boundary` | 方舟广场有没有 TTS 模型？可以直接部署或生成示例代码吗？ | 使用 `arkcli models search <tts/语音关键词>` 做广场发现；明确说明语音模型当前不支持 `+deploy` / `+code-example` / usage / pricing / onboard；不得推荐 `+chat` 或 `+gen` |
 
 ## 判分重点
 
@@ -44,3 +45,4 @@ arkcli models search --modality text --min-context-window 200000 --capability th
 - 时间过滤必须说明客户端过滤或本地 JSON 处理。
 - 不得推荐 `arkcli api --list` 作为首选路径。
 - 不得因为缺少服务端时间 flag 就说 CLI 无能力或让用户去控制台。
+- 语音模型命中后必须停在广场发现层，不得继续推荐部署、示例、用量或费用查询。
