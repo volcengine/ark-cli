@@ -11,7 +11,7 @@
 火山方舟模型、生成、多模态理解、Plan、精调、部署、用量、账单和诊断能力，都可以通过 Ark CLI + Skills 交给 Claude Code、OpenCode、Codex 等本地 Agent 调用。
 
 ```shell
-npm i -g @volcengine/ark-cli
+npm i -g @volcengine/ark-cli@latest
 ```
 
 </div>
@@ -51,10 +51,10 @@ Ark CLI 不是让你记住更多命令，而是把火山方舟 MaaS 平台能力
   -> 回到消费链路继续使用
 ```
 
-## 三步开始
+## 安装与初始化
 
 ```shell
-# 1. 安装
+# 1. 安装 CLI
 npm i -g @volcengine/ark-cli@latest
 arkcli --version
 
@@ -62,7 +62,7 @@ arkcli --version
 arkcli auth login volc-sso
 arkcli auth status
 
-# 3. 把 Ark Skills 安装进本地 Agent
+# 3. 同步 Ark Skills 到本地 Agent
 arkcli +connect
 ```
 
