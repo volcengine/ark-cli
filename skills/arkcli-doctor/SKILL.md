@@ -1,7 +1,7 @@
 ---
 name: arkcli-doctor
 version: 1.0.0
-description: "arkcli doctor 诊断总入口（一个 skill 收口四个 domain：错误码 / infer-endpoint / model / metrics）：把火山方舟（Ark）使用中的报错、资源状态、用量配额、性能指标统一收口到 `arkcli doctor` 命令家族（CLI 健康 / account / infer-endpoint / model / metrics / 错误码）。当用户/Agent 拿到一个 Ark 错误码（ModelAccessDenied / InvalidParameter / RateLimitExceeded / ContentRiskBlocked / OutputVideoSensitiveContentDetected 等），或拿到一段 Ark 错误 JSON、一个 ep-xxx 接入点 ID、一个模型名，问『为什么报错 / 怎么修 / 状态怎么样 / 用量多少 / 配额压力 / 是不是被冻结 / 权限够不够 / 接入点慢/挂了 / 模型整体怎么样 / 哪个 endpoint 把模型配额吃了 / 生视频拦截怎么修 / RPM 多少 / 错误率多少 / P99 时延多少 / Cache 命中率怎么样』时使用；用户说『arkcli doctor / 诊断 / 体检 / 健康检查 / 排查 / 自助修复 / 看一下指标 / 拉一下监控数』时也走这里。**模型名 + 异常/体检语义也归这里**：用户说『我用 <模型> 一直/经常/最近 失败 / 慢 / 超时 / 被限流 / 报错』『<模型> 失败率高 / 一批请求大半失败 / 这模型怎么了 / 现在还能用吗 / 是不是被限流 / 配额够吗』『看下 <模型> / 诊断下 <模型> / 体检 <模型> / <模型> 健康吗 / <模型> 整体什么情况』时，对应跑 `arkcli doctor model <name>`（即便用户没拼出错误码，跨任务统计性失败 / 持续性体感异常 / 配额视角 / 显式诊断动词 都走这里，不要被『生成视频/seedance/seedream』关键词带去 arkcli-gen）。生视频拦截类错误码（Input/Output…SensitiveContentDetected / PrivacyInformation / PolicyViolation）继续在本 skill 的 references 里覆盖。注意：单纯的 arkcli 安装/登录/profile/认证问题归 arkcli-shared / arkcli-auth；本 skill 只负责 `arkcli doctor` 命令家族。"
+description: "arkcli doctor 诊断入口：用于火山方舟 Ark 报错、资源状态、用量配额、性能指标、错误码解释与修复建议；覆盖 doctor、doctor error、doctor infer-endpoint、doctor model、doctor metrics。用户给 Ark 错误码或错误 JSON、ep-xxx 接入点、模型名，问为什么报错、怎么修、状态/健康、用量/配额、限流、错误率、P99、Cache 命中率、接入点慢/挂、模型是否可用时使用；用户说诊断、体检、健康检查、排查、自助修复、看指标/监控也使用。模型名加失败、慢、超时、限流、异常、健康、配额等体检语义时走 doctor model，不因 seedream/seedance/生成视频关键词误触发 arkcli-gen。内容审核、敏感内容、PolicyViolation 等拦截诊断也归 doctor。安装、登录、profile、认证配置问题归 arkcli-shared 或 arkcli-auth。"
 metadata:
   requires:
     bins: ["arkcli"]

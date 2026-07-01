@@ -1,7 +1,7 @@
 ---
 name: arkcli-infer-endpoint
-version: 1.2.0
-description: "arkcli 推理接入点**管理**能力：对**已有** Endpoint 做获取、列表、启动、停止、更新（生命周期管理 + 启停）。优先使用产品命令 `arkcli infer endpoint ...`，而不是直接调用 Raw API。**反触发（重要）：用户说『创建/新建/create/部署/deploy 一个 endpoint/接入点』这类新建接入点的意图，一律走 arkcli-deploy（`+deploy`），不要用本 skill 的 `infer endpoint create`**；本 skill 的 `create` 仅用于脚本化 / CI / 需要无护栏的可预测 raw CRUD 行为（不做复用检查、不渲染示例）、且明确要绕过 +deploy 工作流护栏的场景。TTS/ASR/语音模型连 raw create 也不要引导，只能转 models search 说明 arkcli 不支持 Endpoint 创建。"
+version: 1.3.0
+description: "arkcli 推理接入点**管理**能力：对**已有** Endpoint 做获取、列表、启动、停止、删除、更新（生命周期管理 + 启停 + 销毁）。优先使用产品命令 `arkcli infer endpoint ...`，而不是直接调用 Raw API。**反触发（重要）：用户说『创建/新建/create/部署/deploy 一个 endpoint/接入点』这类新建接入点的意图，一律走 arkcli-deploy（`+deploy`），不要用本 skill 的 `infer endpoint create`**；本 skill 的 `create` 仅用于脚本化 / CI / 需要无护栏的可预测 raw CRUD 行为（不做复用检查、不渲染示例）、且明确要绕过 +deploy 工作流护栏的场景。TTS/ASR/语音模型连 raw create 也不要引导，只能转 models search 说明 arkcli 不支持 Endpoint 创建。"
 metadata:
   requires:
     bins: ["arkcli"]
@@ -58,6 +58,7 @@ arkcli infer endpoint list --mine --page-all --page-size 100 --format json
 | `arkcli infer endpoint list [--mine]` | 列出推理接入点；用户说**"我的 / 我自己的 / 我创建的 / 我有多少"**时必须加 `--mine`（SSO sub-user 过滤） |
 | `arkcli infer endpoint start <endpoint-id>` | 启动推理接入点 |
 | `arkcli infer endpoint stop <endpoint-id>` | 停止推理接入点 |
+| `arkcli infer endpoint delete <endpoint-id>` | 删除推理接入点（**不可逆**，需二次确认；非交互环境需 `ARKCLI_ALLOW_HEADLESS_DELETE=1`，`--yes` 不授权） |
 | `arkcli infer endpoint update <endpoint-id>` | 更新推理接入点（名称 / 描述 / 限流） |
 
 ## 参考
@@ -67,5 +68,6 @@ arkcli infer endpoint list --mine --page-all --page-size 100 --format json
 - [`references/arkcli-infer-endpoint-list.md`](references/arkcli-infer-endpoint-list.md)
 - [`references/arkcli-infer-endpoint-start.md`](references/arkcli-infer-endpoint-start.md)
 - [`references/arkcli-infer-endpoint-stop.md`](references/arkcli-infer-endpoint-stop.md)
+- [`references/arkcli-infer-endpoint-delete.md`](references/arkcli-infer-endpoint-delete.md)
 - [`references/arkcli-infer-endpoint-update.md`](references/arkcli-infer-endpoint-update.md)
 - [`../arkcli-code-example/SKILL.md`](../arkcli-code-example/SKILL.md)

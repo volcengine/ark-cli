@@ -122,7 +122,7 @@ arkcli plans harness-status [agent] [--scope project] [--codex-config-scope prof
 | `cli_installed` | `byted-supabase-cli` 在不在 PATH | `exec.LookPath` |
 | `skill_installed` | byted-supabase 配套 skill 装没装 | CLI 自带 `byted-supabase-cli skills status`（CLI 未装时直接 `false`，不误报） |
 
-> Supabase 是 `arkcli helper supabase` 配的**全局**能力（CLI + Skill + 火山登录态注入），不是 per-agent 的 MCP，所以不进 `agents[]`、只在顶层 `supabase` 出现一次。本块**只报装没装、不判 plan 资格**（个人版 small/medium 不支持 supabase，但那要登录读档位才知道，超出本免登录命令范围）。
+> Supabase 是 `arkcli helper supabase` 配的**全局**能力（CLI + Skill + 火山登录态注入），不是 per-agent 的 MCP，所以不进 `agents[]`、只在顶层 `supabase` 出现一次。本块**只报装没装、不判 plan 资格**（agent-plan 全档均支持，但资格判定要登录读 profile 类型/租户才知道，超出本免登录命令范围）。
 
 ## 常见错误
 

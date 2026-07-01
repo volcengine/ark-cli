@@ -41,7 +41,7 @@ metadata:
 | `arkcli helper mcp [target] [--ov-resource <库名>] [--scope project] [--codex-config-scope profile|global] [--codex-profile <name>]` | **只注入 MCP,不改 model**。不传 target 自动检测当前 agent;账号多个 OpenViking 库时用 `--ov-resource` 指定;`--scope project`(仅 Trae)写项目级 `./.trae/mcp.json`;Codex 默认写 profile `~/.codex/arkcli.config.toml` |
 | `arkcli helper configure <harness> [--with-mcp] [--with-supabase] [--codex-config-scope profile|global] [--codex-profile <name>]` | 配 model/provider 指向 plan;`--with-mcp` 连带注入 MCP,`--with-supabase` 连带配 byted-supabase。**非交互/agent 场景的全套入口** |
 | `arkcli helper list` | 查支持的 agent + 安装/配置状态(只读) |
-| `arkcli helper supabase [--profile P]` | **非 MCP**:装 byted-supabase-cli + skill + 注入火山登录态(打通 byted-supabase 数据库能力);跟 harness 无关。仅 Agent Plan(个人版 large/max + 团队版全档) |
+| `arkcli helper supabase [--profile P]` | **非 MCP**:装 byted-supabase-cli + skill + 注入火山登录态(打通 byted-supabase 数据库能力);跟 harness 无关。仅 Agent Plan(个人版全档 + 团队版全档) |
 | `arkcli helper reset <harness>` | 移除 arkcli 注入的配置(含 MCP) |
 | `arkcli helper` | TTY 交互向导(需终端;非交互场景改用上面的);进入向导前会检查登录态,未登录/SSO 过期时按当前登录上下文拉起 SSO(火山走 volc-sso;全新用户无明确上下文时走 auth login 菜单),成功后继续向导;末尾会问是否顺便配 byted-supabase |
 
@@ -53,7 +53,7 @@ metadata:
 
 `arkcli helper supabase` 跟上面的 MCP 注入是**两类能力**:它**不写** agent 的 mcp.json,而是**装 byted-supabase-cli + skill** 并用当前火山 Agent Plan 登录态**注入登录态**(打通 byted-supabase / Volcengine Supabase 数据库平台)。**跟选哪个 harness 无关** —— 它配的是 byted-supabase-cli 这个独立工具本身。
 
-- **门槛**:仅 Agent Plan —— 个人版 `agent-plan` 仅 **large/max** 档支持(**small/medium 不支持** supabase),团队版 `agent-plan-team` **全档**支持。不合格命令直接报错说明。
+- **门槛**:仅 Agent Plan —— 个人版 `agent-plan` **全档**支持(含 small/medium/large/max),团队版 `agent-plan-team` **全档**支持。不合格命令直接报错说明。
 - **动作**:装 CLI(`npx -y @byted-supabase/cli@latest install`,连匹配的 byted-supabase agent skill 一起)→ 用所选 Agent Plan 身份的 STS + refresh_token 组装 Console Login 凭证 → `byted-supabase-cli login --credential-file`(个人版带 `--is-agent-plan`,团队版额外 `--agent-plan-seat-id <实时反查>`)注入到固定 profile `ark_login`。
 - **触发**:用户说『配 byted-supabase / 打通数据库 / 装 supabase cli / 连接 supabase / 用我的 plan 连数据库』。
 - **三条配置入口**(同一内核 `supabase.Configure`):① 专配 `arkcli helper supabase`;② 非交互/agent 顺带配 `arkcli helper configure <h> --with-supabase`(无确认框、失败只 warn,不阻断 harness 配置);③ 交互向导 `arkcli helper` 末尾可选步骤(仅合格 plan)。`helper mcp` / `configure --with-mcp` **不含** Supabase —— 想顺带配必须显式 `--with-supabase`。
