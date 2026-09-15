@@ -105,7 +105,7 @@ arkcli +code-example \
 
 ## 注意事项
 
-- 代码中的 `$ARK_API_KEY` 会自动替换为当前 profile 的 `api_key`（见 `arkcli profile show`）
+- 代码中的 `$ARK_API_KEY` 会自动替换为当前已解析上下文的 API Key；身份摘要用 `arkcli auth whoami --format json`。不要为普通准入调用 `profile show/list/keys list`，这些命令可能同步并回写 Key
 - 需要先通过 `arkcli auth` 登录才能调用接口
 - 模型名称可通过 `arkcli models search <keyword>` 查找
 - 本命令会写入本地文件；如果不希望写到当前目录，请显式指定 `--output-dir`

@@ -1,6 +1,6 @@
 ---
 name: arkcli-gen
-version: 2.1.1
+version: 2.1.3
 description: "火山方舟 Ark 图片/视频生成入口：支持 profile 默认资源与临时 API Key/Base URL/Endpoint；显式 Endpoint 不受当前 plan profile 误导。图片同步返回，视频异步轮询。"
 metadata:
   requires:
@@ -12,20 +12,47 @@ metadata:
 
 **CRITICAL — 开始前 MUST 先用 Read 工具读取 [`../arkcli-shared/SKILL.md`](../arkcli-shared/SKILL.md)（认证闸门、模型查找回退、共享安全规则）。**
 
-**CRITICAL — 这是一段三步工作流，不是单条命令。生成图/视频 MUST 按 `Step 1 → Step 2 → Step 3` 顺序执行。禁止跳过 Step 1/2 直接 `+gen`：会因模型名形态不对（404）或传了模型不支持的参数而失败。执行前务必读 [`references/arkcli-gen.md`](references/arkcli-gen.md)。**
+**CRITICAL — 真实生成是工作流，不是猜一条命令：按 `Step 1 → Step 2 → 必要时 Step 2.5 → Step 3` 执行。用户只要求 `--dry-run` 时例外：全程本地，不先跑在线 Resources / Models / Usage 准入；在线未知项保留 `unresolved`。执行前务必读 [`references/arkcli-gen.md`](references/arkcli-gen.md)。**
 
 **CRITICAL — 用户显式给出 API Key / Base URL / Endpoint 时，MUST 先读 [`../arkcli-shared/references/execution-context.md`](../arkcli-shared/references/execution-context.md)。显式 Endpoint 的权威元数据优先于当前 profile。**
 
 **火山额外约束：不要因为 active profile 是 Agent/Coding Plan 就把用户给出的 Endpoint 当套餐模型调用。**
 
+## Agent 快速执行顺序
+
+先把用户要求拆成可验收项，再按资源、能力、整批预算、执行、成品检查推进。执行前读取
+[`references/intent-and-validation.md`](references/intent-and-validation.md)：它约定不完整意图的默认值、
+参数组合、凭证错误分流和成品验收。参数表是候选能力，不代表每个模型都支持。
+用户已明确要图片或视频时，生成命令显式带 `--modality image|video`；不要让名称解析覆盖用户意图。
+只使用用户本轮提供或明确授权复用的素材；不得从历史目录、旧任务或相似文件名擅自加入额外参考图/视频。
+
+### 成品验收前：宿主视觉输入准入
+
+生成模型能出图，不代表驱动当前 Agent 的宿主模型能看图。**Read 工具描述说支持图片，
+也不是当前宿主模型的视觉能力证明。** 当前会话没有可靠的视觉能力声明或已验证的兼容性时，
+按“未准入”处理：**不要原生 Read 图片、视频或抽出的帧，也不要用成品试探能否读取。**
+本 Skill、参考说明和 JSON 等文本仍可正常 Read。
+
+- 已有兼容且已授权的视觉工具，或同一主体下已准入、收费路径不变的视觉模型时，
+  按对应 Chat/Understand Skill 分析实际媒体，只把文字结果返回宿主；不自动换宿主、Profile 或 Key。
+- 没有这样的入口时，完成文件/解码/尺寸/时长等结构检查并交付已有成品，明确“视觉语义未验”；
+  不声称看过或完全符合。不要为补验收擅自增加未授权的收费调用。
+- 生成成功后宿主读图报错，是验收/交付失败；保留成品，不重新提交生成或轮转业务 Key。
+
+## 反唤起信号
+
+- 描述、分析现有图像而不是生成/编辑 → `arkcli-chat` 或有固定产出形态的 `arkcli-understand`。
+- 只查资源、能力、用量 → 对应只读 Skill，不提交生成任务。
+
 ## 为什么是工作流（核心，先理解再执行）
 
-用户说"生成一个视频/一张图"，本质是**三件独立的事，必须按序**：
+用户说"生成一个视频/一张图"，本质是至少**三件独立的事，必须按序**；批量或多阶段任务还要先确认整批可完成：
 
 ```
 ① 本次资源从哪里来           ── 用户显式 Endpoint 优先；否则看当前 profile
 ② 该模型支持哪些参数          ── 不查就传参 = 瞎猜 = 被校验拒/被后端拒
-③ 按可用参数真去生成
+②.5 多候选/多阶段额度与任务数 ── 先算完整批次，额度已耗尽就不启动半批任务
+③ 按可用参数真去生成          ── 每个请求只提交一次并立即保存 task_id
 ```
 
 把这三步压成"直接 `+gen` 猜一条命令"，正是失败之源：模型名形态不对会 404，参数模型不支持会被拒。
@@ -69,10 +96,12 @@ explicit --modality > output_modalities > task types > unknown
   │     agent-plan  → 列视觉模型名              ├─ 选一个，记为 $MODEL
   │     coding-plan → 列 EP (借道 platform)     ┘
   │
-  ▼ Step 2【强制·EP 除外】查 $MODEL 可用参数  ──► arkcli models get $MODEL --transform supported_params
+  ▼ Step 2【强制】查可用参数  ──► models get（EP 用 resolve 得到的绑定模型查能力）
   │     模型名 + 有 sp → **只能**用列出的参数，取值落 min/max/enum 内
   │     模型名 + sp 空(未配置或当前不可解析) → +gen 自动套 modality 兜底默认(video 720p/5s, image 2048)
-  │     EP(ep-xxx)            → 跳过, 不强填(背后能力未知), 服务端裁决
+  │     EP(ep-xxx)            → 可解析绑定则查精确版本；不可解析则说明未知，不猜支持
+  │
+  ▼ Step 2.5【批量/多阶段】额度预检 ──► plan/free-quota 快照；记录完整 create 数
   │
   ▼ Step 3 据可用参数生成  ──► arkcli +gen --model $MODEL [Step2 允许的参数] "prompt"
   │
@@ -96,6 +125,9 @@ arkcli resources resolve "$ENDPOINT" --format json
   region 派生 platform Base URL。
 - 不按 Endpoint ID 或绑定模型名称里的 `seedream` / `seedance` 子串猜模态。
 - 显式 Endpoint + API Key 是临时调用，不切换 active profile，也不把值写回。
+- 用户显式提供的 `ep-*` 是本次调用资源；不要忽略它后改用套餐 default，也不要把
+  `resources resolve` 的位置参数误传成模型名。若该 Endpoint 已在本轮被用户授权用于
+  后付费兜底，套餐额度不足时可回到这里重新做能力检查，但仍不修改 Profile/default。
 
 用户未给显式 Endpoint 时，再按 profile 列资源：
 
@@ -106,14 +138,15 @@ arkcli resources list --modality video   # 或 image
 
 - **平台差异（resources list 已自动按 profile 分流，你只管读 items）**：
   - `platform` profile → items 是**推理接入点 EP**（`ep-xxx`），每个 EP 内部绑定一个模型
-  - `agent-plan` profile → items 是**视觉模型名**（如 `doubao-seedance-2.0-fast`）
-  - `coding-plan` profile → 自身不含视觉模型，`+gen image/video` 会自动借道 platform 数据面，**`--model` 必须显式传一个 platform 上的 EP**
+  - `agent-plan` / `agent-plan-team` → items 是**套餐视觉模型名**；使用对应个人/团队席位 Key
+  - `coding-plan` / `coding-plan-team` → 无套餐内视觉模型；生成使用 **platform Endpoint + 后付费 API Key**。团队席位 Key 不能用于这个后付费请求
 - `is_default: true` 标记的是该模态当前默认；用户没指定时优先用它
+- 再核对 `invocable` / `required_overrides` / `data_plane` / `credential_kind`。默认或可见不等于当前凭证可调用；不要为生成自动切 Profile、轮转 Key 或修改 default。
 - **选定一个 id，记为 `$MODEL`，贯穿 Step 2/3**
-- 用户已明确给了模型/EP 时，仍建议 `resources list` 核对它在当前 profile 可用；若与默认不同，按 [`../arkcli-shared/references/profile-defaults.md`](../arkcli-shared/references/profile-defaults.md) "Default 漂移检测与 promote nudge" 处理
+- 用户已明确给了模型名时，可用 `resources list` 核对当前 lane 的兼容性；用户明确给了 EP 时只先 `resources resolve`，不要再用列表/default 覆盖它。若模型与默认不同，按 [`../arkcli-shared/references/profile-defaults.md`](../arkcli-shared/references/profile-defaults.md) "Default 漂移检测与 promote nudge" 处理
 
 
-## Step 2【强制·EP 除外】查 $MODEL 的可用参数
+## Step 2【强制】查 $MODEL 的可用参数
 
 ```bash
 arkcli models get "$MODEL" --transform supported_params
@@ -123,15 +156,38 @@ arkcli models get "$MODEL" --transform supported_params
   - > **MUST：Step 3 只能使用这里 `support=true` 的参数，且取值必须落在 `min/max/enum` 范围内。** 不在清单里的参数（或 `support=false`）传了会被 `+gen` 拒绝。
   - **可直接使用 Step 1 选出的模型 id**（点号 / display 形态如 `doubao-seedance-2.0-fast` 都行）：`models get` 会自动按 DisplayName 归一化到规范连字符 name，无需手动转。极个别仍报 `not found` 才用 `arkcli models search <族名>` 核对名字。
   - 查到模型但 `supported_params` 为空 / `null` → 该版本未配置参数目录，或上游目录当前不可解析；若 stderr 有 `warn: model supported_params enrichment failed: ...`，保留该告警用于排障。**不要手动猜参数**：`+gen` 会自动用内置 modality 兜底默认（video: `resolution=720p` / `duration=5` / `ratio=adaptive`；image: `size=2048x2048`）填充你没指定的参数。直接进 Step 3。
-- **`$MODEL` 是 EP（`ep-xxx`）**：跳过本步。EP 查不到 supported_params 是正常的；且 `+gen` **不会**对 EP 套兜底默认（EP 背后模型可能支持更高能力，强填会误降级），直接 degrade-open 由服务端裁决。
-  - 这里只是跳过 **supported_params 查询**；真实 `+gen` 仍会沿 `Endpoint → ModelReference → FoundationModel 元数据` 自动解析 image/video。
-  - 只有结构化元数据缺失/冲突时，才需要显式补 `--modality`。
+- **`$MODEL` 是 EP（`ep-xxx`）**：不把 EP 本身交给 `models get`。使用 Step 1 的权威绑定：FoundationModel 查 `model_name` + `--version <model_version>`；CustomModel 只可用 `base_model_*` 查 lineage 能力，不能改写真实 `model_id` 或调用 EP。warning/歧义时说明能力未知，不根据名称猜测支持。
+  - 能力查询所得模型 ID 仅用于查询；Step 3 仍传原 EP。CLI 当前不对 EP 强填模态兜底参数，也不替代服务端最终校验。
+
+## Step 2.5【批量或多阶段任务】提交前检查完整预算
+
+单个图片/视频请求不额外制造“试 Key”任务；批量候选、长视频拆段、续写链等会创建多个收费任务时，
+必须在第一个 `+gen` 前列出总候选数、每个候选的阶段数、理论 create 总数以及阶段依赖。能用一个
+原生 30 秒任务完成时，不要在模型/Endpoint 未核验前擅自拆成两个 15 秒任务。
+
+对 Agent Plan / Agent Plan Team 的批量或多阶段视觉任务，读取当前 Profile 后执行额度快照：
+
+```bash
+arkcli usage plan --format json
+arkcli usage balance --type free-quota --modality ComputerVision --page-all --format json
+```
+
+- 这两个结果是提交前快照，不是额度预占；只按当前选定 lane/model 的相关桶判断，不把另一个产品的额度混进来。
+- 相关月/周/会话桶或模型免费额度已明确耗尽时，不启动只可能完成一半的批次。若用户本轮已明确授权
+  某个后付费 Endpoint，则先 `resources resolve` 该 EP 并按它的精确绑定重走 Step 2；否则说明缺口并停止，
+  不自动切 Profile、Key、default 或收费路径。
+- 若响应没有给出“秒数/候选数 → 额度”的可计算映射，只能报告“当前未耗尽但无法保证整批”，不能伪造
+  精确剩余可生成数量。429 也不能仅凭状态码猜成并发上限。
+
+控制面 `resolve/list` 只能证明资源元数据与上下文兼容，不能证明数据面 API Key 当前有效。没有无计费的
+Key 探测时，把**第一个本来就要交付的任务**作为数据面准入：成功拿到 `task_id`/图片结果后才继续余下批次；
+401/403/quota 错误按原证据停止。禁止另生成一张测试图，也禁止失败后轮转 Key 或循环试不同收费路径。
 
 ## Step 3 据可用参数生成
 
 ```bash
 # 文生图 / 文生视频
-arkcli +gen --model "$MODEL" "<prompt>"
+arkcli +gen --model "$MODEL" --modality image "<prompt>" # 用户要视频时改为 video
 
 # 带 Step 2 确认过的参数（示例：视频 1080p + 优先级 9，前提是 supported_params 列了它们）
 arkcli +gen --model "$MODEL" --resolution 1080p --priority 9 "<prompt>"
@@ -174,6 +230,7 @@ arkcli +gen --model "$MODEL" --input @ref.jpg "<prompt>"
 - 图生图 / 参考素材 → Step 3 加 `--input @<file>`（可重复）
 - 视频生成后"没看到视频" → 多半是异步 `queued`，用 `arkcli gen get <task_id> --open` 轮询；轮到 `succeeded` 那次会自动下载到本地（看返回的 `local_path`）并弹出成品，别重提
 - **给真人出图/视频默认加 `--open`** → 你是 agent（非 TTY），不加用户只能看到路径、看不到成品；只有"别打开/脚本里/批量 >4 张"才省略或 `--no-open`
+- 视频续写 → 先确认 `reference_video` 是服务端可访问 URL；本地 MP4 不能直接作为该 role 提交。ratio 逐值服从精确模型/EP 的 `supported_params`，不无条件强制 `adaptive`
 
 ## 进阶 flag 自然语言触发词表
 
@@ -183,11 +240,11 @@ arkcli +gen --model "$MODEL" --input @ref.jpg "<prompt>"
 | "别自动打开/不要弹窗/我在脚本里跑别开" | `arkcli +gen --no-open`（强制不打开） |
 | "预览/别真发/只看参数/dry run/试跑/先看一下" | `arkcli +gen ... --dry-run --format json`；核对 `steps`、`unresolved` 和 `fidelity`，不要把 partial 预览当作服务端校验 |
 | "不要下载/只要 URL/不要保存到本地/关闭自动下载" | 命令显式加 `--save-to=""`；即使同时是 `--dry-run` 也要保留，以便预览能核对真实执行时的关闭下载意图 |
-| "草稿/快速预览/越快越便宜/省钱先看" | 视频命令显式加 `--draft`（草稿模式：更快、更便宜、质量更低）；不能只缩短 duration 代替草稿语义 |
-| "固定镜头/镜头不动/锁定相机/只拍光影变化" | 视频命令显式加 `--camera-fixed`；不能只把固定镜头要求写进 prompt |
-| "不带水印/不要水印/关闭水印" | 省略 `--watermark`（默认 false）；禁止使用裸 `--watermark`，它表示开启水印 |
+| "草稿/快速预览/越快越便宜/省钱先看" | 先区分“只看请求”和“真实生成低成本草稿”。前者用 `--dry-run`；后者仅在 `draft` 支持时加 `--draft=true`，不支持时说明限制，不把缩短时长冒充草稿模式 |
+| "固定镜头/镜头不动/锁定相机/只拍光影变化" | 始终保留在 prompt；仅当 `camera_fixed` 支持该值时加 `--camera-fixed=true`。不支持时可用 prompt 表达视觉约束，但不能保证机械锁定，验收跨帧背景/镜头变化 |
+| "不带水印/不要水印/关闭水印" | 查明支持后显式 `--watermark=false`；省略可能采用服务端默认值，裸 `--watermark` 表示 true |
 | "强制执行/跳过校验/我知道不支持但想试一下" | `arkcli +gen --force` |
-| "连贯多张/按顺序/统一风格/4格漫画/连续图片" | `arkcli +gen --sequential` |
+| "连贯多张/按顺序/统一风格/连续图片" | 先区分多张独立文件与一张多格图；多文件在能力支持时用 `--image-count N --sequential auto`，不可使用缺值的裸 `--sequential` |
 | "我之前的任务/生成历史/任务列表/任务状态" | `arkcli gen list`（列出所有异步生成任务） |
 | "那个任务跑完没/查进度/查状态" | `arkcli gen get <task_id>`
 
@@ -207,7 +264,7 @@ arkcli +gen --model "$MODEL" --input @ref.jpg "<prompt>"
 ## 常见降级
 
 - 模型名报 `not found` → `models get` 已自动归一化点号/display 形态，仍报多半是名字真写错了，用 `arkcli models search <族名>` 核对
-- 参数被拒（`param_not_supported`）→ 回到 Step 2 看 `supported_params`，只用列出的；确需强制可加 `+gen --force` 跳过校验（服务端仍有最终裁决）
+- 参数被拒（`param_not_supported`）→ 对照 Step 2 的精确版本目录与实际参数；目录显示支持但 CLI 拒绝时保留冲突证据，不擅自换调用 ID、删用户硬要求或用 `--force` 绕过。只有用户明确要求跳过校验时才用 `--force`。
 - **内容被审核拦截**（`ContentRiskBlocked` / `*SensitiveContentDetected` / 命中敏感 / 版权）→ 不是参数问题、`--force` 也绕不过；调整 prompt / 输入素材里的敏感内容后重试。要结构化的拦截原因 + 修复指引，转 [`../arkcli-doctor/SKILL.md`](../arkcli-doctor/SKILL.md) 的 `arkcli doctor error <code>`（生视频拦截 5 个 subtype 全覆盖）
 - 鉴权错误 → 转 [`../arkcli-auth/SKILL.md`](../arkcli-auth/SKILL.md)
 

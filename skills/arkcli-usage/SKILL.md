@@ -1,6 +1,6 @@
 ---
 name: arkcli-usage
-version: 1.3.4
+version: 1.3.5
 description: "ARK 用量查询:`usage stats`(Token / 请求数,5-30 分钟延迟)、`usage plan` / `usage balance --type plan`(套餐额度快照)、`usage plan-details`(仅 Agent Plan 按模型时间序列,套餐内/外拆分)、`usage balance`(余额:免费额度 / 媒资库 / 套餐)、`usage seats --with-usage`(团队席位用量 by seat)。Coding Plan 只有 quota 快照，不能用 stats 冒充按模型套餐明细。命中关键词:用量 / 用了多少 / 还剩多少额度 / 套餐用了几成 / 套餐内套餐外 / 每个 seat 消耗。**席位的列表 / 绑定 / 分配 / 轮换 APIKey 属管理范畴,走 arkcli-plans;本 skill 只回答用量。**动词路由:**用 / 消耗 / 多少** → 这里;**列 / 绑 / 分 / 轮换** → arkcli-plans。反触发：TTS/ASR/语音模型用量不支持查询，只能转 models search 说明广场发现边界。"
 metadata:
   requires:
@@ -38,7 +38,7 @@ metadata:
 
 **核心原则:先查"自己这档 profile 的套餐桶",再查 endpoint 桶。** `profile.type` 决定"自己这档"是什么,模态决定"该模态在不在套餐覆盖内"。
 
-1. **探 profile.type**:`arkcli profile show --format json`,读 `type`(`platform` / `agent-plan` / `agent-plan-team` / `coding-plan` / `coding-plan-team`)
+1. **探 profile.type**：`arkcli auth whoami --format json`，读取持久 Profile 摘要里的 `profile.type`（`platform` / `agent-plan` / `agent-plan-team` / `coding-plan` / `coding-plan-team`）。`profile show/list/keys list` 可能在线同步并回写 Key 库存或默认 Key，不得作为普通 Usage 准入；摘要缺字段时如实说明未知，不自动切 Profile、Key、default 或收费路径。
 2. **定模态**:用户点名模型/模态 → 只查该模态;没点名 → 全模态都覆盖(text / image / video 各按表走一遍)
 3. **按 (type × modality) 路由**(`①→②` = 先套餐桶、再 endpoint 桶;单格 = 只查 endpoint 桶):
 

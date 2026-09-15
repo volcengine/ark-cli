@@ -5,7 +5,7 @@
 profile.yaml 在 `resources.<modality>.default` 字段存用户对每个 modality (text / image / video) 默认资源 ID 的偏好。这是 +chat / +gen / +deploy 行为对齐的基础。
 
 - **platform profile**：默认值是用户已部署的 endpoint id (`ep-xxx`)
-- **agent-plan profile**：默认值是火山预置 model id（如 `doubao-seed-2-0-pro-260215` / `doubao-seedream-5.0-lite` / `doubao-seedance-2.0`）
+- **agent-plan profile**：默认值是火山预置 model id（如 `doubao-seed-2-0-pro-260215` / `doubao-seedream-5.0-pro` / `doubao-seedance-2.5`）
 - **coding-plan profile**：text modality 用 `ark-code-latest` 这类套餐内文本模型；image / video 借道 platform 数据面 — 字段存的是用户在 platform 上 `+deploy` 出来的 endpoint id（`ep-xxx`），arkcli 会在 `+gen` 时自动把数据面切到 `/api/v3`。不再要求切 profile
 - **`agent-plan-team` profile**：text/image/video 都走 Agent Plan 数据面与套餐模型，凭证为团队席位 Key。
 - **`coding-plan-team` profile**：text 走 Coding Plan 数据面与套餐模型，凭证为团队席位 Key；image/video 切到 platform Endpoint，必须使用**后付费 API Key**，不能复用团队席位 Key。Endpoint default 可以保存在该 profile，但它不等于已经具备可调用凭证。
@@ -42,16 +42,16 @@ profile.yaml 在 `resources.<modality>.default` 字段存用户对每个 modalit
 S10 改造后, arkcli 不再因为 active profile 是 `coding-plan` 就阻断 `+gen --modality image|video`. 行为如下:
 
 - **active=platform**: 直接走 platform 数据面 `/api/v3` + endpoint id, 跟原行为一致
-- **active=agent-plan**: 走 agent-plan 数据面 + 预置模型 (image=`doubao-seedream-5.0-lite`, video=`doubao-seedance-2.0`)
+- **active=agent-plan**: 走 agent-plan 数据面 + 预置模型 (image=`doubao-seedream-5.0-pro`, video=`doubao-seedance-2.5`)
 - **active=coding-plan + modality=image|video**: arkcli 自动借道 platform 数据面 `/api/v3` + 用户在 platform 控制面 `+deploy` 出的 endpoint id (cfg 临时 clone, 不污染 factory cache). 用户体感不需要切 profile
 - **active=agent-plan-team**：走 Agent Plan 数据面 + 团队席位 Key + 预置 image/video 模型。
-- **active=coding-plan-team**：image/video 使用 platform Endpoint，但团队席位 Key 不兼容；需要显式后付费 `--api-key`，或在未显式锁定 `--profile` 时由 CLI 找到同 identity 下唯一兼容的 Platform/Coding Plan 个人版 profile。多个候选报歧义；显式 `--profile <coding-plan-team>` 时不静默借用。
+- **active=coding-plan-team**：image/video 使用 platform Endpoint，但团队席位 Key 不兼容。提交前必须由用户显式授权兼容的后付费凭证：选择 Platform/Coding Plan 个人版 `--profile`，或提供 `--api-key`（需要时同时提供 `--base-url`）。CLI 不枚举、不借用 sibling profile；缺少显式授权时在真实请求前失败。
 
 资源发现 / default 设置链路也对齐:
 - `arkcli resources list --modality image` 在 coding-plan profile 下会列出同账号下 platform 已 deploy 的 endpoint
 - `arkcli profile set-default --modality image <ep-id>` 在 coding-plan profile 下也能 verify + 写入 (走同款 ListEndpoints)
 
-`+gen --modality image` 在 `agent-plan` profile 下默认会用 `doubao-seedream-5.0-lite`, `--modality video` 默认 `doubao-seedance-2.0`. 用户跑 `arkcli resources list --modality image` / `video` 可看完整可用清单.
+`+gen --modality image` 在 `agent-plan` profile 下默认会用 `doubao-seedream-5.0-pro`, `--modality video` 默认 `doubao-seedance-2.5`. Agent Plan 生图还可选 `doubao-seedream-5.0-lite`、生视频还可选 `doubao-seedance-2.0` 等旧版本（均非默认）。用户跑 `arkcli resources list --modality image` / `video` 可看完整可用清单.
 
 完整凭证/资源矩阵与临时覆盖组合见
 [`execution-context.md`](execution-context.md)。

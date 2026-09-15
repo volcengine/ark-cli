@@ -101,5 +101,3 @@ description: 使用 ArkCLI 创建、查询和管理模型精调训练任务，�
 ## 参考与相关文档
 
 <https://www.volcengine.com/docs/82379/1099350>
-
-维护者评测见 [`references/evals.md`](references/evals.md)。

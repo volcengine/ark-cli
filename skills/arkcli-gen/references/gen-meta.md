@@ -158,4 +158,7 @@ CLI 子命令是 raw API 的人类友好包装；命令更短、flag 更直观�
 
 - `+gen` 自身轮询超时时会回带 `task_id` 和提示 —— 用 `gen get <task-id>` 接着追，比重新跑 `+gen` 划算（重新跑会再创建一个新任务并扣一次配额）。轮询到 `succeeded` 的那次 `gen get` 会顺手把产物下载到本地，不必再手动 curl `output_url`。
 - 异步提交（不带 `--wait`）+ `gen get` 轮询是视频的主流用法：`arkcli +gen ... --modality video` 拿到 `task_id` → 反复 `gen get <id>` 直到 `succeeded` → 产物自动落地。带 `--wait` 则是同步阻塞版，两条路径的落地行为一致。
-- `gen list` 是排查"我之前提交的那个任务到底在不在"的唯一入口；提交后 `+gen` 没拿到正常返回时建议先 `gen list --status running` 看看。
+- `gen list` 可排查账号下有哪些历史任务，但当前列表项不保证返回可用于关联本轮请求的
+  name/prompt/content。提交后没有 `task_id` 时，把结果记为 `UNKNOWN` 并停止自动创建；可以查看
+  `gen list` 辅助人工调查，但“相同 model + 最近 status”不能据此唯一认领任务，也不能证明任务未创建。
+  只有已经拿到明确 task ID，才进入 `gen get` 轮询；不要为了补 ID 重新执行收费的 `+gen`。

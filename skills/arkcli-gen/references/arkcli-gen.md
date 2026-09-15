@@ -8,20 +8,13 @@
 
 ## 命令
 
-> **⚠️ `--model` 必须是 `<name>-<primary_version>` 完整形式（如 `doubao-seedream-5-0-260128`、`doubao-seedance-1-5-pro-251215`）或 Endpoint ID（`ep-xxx`）。直接传族名会 404 `InvalidEndpointOrModel.NotFound`。**
->
-> `primary_version` 格式不固定——常见 6 位日期，也可能是 8 位日期、带限定前缀、短数字、甚至空串（此时 full ID 就是族名本身）。约半数模型非 6 位，详见 [`../../arkcli-models/SKILL.md`](../../arkcli-models/SKILL.md) 链路 0。**不要自行正则判断"是否像完整 ID"**。
->
-> **调用前补全（必须）：** 若不确定 `--model` 是否已是完整形式，先执行：
->
-> ```bash
-> VER=$(arkcli models get <name> --transform 'primary_version' | tr -d '"')
-> # --transform 输出带 JSON 双引号，必须 tr -d 剥掉；否则 $VER 会是 "260128" 导致拼接错误
-> MODEL=${VER:+<name>-$VER}; MODEL=${MODEL:-<name>}   # VER 空串时退回 <name>
-> arkcli +gen --model "$MODEL" "<prompt>"
-> ```
->
-> 若刚 `models search/list` 过，可直接复用返回里的 `primary_version` 字段，无需再调 `get`。
+`--model` 使用本次资源解析确认的调用 ID。套餐别名、版本化 ID 和 Endpoint 不是可任意互换的名称。
+Agent Plan / Team 的默认视觉别名保持原样，例如 `doubao-seedream-5.0-lite`；
+`models get` 返回的规范 Name/Version 是能力查询身份，不能自动替换套餐调用 ID。
+Platform / Coding Plan / Coding Plan Team 生成使用已部署的 `ep-*` 和后付费凭证。
+只有用户给的是尚未解析的模型族名时，才查询权威模型详情与当前资源候选，不用正则猜版本，
+也不强制给所有模型名追加 `primary_version`。示例展示 flag 语法，不是可复制到任何 Profile/模型的固定组合；
+执行时用本轮选定的 `$MODEL`，并按 [`intent-and-validation.md`](intent-and-validation.md) 检查能力与成品。
 
 ```bash
 # 1) 文生图 (T2I) — seedream 模型
@@ -58,6 +51,14 @@ arkcli +gen --model doubao-seedance-2-0-r2v-260128 \
   --input ref:@reference.mp4 \
   "保持参考视频的运动轨迹，替换主角为机器人"
 
+# 5b) 视频续写 — reference_video 当前必须是服务端可访问 URL
+# ratio 按精确模型/EP 能力与用户要求选择；不要把所有续写固定成 adaptive
+arkcli +gen --model "$MODEL" --modality video \
+  --input reference_video:https://example.com/selected.mp4 \
+  --input reference_image:@character.jpg \
+  --ratio 16:9 --format json --no-open \
+  "从参考视频结尾后的下一瞬开始继续，不重演已有内容；保持人物身份、服装、场景、光线、镜头轴线和运动方向连续"
+
 # 6) 参考音频 — 让视频节奏与音频同步
 arkcli +gen --model doubao-seedance-2-0-260128 \
   --input ref:@beat.mp3 \
@@ -69,9 +70,10 @@ arkcli +gen --model doubao-seedream-5-0-260128 \
   "产品摄影风格"
 
 # 进阶 flag — 视频任务
-arkcli +gen --model doubao-seedance-2-0-260128 \
-  --frames 96 --camera-fixed --return-last-frame --draft \
-  "城市夜景航拍"
+# 仅在目录明确允许这些键和值时使用，不能照抄到不支持的模型
+arkcli +gen --model "$MODEL" --modality video \
+  --duration 5 --ratio 16:9 \
+  "城市夜景，固定视角"
 
 # 输出完整 JSON
 arkcli +gen --model doubao-seedance-1-5-pro-251215 --format json "产品广告视频"
@@ -86,6 +88,41 @@ arkcli +gen --model ep-20260416234150-zsd4v --modality video "一只柴犬奔跑
 # Endpoint + 临时 API Key：未给 Base URL 时从 Endpoint 权威 region 派生
 arkcli +gen --model ep-... --api-key '<temporary-key>' "一只柴犬奔跑"
 ```
+
+## 视频续写：独立于普通参考视频生成
+
+当用户说“续写 / 接着生成 / 从结尾继续 / 延长视频 / 第二段 / continue / extend”时，按续写处理；
+“参考这个视频的风格、节奏或运镜重新生成”仍是普通 R2V，不能强行套续写规则。
+
+续写提交必须同时满足：
+
+1. 先确认源视频存在、可解码并读取时长/画幅；这只是结构检查，不等于 Agent 看过内容。
+2. 当前 CLI 会把本地视频编码成 data URL，但数据面的 `reference_video` 要求 web URL。因此源视频应使用
+   `--input reference_video:https://...`；不要提交 `reference_video:@<local.mp4>` 后用真实创建反复探错。
+   先前任务返回的 `output_url` 仅在能证明它对应同一源视频且仍有效时复用；没有 URL/上传路径就如实停止。
+3. 可选人物/服装/风格图使用 `--input reference_image:@<path>`；不要把它标成 `first_frame`，也不要因为示例
+   包含人物图就从历史目录自动补图。只使用用户本轮给出或明确授权复用的素材。
+4. `ratio` 不存在续写通用固定值。逐值读取精确模型/Endpoint 的 `supported_params`：用户要求 `16:9` 且
+   该值支持就保留；用户要求继承源画幅且 `adaptive` 支持才使用 `adaptive`；未要求时优先省略。
+5. `resolution`、`ratio`、`duration` 独立校验。先看是否有已授权资源原生支持目标总时长；只有单任务上限
+   不足才提出分段，并在提交前说明额外任务数、计费和连续性风险。
+6. prompt 从“结尾后的下一瞬”描述新动作，并明确不重演第一段；保持人物、服装、场景、光线、镜头轴线、
+   景别和运动方向。`--return-last-frame` 只要求返回本次生成的最后一帧，不会把普通 R2V 变成续写。
+
+### 多候选提交与对账
+
+- 提交前先列出完整任务图。例如 6 个候选、每个 2 段意味着最多 12 次创建，且第二段依赖第一段 URL；
+  不能声称可以一次拿到全部 12 个 ID。按 [`intent-and-validation.md`](intent-and-validation.md) 做套餐/
+  免费额度预检；明确耗尽时不启动第一批。
+- N 个候选就是 N 次独立创建。默认不加 `--wait`，每次用 `--format json --no-open`，收到一个结构化
+  `task_id` 后立即持久记录，再提交下一个；不要并发重复编码/上传同一个大文件。
+- `--name` 只可作本地可读标签，不能当服务端幂等键；当前 `gen list` 不回显足以按 name/prompt/content
+  唯一认领任务的证据。命令超时或输出中断且没有 `task_id` 时，将该项记为 `UNKNOWN` 并停止，不能靠
+  “相同 model 的最近任务”自动补记，也不能盲目重提。
+- 所有候选提交完成后再统一轮询已记录的 ID。一个候选失败不自动复制提交；保留每个 ID、状态和文件路径。
+
+“任务成功”只证明服务端完成。续写成品还要比较源视频最后约 1 秒与新视频最初约 1 秒，检查是否重演、
+人物/服装/场景突变、镜头跳轴和运动方向反转；没有实际时序证据时只能报告“续写语义未验”，不能声称无缝。
 
 ## 临时执行上下文
 
@@ -108,15 +145,15 @@ arkcli +gen --model ep-... --api-key '<temporary-key>' "一只柴犬奔跑"
 | 参数 | 必填 | 类型 | 说明 |
 |------|------|------|------|
 | `<prompt>` | 是 | positional | 生成提示词（位置参数，放在命令最后） |
-| `--model` | 否：可 fallback 到 active profile 的 `Resources.<modality>.Default` | string | **完整版本化模型 ID**（如 `doubao-seedream-5-0-260128`、`doubao-seedance-1-5-pro-251215`）或推理接入点 ID（`ep-xxx`）。仅传族名会直接 404 `InvalidEndpointOrModel.NotFound`。缺省且 profile 未设 default 时，按错误 hint 运行 `resources list` / `profile set-default`。 |
+| `--model` | 否：可 fallback 到 active profile 的 `Resources.<modality>.Default` | string | 本次 Profile/凭证兼容的调用 ID：套餐合法别名、当前数据面允许的模型 ID 或 `ep-*`。能力查询规范名不能替换收费路径中的调用 ID。默认为空时先 `resources list`；一次生成不自动设置 default。 |
 | `--modality` | 见说明 | string | 生成模态：`image` 或 `video`。真实调用按 `显式值 > ArkModels output_modalities > FoundationModel task types > unknown` 解析；Client Preview 不联网，按 `显式值 > 已知 seedream/seedance 名称 > unknown` 本地判断，未知模型或 Endpoint 必须显式指定 |
-| `--input` | 否 | string（可重复） | 参考素材引用，按出现顺序进入 content[]。本地文件 `@<path>` / 远程 `https://...` `tos://...` 都可。可选 role 前缀 — 简写：`first:` `last:` `ref:` `none:`（none 显式忽略，简写 wire 上不传 role 让服务端按位置推断）；SDK 显式：`first_frame:` `last_frame:` `reference_image:` `reference_video:` `reference_audio:`（这些会真正写到 wire `content[].role` 字段）。**图片任务**：折叠为 image union；**视频任务**：第 1 张图默认首帧，其它图为参考图，视频→ref_video，音频→ref_audio |
-| `--name` | 否 | string | 任务名覆盖 |
+| `--input` | 否 | string（可重复） | 参考素材引用，按出现顺序进入 content[]。本地文件用 `@<path>`，远程使用 `https://...` / `tos://...`。可选 role 前缀 — 简写：`first:` `last:` `ref:` `none:`；SDK 显式：`first_frame:` `last_frame:` `reference_image:` `reference_video:` `reference_audio:`。**重要**：本地图片可被内联；本地视频虽会被编码为 data URL，但当前数据面的 `reference_video` 只接受 web URL，续写时必须提供服务端可访问 URL。**图片任务**折叠为 image union；**视频任务**第 1 张图默认首帧，其它图为参考图，视频→ref_video，音频→ref_audio |
+| `--name` | 否 | string | 可读任务名覆盖；不能作为服务端幂等键，也不能依赖 `gen list` 按名称恢复 task ID |
 | `--version` | 否 | string | 模型版本覆盖 |
 | `--size` | 否 | string | 图片输出尺寸，如 `1920x1920`；像素数过小时会被后端拒绝 |
 | `--image-count` | 否 | int | 图片任务输出张数；`>1` 时自动转为 `sequential_image_generation=auto + max_images=N` |
 | `--n` | 否 | int | `--image-count` 的别名（图片任务）；两者同传时 `--n` 优先 |
-| `--ratio` | 否 | string | 输出宽高比覆盖，如 `16:9` / `9:16` / `1:1`（视频任务） |
+| `--ratio` | 否 | string | 输出宽高比覆盖，如 `16:9` / `9:16` / `1:1` / `adaptive`（视频任务）。包括续写在内都按精确模型/EP 的值级能力与用户要求选择；`adaptive` 不是通用强制值 |
 | `--resolution` | 否 | string | 输出分辨率，如 `480p`、`720p`、`1080p`（视频任务） |
 | `--duration` | 否 | int | 视频时长（秒） |
 | `--frames` | 否 | int | 视频帧数（在支持的模型上覆盖 duration） |
@@ -167,7 +204,8 @@ arkcli +gen --model ep-... --api-key '<temporary-key>' "一只柴犬奔跑"
 - `local_path` / `local_paths`：由 `--save-to` 触发自动下载后落盘的本地绝对路径；是**持久产物**，优先用它而不是 URL。关闭自动下载（`--save-to=""`）时这两个字段不存在
 - `task_id`：视频任务才有。**视频默认异步**——提交即返回此 id + `status: queued`；用 `arkcli gen get <task_id>`（或 `arkcli api arkruntime.get_content_generation_task --params '{"id":"<task_id>"}'`）轮询到 `succeeded` 再取 `output_url`。要同步阻塞用 `+gen --wait`
 
-**`--format json`**：输出完整的任务对象（不含 `local_path`）。
+**`--format json`**：输出结构化结果；下载成功时包含 `local_path` / `local_paths`。
+下载关闭或失败时字段可能缺失，不能仅凭生成状态成功声称文件已保存。
 
 视频任务的完整对象除了 `id / status / output_url / ratio / resolution / duration / frames / generate_audio` 等常规字段外，还会回显服务端 echo 出的额外字段（按需出现，由模型与服务端决定）：
 
@@ -187,7 +225,7 @@ arkcli +gen --model ep-... --api-key '<temporary-key>' "一只柴犬奔跑"
 | 错误 | 原因 | 处理方式 |
 |------|------|---------|
 | `model is required` | 未指定 `--model` | 必须指定模型名 |
-| `Error code: 404 - InvalidEndpointOrModel.NotFound` | `--model` 传的是模型族名（如 `doubao-seedream-5-0`、`doubao-seedance-1-5-pro`），该族未注册族名别名 | 用 `arkcli models get <name> --transform 'primary_version'` 拿版本号，拼成 `<name>-<primary_version>` 再传 |
+| `Error code: 404 - InvalidEndpointOrModel.NotFound` | 资源不存在、当前身份不可见或调用 ID 不属于当前 lane；不能仅凭 404 认定缺版本 | 同一 Profile 下用 `resources list/resolve`、必要时 `models get` 核对；保留合法套餐别名，不自动改版本/计费路径 |
 | `cannot determine generation modality` | Endpoint/模型元数据无法唯一识别 image/video，且未传 `--modality` | 先看 `resources resolve <ep>` 的 warnings；根据用户意图显式补 `--modality image|video` |
 | 缺少 prompt | 未提供位置参数 | prompt 是必填的位置参数 |
 | `image generation failed: InvalidParameter` | 图片尺寸像素数过小等参数错误；常见于 `1024x1024` 这类尺寸 | 改用 `1920x1920` 及以上尺寸，必要时加 `--debug` 看底层错误 |

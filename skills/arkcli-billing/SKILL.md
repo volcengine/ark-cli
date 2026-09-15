@@ -1,6 +1,6 @@
 ---
 name: arkcli-billing
-version: 1.1.1
+version: 1.1.2
 description: "查询火山引擎 ARK 拆分账单明细（结算金额、Token 用量计费），支持按账期月、月范围、Endpoint、API Key、产品编码等维度过滤。当用户问账单、花了多少钱、对账、账期、按 EP / API Key 拆账、按产品拆账、月度账单、出账明细时使用。注意 billing 跟 usage stats 不同：stats 出推理量（近实时），billing 出结算金额（T+1 出账，财务口径）。"
 metadata:
   requires:
@@ -33,7 +33,7 @@ metadata:
 
 跟 [`arkcli-usage` 的 Step 0](../arkcli-usage/SKILL.md)(canonical 原则)同一套 —— **先查"自己这档 profile 的套餐账单",再查 endpoint 账单**。查任何"**我**…花了多少"前必走:
 
-1. **探 profile.type**:`arkcli profile show --format json`,读 `type`
+1. **探 profile.type**：`arkcli auth whoami --format json`，读取持久 Profile 摘要里的 `profile.type`。`profile show/list/keys list` 可能在线同步并回写 Key，不能作为普通 Billing 准入；字段缺失时如实说明未知，不自动切 Profile、Key、default 或收费路径
 2. **定模态**:用户点名模型/模态 → 只查该模态;没点名 → 全模态都覆盖
 3. **按 (type × modality) 路由**(`①→②` = 先套餐账单、再 endpoint 账单;单格 = 只查 endpoint 账单):
 

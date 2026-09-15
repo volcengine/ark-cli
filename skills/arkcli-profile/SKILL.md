@@ -1,6 +1,6 @@
 ---
 name: arkcli-profile
-version: 1.1.3
+version: 1.1.4
 description: "arkcli profile 切面管理：列出、查看、新建、切换、删除、重命名 profile；管理 profile 内 API Key 列表；管理五类 profile 的默认资源与持久身份切面。也负责判断 Token 额度包/资源包应继续使用 platform profile 与 `/api/v3`，不能因「套餐」或价格字样误判为 Agent Plan/Coding Plan。临时 API Key/Base URL/Endpoint 调用不写回 profile，按 arkcli-shared 的 execution-context 契约执行。旧 config 子命令已 deprecated。"
 metadata:
   requires:
@@ -13,13 +13,14 @@ metadata:
 **CRITICAL — 开始前 MUST 先用 Read 工具读取 [`../arkcli-shared/SKILL.md`](../arkcli-shared/SKILL.md)，其中包含认证闸门、配置排查与命令选择顺序**
 
 **CRITICAL — 一旦确定走 `profile create`、`profile delete` 或 `profile project`（重选 project 会重命名/重派生 platform profile），必须先复述对 `config.yaml` 的影响并征得用户确认；其他写操作（`use` / `set-default` / `keys use` / `keys refresh` / `models refresh` / `rename`）执行前也要复述目标 profile 名。**
-**CRITICAL — `profile` 是本地身份切面管理，全域不注册 `--dry-run`；用 `show/list` 检查并通过明确确认保护写操作。**
+**CRITICAL — `profile` 是本地身份切面管理，全域不注册 `--dry-run`。`profile show/list/keys list` 会做 best-effort 在线 Key 同步，可能回写本地 Key 库存或默认 Key；只在用户显式要求 Profile 管理时使用，并先说明该影响。其他写操作仍通过明确确认保护。**
 
 ## 使用原则
 
 - profile 是 0.1.16 引入的 **统一身份切面**，把 `(type × region × project × owner_trn × api_keys)` 五个属性绑成一组
 - profile 写操作（create / use / set-default / keys / models / delete / rename）一律走 `arkcli profile <verb>`；旧的 `arkcli config init/list/show/switch/delete` 已 deprecated，不要再引导用户用
-- 只读排障优先 `arkcli profile show` 或 `arkcli profile list`，不要上来就改
+- 普通身份准入使用 `arkcli auth status` / `arkcli auth whoami`，默认资源与路由检查使用 `arkcli resources list`；不要为业务准入自动进入 Profile 管理
+- 用户明确要查看或管理 Profile 时才运行 `profile show/list/keys list`，执行前先说明它们可能在线同步并回写 Key；脱敏 stdout 不代表本地配置无副作用
 - ProfileType 五种：`platform` / `agent-plan` / `agent-plan-team` / `coding-plan` / `coding-plan-team`；其 text/image/video 所需的数据面、凭证与资源不同
 - 用户只想临时传 API Key / Base URL / Endpoint 时，不要创建、切换或修改 profile；先读 [`../arkcli-shared/references/execution-context.md`](../arkcli-shared/references/execution-context.md)
 
@@ -68,8 +69,8 @@ Agent 行为约定：
 
 ## Agent 快速执行顺序
 
-1. 不确定当前 active profile → `arkcli profile show --format json`
-2. 不确定有哪些 profile → `arkcli profile list --format json`
+1. 普通业务只需当前身份/Profile 摘要 → `arkcli auth whoami --format json`；不要调用 Profile 管理命令补齐普通准入
+2. 用户明确要查看 active profile 或本地 Profile 清单 → 先说明 Key 同步/回写影响，再用 `arkcli profile show --format json` 或 `arkcli profile list --format json`
 3. 用户要切默认 profile → 按上面的硬状态机先 `profile list`，精确定位后 `profile use <name>`，再 `profile show`
 4. 用户要新建 profile：先问清楚 type（platform / agent-plan / coding-plan）→ `arkcli profile create --type ... --set-default`
 5. 用户问 default 模型是什么 → plan 类用 `arkcli profile models list`，platform 用 `arkcli profile show` 看 `resources` 字段
@@ -85,7 +86,7 @@ Agent 行为约定：
 - 应沿用 `type=platform` 的 profile，数据面使用 platform `/api/v3`。
 - 价格、「额度包 / 套餐」市场名称、Token 数量都不是 ProfileType 判据；只有明确的 Agent Plan / Coding Plan 订阅或团队席位才使用对应 plan profile。
 - 用户只问「它属于哪类 profile」时直接解释分类，禁止自动执行 `profile create` / `profile use` / `profile set-default`。
-- 用户要实际使用时，先用 `arkcli profile show --format json` 只读核对当前是否为 platform；需要修改时再按本 skill 的写操作确认契约执行。
+- 用户要实际使用时，先用 `arkcli auth whoami --format json` 核对当前持久 Profile 摘要；需要查看 Profile 详情或修改时，再按本 skill 的同步披露与写操作确认契约执行。
 
 ## 命令一览
 

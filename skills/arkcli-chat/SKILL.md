@@ -1,6 +1,6 @@
 ---
 name: arkcli-chat
-version: 1.2.2
+version: 1.2.4
 description: "arkcli +chat：通过数据面 Responses API 快速对话/推理，支持多模态、流式、多轮、临时 API Key/Base URL/Endpoint 执行与无副作用 dry-run。当用户给出 Endpoint 但未说明工作流时，先用 resources resolve 识别候选；已经出现 Responses API capability/access 错误时，只读用 models get 核对精确模型的 api_support，不重试真实调用。有明确产出形态的多模态理解走 arkcli-understand。"
 metadata:
   requires:
@@ -12,6 +12,7 @@ metadata:
 
 **CRITICAL — 开始前 MUST 先用 Read 工具读取 [`../arkcli-shared/SKILL.md`](../arkcli-shared/SKILL.md)，其中包含认证闸门、配置排查与命令选择顺序**
 **CRITICAL — `+chat` 在执行之前，务必先用 Read 工具读取 [`references/arkcli-chat.md`](references/arkcli-chat.md)，禁止直接盲目调用命令。**
+**CRITICAL — 一次用户要求的回答只发起一次真实 `+chat`。首次响应不完整、strict JSON 无效或不符合内容要求时，保留并报告该次失败，不自动重试或用第二次响应替换；本地提取、保存、校验失败也只能修复本地交付。只有用户明确要求新一轮或重新生成时才再次调用。**
 
 ## 核心概念
 
@@ -56,12 +57,22 @@ metadata:
 
 ## Agent 快速执行顺序
 
+先把用户要求记成可验收项：回答任务、指定模型/Profile、输入文件、输出格式、流式/多轮、
+明确的参数值与交付文件。只预览请求时直接走本地 `--dry-run`，不先联网查认证或资源。
+
 1. 用户只给 `ep-...` 且任务不明确 → `arkcli resources resolve <ep-id> --format json`；开放问答/追问才选择 `+chat`。
 2. 用户给了临时 Key/Base URL/Endpoint → 按共享 execution-context 组合规则决定参数，不先切 profile。
 3. 不确定认证状态且没有完整 stateless 上下文时，先看 `arkcli auth status`；未登录/无 API Key 转 [`../arkcli-auth/SKILL.md`](../arkcli-auth/SKILL.md)。
 4. 不确定模型名时，先转 [`../arkcli-models/SKILL.md`](../arkcli-models/SKILL.md)。
-5. **`--model` 必须是 `<name>-<primary_version>` 完整形式**（或 Endpoint ID `ep-xxx`）。`primary_version` 格式不固定：6 位日期、8 位日期、带限定前缀、短数字、甚至空串都有（详见 [`../arkcli-models/SKILL.md`](../arkcli-models/SKILL.md) 链路 0 的完整表格）——**不要用正则自行猜测"看起来是否完整"**。若用户只给了族名或不确定是否完整，先查 `primary_version` 再拼：刚 `models search/list` 过就直接复用返回里的字段，否则 `arkcli models get <name> --transform 'primary_version' | tr -d '"'`（`--transform` 输出带引号，必须剥掉）。跳过会直接 404 `InvalidEndpointOrModel.NotFound`。
+5. 使用本次资源确认的调用 ID，不强制改成版本化名称。用户未指定模型时保留当前 text default 或省略 `--model`；合法套餐别名（如 `ark-code-latest`）不追加版本。用 `resources list --modality text` 核对 default、`invocable`、`required_overrides` 与凭证类型；可见不等于可调用。能力查询的规范 Name/Version 与计费调用 ID 分开，EP 始终保持 EP。只有未解析的模型族名才进一步查询，不凭字符串猜版本。
 6. 需要流式输出时加 `--stream`；需要多模态时加 `--input @<file>`（可多次）。
+7. 查模型实际支持的键、值和输入模态；不要把参数全集当成所有模型的能力。用户明确的 temperature、token 上限、thinking、store=false 等不得省略或换值；未指定时使用兼容默认，不额外开启联网、存储或工具执行。
+8. 发起真实请求前先确定交付路径；要求保存时按 reference 的单次捕获流程，让调用 stdout 直接进入临时响应文件。用首次真实返回验收：普通结果取 `.content`，严格 JSON 检查完整性/Schema；多轮必须引用真实上轮 ID 并保持相同调用上下文。流式保留 NDJSON，确认成功终态后提取正式正文，不能把推理文本或 Agent 自己的回答充当模型产出。保存文件必须与该次正文逐字一致；任何本地失败都不得触发第二次模型请求。
+
+认证准入只陈述已验证的事实：本地登录、Key 清单 Active 或资源可见均不能单独证明当前数据面请求可用。
+实际调用报 401 时核对当前 lane 凭证，403/access 错误按下文只读核对能力和权限；
+429 要区分限流与 quota exhausted。提醒可用候选，但不自动轮转 Key、切 Profile/收费路径或修改默认。
+stored response 不存在/过期时准确报告，不能悄悄去掉 previous-response-id 重新对话后声称上下文接续成功。
 
 ## 常见降级
 

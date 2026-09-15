@@ -6,20 +6,18 @@
 
 ## 命令
 
-> **⚠️ `--model` 必须是 `<name>-<primary_version>` 完整形式（如 `doubao-seed-1-6-251015`、`qwen3-14b-20250429`）或 Endpoint ID（`ep-xxx`）。直接传族名（如 `doubao-seed-1-8`、`glm-5-1`）会 404 `InvalidEndpointOrModel.NotFound`。**
->
-> `primary_version` 格式不固定——常见 6 位 `251015`，也可能是 8 位 `20250429`、带前缀 `preview-260215`、短数字 `2507`、甚至空串（此时 full ID 就是族名本身）。约半数模型非 6 位，详见 [`../../arkcli-models/SKILL.md`](../../arkcli-models/SKILL.md) 链路 0。**不要自行正则判断"是否像完整 ID"**。
->
-> **调用前补全（必须）：** 若不确定 `--model` 是否已是完整形式，先执行：
->
-> ```bash
-> VER=$(arkcli models get <name> --transform 'primary_version' | tr -d '"')
-> # --transform 输出带 JSON 双引号，必须 tr -d 剥掉；否则 $VER 会是 "251015" 导致拼接错误
-> MODEL=${VER:+<name>-$VER}; MODEL=${MODEL:-<name>}   # VER 空串时退回 <name>
-> arkcli +chat --model "$MODEL" "<prompt>"
-> ```
->
-> 若刚 `models search/list` 过，可直接复用返回里的 `primary_version` 字段，无需再调 `get`。
+`--model` 使用本次 Profile/临时上下文兼容的调用 ID；模型族名、合法套餐别名、版本化 ID 与 EP 不可任意互换。
+用户要用默认模型时，可以省略 `--model` 让 CLI 使用 text default；已确认合法的套餐别名
+（如 `ark-code-latest`）保持原样，不因为 `models get` 返回了规范 Name/Version 就替换。
+仅当用户给的是未解析族名时才查询权威模型详情及可调用资源，不正则猜版本，也不统一追加 primary_version。
+下面是语法示例，不是所有模型都支持的固定组合；执行前按主 Skill 核对参数能力与实际值。
+
+**先安排交付，再发请求：** 用户要求保存结果时，非流式调用先把完整 JSON stdout
+捕获到本次新建的本地文件。成功后，从同一响应提取 `.content`、`.id`、`.usage`；
+保存、检查格式、核对正文都在本地完成，不为这些步骤再次运行已经成功的 `+chat`。
+下面的示例是不同任务的选项，不是为了取得多个字段逐条重跑的步骤。
+结构化正文的捕获/保存示例见 [text-format.md](text-format.md#保存结构化正文)。
+这不限制用户明确要求的多轮或重新生成；多轮每轮分别保留响应，引用真实上轮 ID。
 
 ```bash
 # 纯文本对话
@@ -75,6 +73,17 @@ arkcli +chat --model ep-... --api-key '<temporary-key>' --dry-run "hello"
   `preview.v1`，但不会读取在线 Endpoint/模型元数据、调用 Responses API、产生
   token 用量或存储 response。在线依赖必须列为 `unresolved`。
 
+用 `summary.would_send` 核对本次参数：采样、token 上限、`store`、工具调用上限、
+`caching`、`thinking`、`expire_at`、`reasoning` 和合法 JSON 的 `text.format`。
+显式 `0` / `false` 不等于省略；未指定的可选参数不要自行补值。旧的
+`prompt` / `inputs` / `text_format` / `reasoning_effort` 别名保留，因此这不是可直接
+发送的 wire JSON，不要把整个 `would_send` 复制为请求体。
+
+预览维持旧准入行为：文件是否存在、strict Schema 是否可编译、非有限采样值是否
+可发送，不由 `validated: true` 证明；不可 JSON 表达的 Schema/采样字段可能不显示。
+真实调用仍按原检查处理。更不能把预览通过当成 Key 有效、套餐额度充足或模型支持
+该组合；这些仍要走在线 resources 准入和实际响应检查。回归场景见 [evals.md](evals.md)。
+
 不要在日志或回复中回显 API Key。示例中的 placeholder 必须由安全变量替换。
 
 ## 参数
@@ -82,7 +91,7 @@ arkcli +chat --model ep-... --api-key '<temporary-key>' --dry-run "hello"
 | 参数 | 必填 | 类型 | 说明 |
 |------|------|------|------|
 | `<prompt>` | 是 | positional | 提示词（位置参数，放在命令最后） |
-| `--model` | 否：可 fallback 到 active profile 的 `Resources.Text.Default` | string | **完整版本化模型 ID**（如 `doubao-seed-1-6-251015`）或推理接入点 ID（如 `ep-xxx`）。仅传族名不稳定，较新模型族会直接报 `InvalidEndpointOrModel.NotFound`。缺省且 profile 未设 default 时，按错误 hint 运行 `resources list` / `profile set-default`。 |
+| `--model` | 否：可 fallback 到 active profile 的 `Resources.Text.Default` | string | 本次上下文允许的模型 ID、合法套餐别名或 `ep-*`；规范能力查询名不替换实际调用 ID。无默认时先 `resources list --modality text`，一次对话不自动修改 default。 |
 | `--input` | 否 | string（可重复） | 文件引用，如 `@photo.jpg`；按扩展名分流到 image/video/audio/file ContentItem。重复传入即多文件 |
 | `--stream` | 否 | bool | 流式输出（两段：`Thinking:` + `Response:`） |
 | `--instructions` | 否 | string | 系统级 instructions，注入到本次 Responses 请求 |
@@ -154,6 +163,9 @@ stream 模式下不输出 JSON，直接打印；结束后换行。
 
 ### 用 jq 解析（常用）
 
+以下是独立调用的语法示例。若已有成功响应文件，把管道左侧替换为该文件输入，
+例如 `jq -r .content response.json`；不要再次请求只为获取另一字段。
+
 ```bash
 # 取助手正文
 arkcli +chat --model <id> "<prompt>" | jq -r .content
@@ -195,7 +207,7 @@ arkcli api arkruntime.create_responses --params '{
 | `ark runtime: API Key is required` | 未配置 API Key | 运行 `arkcli auth apikey` 或设置 `ARK_API_KEY` 环境变量 |
 | `Error code: 400 - ... invalid scheme` | 传的 URL 后端不认（例如 `file://` 未被 SDK 上传成功） | 检查文件大小/权限；加 `--debug` 看 SDK 上传链路 |
 | `Error code: 400 - ... model not found` | `--model` 名字或 endpoint ID 错误 | 用 `arkcli models search` / `arkcli infer endpoint list` 核对 |
-| `Error code: 404 - InvalidEndpointOrModel.NotFound` | `--model` 传的是模型族名（如 `doubao-seed-1-8`、`glm-5-1`），该族未注册族名别名 | 用 `arkcli models get <name> --transform 'primary_version'` 拿版本号，拼成 `<name>-<primary_version>` 再传 |
+| `Error code: 404 - InvalidEndpointOrModel.NotFound` | 不存在、不可见或与当前数据面不兼容；不能仅凭 404 认定缺版本 | 在同一 Profile/凭证下用 resources 和 models 核对，不自动追加版本、切计费路径或重开对话 |
 
 ## `arkcli api` 直接调用（raw）
 

@@ -2,7 +2,15 @@
 
 > **0.1.16 起 profile 写操作迁移到 `arkcli profile` 子树**：`config list/show/switch/delete` 已 deprecated（仍可用，0.2.x 删除）。本文档保留旧命令与新命令的对照，方便 Agent 在排障老脚本时识别。
 
-## 推荐用法（新）
+## 常规准入与 Profile 管理的边界
+
+普通 CLI 只查当前身份/Profile 时，用 `arkcli auth status --format json`、`arkcli auth whoami --format json`；默认模型和路由看 `arkcli resources list --modality <text|image|video> --format json`。先遵守 shared 的宿主认证边界；禁止额外认证探测的宿主不能照搬这些认证命令。
+
+`profile show/list/keys list` 会尝试同步远端 Key，可能回写本地库存、清空失效 Key 或改选默认 Key。它们的脱敏输出不代表无配置副作用。用户只要求 Chat/Gen 准入、或明确“不改配置/Key”时，不执行它们，也不以旧 `config show/list` 代替；缺失信息如实报告未知。
+
+## 显式 Profile 管理用法
+
+以下 show/list 只用于用户明确要求的 Profile 详情、清单或管理任务，并先说明上述同步影响；切换、删除、重置仍需明确授权。
 
 ```bash
 # 列出所有 profile（含 type/region/project/owner_trn 切面）

@@ -48,7 +48,7 @@
 |---|---|
 | 什么都不传 | 使用 active/显式 `--profile` 的完整上下文与 default 资源 |
 | 只给模型名 | 按所选 profile 的 lane 执行；模型名不能代替 platform Endpoint |
-| 只给 Endpoint | 需要 paygo 凭证。当前 profile 兼容则使用；否则只可从同 identity 的 profile 中选择唯一兼容项 |
+| 只给 Endpoint | 需要 paygo 凭证。当前/显式 profile 兼容才可使用；否则在请求前拒绝，要求用户显式选择兼容 `--profile` 或提供 `--api-key` |
 | 只给 API Key + 模型名 | 只有该 Key 能唯一匹配本地某个 profile 时才能推导 lane；否则报歧义，要求补 Base URL/Endpoint 或选 profile |
 | Endpoint + API Key | 从 Endpoint 权威元数据读取 region，派生 platform Base URL；本次为 stateless，profile 不参与连接 |
 | Endpoint + API Key + Base URL | 三者共同构成 stateless 调用；profile 不参与连接 |
@@ -57,10 +57,9 @@
 
 额外约束：
 
-- 显式 `--profile X` 是硬约束。若 X 的凭证不兼容 Endpoint，不得静默借用其他
-  profile；应要求用户提供 `--api-key` 或选择正确 profile。
-- 未显式选择 profile 时，如果同 identity 下恰好只有一个兼容的 Platform 或
-  Coding Plan 个人版 profile，可只借用它的连接信息；有多个候选必须报歧义。
+- Profile 是凭证与收费路径的硬边界，包括 active/default profile。若当前 profile
+  的凭证不兼容 Endpoint，不得枚举或借用 sibling profile；必须在真实请求前要求
+  用户显式选择兼容 `--profile` 或提供 `--api-key`。
 - 所有临时覆盖都只作用于当前进程，不修改 active profile、default、API Key
   列表或 `config.yaml`。
 

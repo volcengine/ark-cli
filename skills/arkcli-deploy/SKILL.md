@@ -88,7 +88,7 @@ metadata:
 | 只想发现 / 对比模型，尚无创建 Endpoint 意图 | `arkcli-models` | `arkcli models search <keyword>` 或 `arkcli models list` |
 | 语音模型部署 / TTS 接入点 / ASR Endpoint | `arkcli-models` | `arkcli models search <keyword>`（只做广场发现；当前不支持 Endpoint 创建） |
 | 401 / 鉴权失败 | `arkcli-auth` | `arkcli auth status`，必要时 `arkcli auth login` |
-| profile / region / project 不符预期 | `arkcli-config` | `arkcli profile show --format json` (旧 `arkcli config show` 已 deprecated) |
+| profile / region / project 不符预期 | `arkcli-config` | 身份摘要用 `arkcli auth whoami --format json`；默认资源用 `arkcli resources list --format json`。显式 Profile 管理才使用可能同步 Key 的 `profile show/list` |
 | 脚本化 / CI / 需要精细控制每个参数、跳过护栏 | `arkcli-infer-endpoint` | `arkcli infer endpoint create --model <id> --name <ep>` |
 
 ## 典型链路

@@ -76,7 +76,9 @@ arkcli agent session events send <session-id> --type user.message --text "帮我
 - `events list` 拉历史，支持 `--after/--before` event cursor，`--since/--created-after/--created-before` 时间过滤，`--type` 可重复或逗号分隔。加全局 `--page-all` 后默认 `limit=100`，沿响应 `next_page -> page` 拉取并合并 `data`。
 - `threads list` 同样支持全局 `--page-all` 和 `next_page -> page`；`resources list` 当前没有分页契约，不要伪造 page 参数。
 - `events stream` 输出机器友好的 SSE data / NDJSON 行。
-- `/compact` 验证建议：发送后用 `events list` 或 `+tail` 检查 `agent.thread_context_compacted`。如果只看到对应的 `user.message`、`thread_status_idle`，但没有 compacted 事件，说明 CLI 已正确提交协议，但线上服务端没有实际执行手动压缩，应按服务端能力开关、版本或路由排查；不能把该结果报告为“已压缩”。
+- 已知 session-id 时优先使用主动压缩命令：`arkcli agent session compact <session-id> [--instructions <text|@file>] [--session-thread-id <id>]`。它先确认 Session 为 idle，再发送前端同款 slash envelope，并从发送响应最后一个 event id 之后等待。正常的 `session.thread_status_idle(stop_reason=end_turn)` 与 `session.status_idle(stop_reason=end_turn)` 表示手动 compact 命令执行完成；`agent.thread_context_compacted` 是可选的“实际发生压缩”确认，后端在没有可压缩消息时可能不返回它。失败/终止事件或超时返回非 0。
+- `session compact` 默认 SSE 等待 120 秒，`--poll` 改用 events list 轮询，`--raw`/`--format jsonl` 输出原始事件。`--dry-run` 是零网络 Workflow Client Preview，会展示 idle 预检、XML 转义后的 payload、cursor 等待、双 idle 成功谓词和可选 compacted 确认事件。
+- REPL 的 `/compact <instructions>` 会把整段 instructions XML 转义后传入 `<command-args>`；`/clear` 语义不变。不能只凭 slash message 发送成功报告命令完成，也不能在仅有 idle、没有 `agent.thread_context_compacted` 时声称已确认实际折叠了历史消息。
 - `+tail` 输出人类可读短行，默认归类 `[user]`、`[agent]`、`[thinking]`、`[tool]`、`[tool_result]`、`[model]`、`[status]`、`[action]`、`[error]`、`[outcome]`。机器读取用 `+tail --raw`。
 - `+debug <session-id>` 会在 `event_type_count` 外额外返回 `event_delta_count` 和 `event_delta_by_type`，用于确认服务端是否实际返回增量帧；`recent` 中的增量和最终事件也按同一关联状态聚合展示。
 - `+chat <prompt>` 保留为 Responses API 快速对话，不进入 Managed Agent。
@@ -86,7 +88,7 @@ arkcli agent session events send <session-id> --type user.message --text "帮我
   - TTY 下进入 REPL。
   - 非 TTY stdin 或 `--message` 是 one-shot。
   - `/exit` 退出，`/interrupt` 发 `user.interrupt`。
-  - `/compact` 和 `/clear` 会按前端同样的 slash envelope 发送 `user.message`；这是协议触发入口，不要仅凭发送成功判断后端已完成操作。`/compact` 成功执行时应在事件流中看到 `agent.thread_context_compacted`，并按服务端语义保留摘要；`/clear` 的具体结果以服务端返回事件为准。二者都等待本轮完成后继续 REPL。
+  - `/compact` 和 `/clear` 会按前端同样的 slash envelope 发送 `user.message`；这是协议触发入口，不要仅凭发送成功判断后端已完成操作。手动 `/compact` 以正常 thread idle + session idle 收口；`agent.thread_context_compacted` 仅在服务端实际压缩时提供更强确认，可能因没有可压缩消息而缺失。`/clear` 的具体结果以服务端返回事件为准。二者都等待本轮完成后继续 REPL。
   - `/allow [tool_use_id]`、`/deny [tool_use_id] [reason]` 发送 tool confirmation。
 - 已知 `session-id` 的脚本/非交互场景不要用选择器，改用 `arkcli agent session events send <session-id>`、`arkcli agent session events stream <session-id>` 或 `arkcli +tail <session-id>`。
 - 面向 AI 工具调用的固定收尾顺序。短请求需要 Agent 回复时优先使用下面的单命令路径：
@@ -150,6 +152,8 @@ arkcli agent session events send <session-id> --events '[{"type":"user.message",
 arkcli agent session events send <session-id> --text "看这张图" --image file-xxx --format json
 arkcli agent session events send <session-id> --text "总结这个 PDF" --document @./report.pdf --format json
 arkcli agent session events list <session-id> --limit 20 --format json
+arkcli agent session compact <session-id> --instructions @./compact-instructions.txt --format json
+arkcli agent session compact <session-id> --poll --timeout 180 --raw
 arkcli +new session
 arkcli +tail <session-id> --session-thread-id <thread-id>
 arkcli +new session <agent-id> --environment-id <env-id> --message "帮我分析这个数据" --format json

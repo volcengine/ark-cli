@@ -38,7 +38,7 @@ description: arkcli +chat --text-format 用法 reference, 让模型按指定格�
 ```bash
 arkcli +chat "草莓什么颜色? 用 JSON 回答" --model ep-xxx \
   --text-format json_object
-# {"color":"red"}
+# CLI 返回 JSON 包装；其中 .content 字符串的内容例如 {"color":"red"}
 ```
 
 ### json_schema (强约束 shape)
@@ -57,7 +57,7 @@ JSON
 
 arkcli +chat "草莓什么颜色? 给出颜色名和 hex" --model ep-xxx \
   --text-format json_schema --text-schema schema.json --text-strict
-# {"color":"red","hex":"#FF3333"}
+# CLI 返回 JSON 包装；其中 .content 字符串的内容例如 {"color":"red","hex":"#FF3333"}
 ```
 
 ### 接续多轮 + json_schema
@@ -87,6 +87,34 @@ arkcli +chat "苹果呢? 同样格式" --model ep --store \
 ```
 
 `text_format` 是服务端实际应用的格式, 用 `chat get $RID` 也能查回来 (autotest jsonschema_test 在 chat get 时断言这个字段)。
+
+## 保存结构化正文
+
+`--text-format` 约束模型正文，不会去掉 CLI 的 JSON 包装。用户要 JSON 文件时，
+交付的是 `.content` 的原文，不是整个响应、推理文本或 Agent 重新组织的答案。
+
+执行前确定本次已准入的 `MODEL`、用户的 `PROMPT`、对应的 `schema.json` 和交付路径。
+以下为非流式 strict 示例，假设用户要求保存到新的 `result.json`；文件已存在时先处理
+路径/覆盖意图，不先产生用量。按用户任务补充其他已核对的参数，保留本次 Profile 上下文。
+
+```bash
+test ! -e result.json && test ! -L result.json &&
+chat_response_file="$(mktemp ./arkcli-chat-response.XXXXXX)" &&
+arkcli +chat --model "$MODEL" --format json \
+  --text-format json_schema --text-schema schema.json --text-strict \
+  "$PROMPT" > "$chat_response_file" &&
+(set -C; jq -ej 'select(.status == "completed") | .content | select(type == "string" and length > 0)' \
+  "$chat_response_file" > result.json) &&
+jq empty result.json
+```
+
+这里只有一次模型请求。`jq -j` 原样写出正文、不额外加换行；末行只验证 JSON 语法，
+不重写正文，避免重新序列化改变空白或大整数。局部 `set -C` 拒绝覆盖请求期间新出现的
+目标文件或符号链接，不改变后续 shell 设置。strict 的 Schema/完整性验收仍由 CLI
+负责；任一步失败都不能宣称交付成功。普通文本保存不需要 JSON 语法检查。
+本地提取、路径或写入失败时保留捕获文件并修复本地步骤，不再调用模型来“重新保存”。
+从该文件也可读取 `.id` / `.usage`，不为本地备份额外开启 `--store` 或调用 `chat get`。
+用户明确要求下一轮/重新生成时才安排对应新请求，不把这一保存流程当成多轮限制。
 
 ## 常见错误
 

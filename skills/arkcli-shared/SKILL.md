@@ -1,6 +1,6 @@
 ---
 name: arkcli-shared
-version: 2.2.1
+version: 2.2.2
 description: "arkcli 共享执行协议：首次配置入口、业务命令执行前的认证闸门、命令路由与选择顺序、输出/安全/二次确认规则。深度细节（身份解析、AK-SK 边界、API Key 恢复、实名闸门、profile 默认与漂移、临时数据面执行上下文、版本检查与显式升级、全局 flags、故障分流）按需在 references/ 加载。当用户第一次使用 arkcli、遇到未登录/鉴权失败、询问版本是否最新或要求升级 arkcli、需要判断该走产品命令还是 raw api、或任何 arkcli-* skill 需要公共上下文时触发。"
 metadata:
   requires:
@@ -58,7 +58,7 @@ arkcli <command> ...
 
 ## 统一 CLI 与 Profile
 
-`arkcli` 是唯一的二进制：
+当前 `arkcli` 的产品身份在编译时固定；Profile 只选择该产品内的身份与消耗切面，不能切换产品：
 
 ```bash
 arkcli profile create --type platform --set-default          # 新建火山 profile（旧 config init/switch 已 deprecated）
@@ -66,7 +66,9 @@ arkcli profile use <name>                                    # 切换默认 prof
 ```
 
 
-切换 profile 会联动切换登录身份、API Key、控制面路由等全部上下文。详细命令树看 [`../arkcli-profile/SKILL.md`](../arkcli-profile/SKILL.md)。判断当前租户：`arkcli profile show` 看 `tenant` 字段。
+切换 profile 会联动切换登录身份、API Key、控制面路由等上下文。详细命令树看 [`../arkcli-profile/SKILL.md`](../arkcli-profile/SKILL.md)。不能从 Profile 的名称或 `tenant` 字段推断、切换当前编译产品。
+
+只查当前身份/Profile 时，普通 CLI 使用 `arkcli auth status` / `arkcli auth whoami`；默认模型与路由使用 `arkcli resources list --modality <text|image|video>` 并按 Resources Skill 验证。`profile show/list/keys list` 可能同步远端 Key 并回写本地库存或默认 Key，不能作为常规 Chat/Gen 准入或“不改配置/Key”请求的无副作用查询。显式 Profile 管理任务保留这些命令，但先说明同步影响；不改用 deprecated `config show/list` 绕过限制。此边界同样约束业务 Skill/reference 的旧建议。
 
 ## 命令路由与执行顺序
 
@@ -100,8 +102,8 @@ arkcli profile use <name>                                    # 切换默认 prof
 除 `arkcli auth ...`、`arkcli profile list/show`、`arkcli +connect list`、`arkcli update ...` 外，默认认为业务命令**需要先过认证检查**。不要跳过认证检查就连续重试一串业务命令。
 
 1. 先运行 `arkcli auth status`；已登录就继续目标命令
-2. 未登录 / 凭证失效：按当前 profile 的 `tenant` 选登录命令
-   - **火山**（`tenant=volc` 或未设置）：直接 Bash 执行 `arkcli auth login volc-sso`
+2. 未登录 / 凭证失效：保持当前编译产品，按其认证 Skill 选择登录命令，不靠 Profile 推断或切换产品
+   - **火山**：直接 Bash 执行 `arkcli auth login volc-sso`
    - 执行前一句话告知用户"检测到未登录，正在启动 SSO 登录，请在浏览器完成授权"；Bash 调用设 `timeout=600000`（10 分钟）；成功后立即回到原始任务，不要停在 auth 结果
    - SSO 同时覆盖控制面 BFF 和数据面，所以默认走 SSO；**AK/SK 登录通道 0.1.16 暂关**。CI / agent / 沙箱（非 TTY）走 `arkcli auth login --no-browser` **两段式**：Phase 1 跑它拿 `authorize_pending` JSON 里的 `authorize_url` 转发给用户，待其浏览器授权后回粘 base64 授权码，再跑 `arkcli auth login --no-browser --code <授权码>` 完成（细节见 [`../arkcli-auth/SKILL.md`](../arkcli-auth/SKILL.md)）。**不要**在非 TTY 直接指望它阻塞等粘贴（旧版会 `EOF` 崩）
    - 启动 SSO 失败（无浏览器 / `open` 失败 / 端口占用 / 超时）→ 不原地重试，把 stderr 原样贴回用户、请其手动在终端登录后回来

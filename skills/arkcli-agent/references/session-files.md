@@ -45,18 +45,24 @@ arkcli agent env create \
 
 ### Session overrides
 
+override 模型运行参数前，按[模型参数 metadata](model-config.md)查询目标模型；切换模型需重新查询，不自动注入默认值。
+
 Session 创建可以对已有 Agent / Environment 做一次性配置覆盖。override 内的 `System`、`Tools`、`McpServers`、`Skills`、`Multiagent` 和 Environment `Config` 是服务端定义的替换语义，非 nil 字段不会与基 Agent 自动合并；传数组时要传完整数组。
 
 ```bash
 arkcli agent session create \
   --agent-id agent-xxx \
   --environment-id env-xxx \
-  --agent-overrides '{Type: agent_with_overrides, Tools: [...]}' \
+  --agent-overrides '{model: {id: doubao-seed-2-1-pro-260628, thinking: enabled, reasoning_effort: low, service_tier: auto}, Tools: [...]}' \
   --environment-overrides @./environment-overrides.yaml \
   --format json
 ```
 
 `--agent-overrides` 映射为 `AgentWithOverrides`，`--environment-overrides` 映射为 `Environment`，缺少 override 对象中的 `Id` 时 CLI 会从 `--agent-id` / `--environment-id` 补齐。override 是服务端 one-of 变体，CLI 会在最终请求中移除对应的 `AgentId` / `AgentVersion` 或 `EnvironmentId`，避免同时传两个互斥变体。`arkcli +new session` 和 `arkcli +iterate` 也支持同名参数。需要传自定义 Agent 配置时不要同时使用 `--agent` 和 `--agent-overrides`。
+
+`AgentWithOverrides.Model` 只支持 `Id`、`Speed`、`Thinking`、`ReasoningEffort`、`ServiceTier`。`Id` 可以为当前 Session 切换模型；CLI 会从最终请求中剔除 `Provider`、`Protocol`、`BaseUrl`、`Headers` 及其他未定义的 Model 字段，不会因为这些字段在输入中出现而本地报错，也不要依赖被剔除字段生效。模型参数必须以**切换后的模型** metadata 为准：`Thinking`、`ReasoningEffort` 与 `ServiceTier` 的支持值会随模型变化。Managed Agent 的 `ServiceTier` 产品枚举为 `auto`、`default`、`fast`，没有 `priority`；不要猜测或把其他业务中的 priority 概念映射到这里。`auto` 在服务端回读时可能被解析为实际生效的 `default`，这不等同于字段丢失。拿不到目标模型 metadata 时，省略不确定的运行参数并让服务端使用模型默认值。
+
+上述归一化和 Model 字段过滤同时适用于 `--agent-overrides`、`--agent-overrides @file` 以及通用 `session create --file` 内的 `AgentWithOverrides`。显式空值 `--agent-overrides=` / `--environment-overrides=` 是无效输入，CLI 返回 validation error，不创建 Session。
 
 ### Environment 状态筛选
 

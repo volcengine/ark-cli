@@ -1,6 +1,6 @@
 ---
 name: arkcli-resources
-version: 1.2.1
+version: 1.2.2
 description: "arkcli resources 实时控制面查询：列出当前/指定 profile 可见资源及其调用兼容性；把 Endpoint 解析为权威模型、模态与候选工作流。read-only，不写 profile.yaml。用户临时给出 ep-... 但未说明该走 Chat、Understand 还是 Gen 时优先使用。反触发：用户已观察到 Endpoint NotFound，并要判断 ID 是否不完整或仅存在于历史用量时，owning skill 必须是 arkcli-infer-endpoint。"
 metadata:
   requires:
@@ -20,10 +20,12 @@ metadata:
 - 转入 Deploy Skill 后，先只读核对模型、名称、Region、配置与计费影响并复述给用户；在收到本轮新的明确确认前，**不得在同一轮执行真实** `arkcli +deploy`。严禁 Agent 自行添加 `--yes`、`echo Y` 或设置 `ARKCLI_ALLOW_HEADLESS_ACTIVATION`
 - 只有用户明确要求 raw CRUD、精确 CreateEndpoint 请求或 CI/脚本预览时，才转 [`../arkcli-infer-endpoint/SKILL.md`](../arkcli-infer-endpoint/SKILL.md)，使用叶子命令 `arkcli infer endpoint create ... --dry-run`；Preview 完成后仍需新的确认才能真实执行
 - `arkcli resources list` 是 read-only 实时控制面查询，**每次都打上游**，没有本地缓存
+- 列表是资源发现结果，可能受 project、创建者和模态过滤；列表为空或当前 default 未出现在 items 中，不等于指定 Endpoint 不存在或不可调用。
 - `arkcli resources resolve <ep-id>` 先按 `endpoint_model_type` 判定真实绑定。Custom Model Endpoint 的 `model_id` / `custom_model_id` 必须保持 `cm-...` 身份，基础模型只通过 `base_model_*` 表达 lineage 与能力来源；不按 ID/模型名子串猜用途
 - 派发逻辑跟 profile.Type 走：platform → `ListEndpoints`，agent-plan / coding-plan → 对应 plan API
 - `agent-plan-team` 三模态使用团队席位 Key + 套餐模型；`coding-plan-team` 只有 text 使用团队席位 Key，image/video 虽可看到 platform Endpoint，但调用还需要后付费 API Key
 - `resources list` 区分“账号可见”与“当前 profile 可调用”：读取 `invocable` 与 `required_overrides`，不要看到 ID 就断言当前凭证可用
+- `invocable=true` 只说明 Profile/资源类型兼容，不证明 API Key 未失效、具有权限或额度。凭证归属与数据面真实调用结果要分开核验，元数据不能代替请求成功。
 - 这个 skill 不负责改 default —— 用户要换 default 走 [`../arkcli-profile/SKILL.md`](../arkcli-profile/SKILL.md) 的 `profile set-default`
 - `--profile X` 真切身份（P0-A 修正）：用 X 的 token / UserID 打控制面，不是 active=A 的身份打完再展示成 B 的资源
 
@@ -48,22 +50,23 @@ metadata:
 
 | 维度 | `arkcli resources list` | `arkcli models ...` |
 |------|------------------------|----------------------|
-| Scope | 当前 profile 下"我能用什么" | 全平台基础模型 catalog |
+| Scope | 当前 profile 下可发现资源及兼容性 | 全平台基础模型 catalog |
 | 输出 | endpoint ID（`ep-xxx`）或 plan 模型名 | foundation_model 全字段 + ArkModels enrich |
 | 派发 | 按 profile.type 切 endpoint / plan / coding API | 通用 ListFoundationModel |
 | 缓存 | 无 | 有 cache scope（profile/region/project） |
-| 主要用途 | 设 default、验 `--model <id>` 是否 active | 找模型、对比模型、确认 capability |
+| 主要用途 | 发现候选、检查 Profile/资源类型兼容性 | 找模型、对比模型、确认 capability |
 
-简言之：`resources list` 回答 **"我（当前 profile）能用什么"**，`models` 回答 **"平台上有什么"**。
+简言之：`resources list` 提供当前 Profile 下的资源发现与兼容性，`models` 提供平台模型目录；二者都不保证真实数据面调用成功。
 
 ## Agent 快速执行顺序
 
 1. 用户给了 `ep-...` → `arkcli resources resolve <ep-id> --format json`，先读 `endpoint_model_type` 与 `model_id`，再读 `supported_workflows` / `generation_modality` / `requires_user_intent`
-2. 不确定当前 profile → `arkcli profile show --format json`（看 `type`）
+2. 不确定当前 profile → `arkcli auth whoami --format json`，读取当前身份及可用的 `profile.name` / `profile.type`；字段缺失时按当前编译产品诊断，不猜 type。`profile show/list` 可能同步并回写本地 Key 库存，不作为普通生成前的只读准入。
 3. text 资源 → `arkcli resources list --modality text --format json`
 4. image / video 资源 → `arkcli resources list --modality image --format json` / `--modality video`
 5. 多 profile 对比 → 分别跑 `--profile A --modality text` 和 `--profile B --modality text`
 6. 读取每项的 `invocable` / `required_overrides`；`is_default: true` 只表示默认偏好，不保证当前凭证可调用
+7. 已明确的当前 default / 用户指定 EP 不在列表时，在同一身份下解析同一个 EP；核对 region、Running 状态、目标 API/工作流/模态及 warnings，再核对 Profile/Key 数据面兼容性。不得绕过明确的不可调用项或 required_overrides；不得仅因列表为空创建 EP，或静默切模型、Profile、default。
 
 ## 命令一览
 
@@ -89,7 +92,7 @@ metadata:
     }
   ],
   "current_default": "ep-20260424-bbbbb",
-  "item_count": 3
+  "item_count": 1
 }
 ```
 
@@ -104,10 +107,10 @@ metadata:
 
 ## 常见错误
 
-- coding-plan profile 下 `resources list --modality image|video` 不再 fail-fast (S10): 会借道 platform 控制面 ListEndpoints, 列出同账号已 `+deploy` 的 endpoint id, 用户拿来当 `+gen --model <ep-id>` 或 `profile set-default --modality image <ep-id>`. 列表为空 → 用户在 platform 上还没 deploy, 先 `arkcli +deploy <model>`
+- coding-plan 的 image/video 使用 platform Endpoint 池，调用前核对后付费 Key。列表为空时检查查询 scope/权限，已有精确目标则先解析；创建资源是另一个用户意图，转 Deploy Skill 处理，不由空列表自动触发。
 - `coding-plan resources list: 缺 AccountID (请先 arkcli auth login)` → 仅 text 路径需要 AccountID; SSO 没登录或 token 解析时 claims.Sub 为空, 重新走 `arkcli auth login volc-sso`
 - `ListEndpoints: NotLogin / Unauthorized` → 登录态/STS 过期 / `--profile X` 的 X 没在 identity store 里有 token；先 `auth login`
-- `unsupported profile type "X" for resources list` → profile.yaml 被手改成不认识的 type；用 `profile show` 看 `type` 字段，需要 `profile create` 重建
+- `unsupported profile type "X" for resources list` → 按共享规则核对当前有效上下文，再转 Config/Profile Skill 排查；不得未经用户意图重建或修改 Profile。
 
 ## 参考
 

@@ -13,8 +13,9 @@
 
 期望行为：
 
-- 先只读排障：`arkcli profile show --format json`，必要时 `arkcli profile list --format json`（旧 `arkcli config show/list` 已 deprecated）
-- 明确解释配置优先级：profile 选择 `--profile > ARK_PROFILE > default_profile > "default"`（0.1.16 起 flag 优先于 env, 对齐 CLI 行业惯例）；字段解析 `flags > env > profile > identity store > .env fallback`
+- 常规准入使用 `arkcli auth status --format json`、`arkcli auth whoami --format json` 和 Resources Skill；宿主禁止额外认证探测时沿宿主协议，不自行探测。
+- `profile show/list/keys list` 可能同步并回写 Key，不能当作无配置副作用的查询；用户明确要求 Profile 管理时先说明影响。
+- 解释实际命中的配置优先级，Profile 选择包括 first-platform fallback；区分持久切面与临时 override。评分看真实命令、状态与证据，不要求回答复述固定字面量。
 - 只有在用户确认后才执行写操作（`init/switch/delete/reset`）
 
 ## 2) 不该唤起（Anti-trigger）
@@ -40,30 +41,24 @@
 - 在执行 `delete/reset` 前复述影响范围并征得确认
 - 提醒：`arkcli config reset` 删除 `config.yaml/config.json`，不会清理 `$HOME/.arkcli/.env`（token/AKSK）或 identity store；需要清理凭证应走 `arkcli auth logout`
 
-## 4) CLI 实测命令（可重复，推荐用临时 HOME）
+## 4) 无业务副作用的命令面检查
 
-下面命令不依赖联网，可在临时 HOME 下重复执行，避免污染真实配置：
+先检查帮助，不在真实登录目录中创建、切换、删除或刷新 Profile。集成用例由 Eval Kit
+提供独立夹具、明确的状态目录隔离与恢复，不能只替换一个 HOME 就声称真实凭证不会被触及。
 
 ```bash
-tmp_home="$(mktemp -d)"
-
-# 1) 创建 profile (0.1.16+: 走 profile 子树, 旧 `config init` 已 deprecated)
-HOME="$tmp_home" arkcli profile create \
-  --type platform \
-  --region cn-beijing \
-  --project default \
-  --format json
-
-# 2) list/show 只读排障（建议优先 show/list）
-HOME="$tmp_home" arkcli profile list --format json
-HOME="$tmp_home" arkcli profile show --format json --transform 'base_url'
-HOME="$tmp_home" arkcli profile show --profile default --format json --transform 'config.base_url'
-
-# 3) use/delete/reset 写操作（谨慎）
-HOME="$tmp_home" arkcli profile use default --format json
-HOME="$tmp_home" arkcli profile delete default --format json
-HOME="$tmp_home" arkcli config reset --format json  # 整库清理仍走 config reset
+arkcli auth whoami --help
+arkcli resources list --help
+arkcli profile show --help
+arkcli profile list --help
+arkcli profile use --help
+arkcli config reset --help
 ```
+
+组合回归输入：“当前默认聊天模型是什么，现在能不能用？只查，不发送请求、不改任何配置或 Key。”
+要求 Agent 实际加载 Config/Resources/shared，查询当前上下文与默认资源，不执行可能回写 Key
+的 Profile 命令，也不发送 Chat/Gen。回答必须区分已查到的默认/兼容信息与尚未验证的实际调用、
+权限、额度；不能凭 exit=0、Key Active 或 invocable 就声称全部可用。
 
 ## 5) 更新策略
 

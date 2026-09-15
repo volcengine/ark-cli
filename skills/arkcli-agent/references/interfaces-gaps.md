@@ -3,7 +3,7 @@
 ## 接口链路
 
 - Agent: `CreateAgent` / `GetAgent` / `ListAgents` / `UpdateAgent` / `DeleteAgent` / `ListAgentVersions`
-- Skill: SkillHub `ListMarketSkills` + data-plane `POST /api/v3/skills` for `CreateSkill` + TOP `Get/List/DeleteSkill`、`Create/List/Get/DeleteSkillVersion`
+- Skill: public SkillHub V1 `GET /v1/skills`（CLI 兼容输出名 `ListMarketSkills`）+ data-plane `POST /api/v3/skills` for `CreateSkill` + TOP `Get/List/DeleteSkill`、`Create/List/Get/DeleteSkillVersion`
 - Env: `CreateEnvironment` / `GetEnvironment` / `ListEnvironments` / `UpdateEnvironment` / `DeleteEnvironment`
 - Session: `CreateSession` / `GetSession` / `ListSessions` / `UpdateSession` / `DeleteSession`
 - Session data-plane: `GET/POST /api/v3/sessions/:session_id/resources`, `GET/POST /api/v3/sessions/:session_id/events`, `GET /api/v3/sessions/:session_id/events/stream`, `GET /api/v3/sessions/:session_id/threads`, `GET /api/v3/sessions/:session_id/threads/:thread_id`
@@ -14,11 +14,13 @@
 ## 当前已对齐 / 已有可接受替代
 
 - Agent / Env / Session / Memory / Vault / Credential 主体 CRUD 已有命令面。
+- Memory 条目创建使用 `--path`、`--content`，更新支持修改 Path / Content；创建和更新均不支持 tags。Memory 更新已移除 `--tags`，通过 `--file` / stdin 传入的顶层 Tags（大小写不敏感）会被过滤，不会保存或修改标签。
 - Environment 自定义脚本已支持：`--setup-script` 写入 `Config.SetupScript`，支持 `@file`。
 - Session 创建、`+new session`、`+iterate` 已支持 `AgentWithOverrides` / Environment overrides；对应快捷参数是 `--agent-overrides` 和 `--environment-overrides`，底层仍直联 OpenTOP，不走 BFF。
 - Credential ENV 与 OAuth 换签已支持：ENV 通过 `Auth.Type=environment_variable`、`SecretName`、`SecretValue`、`Networking`，OAuth 换签通过 `Auth.Refresh`；敏感值支持 `@file`。
-- Skill 搜索走 SkillHub `ListMarketSkills`；custom skill 创建 zip 走数据面 `POST /api/v3/skills`，避免 TOP 大小限制；custom Skill 的版本更新、删除、查询和下载走 OpenTOP Skill/SkillVersion actions。
+- Skill 搜索走无需鉴权的 SkillHub V1 `GET /v1/skills`，只映射 `query`、`pageNumber`、`pageSize`、`sourceType` 和 `keywords`；custom skill 创建 zip 走数据面 `POST /api/v3/skills`，避免 TOP 大小限制；custom Skill 的版本更新、删除、查询和下载走 OpenTOP Skill/SkillVersion actions。
 - Files API 已有 `list/get/upload/wait/delete`；`session resources add --path` 可自动 upload -> wait active -> mount。
+- Event send 已支持 `--events` 数组、text/tool confirmation，以及 `--image` / `--document` 多模态便捷参数：file ID 可直接发送，本地路径或 `@file` 会自动上传 Files API、等待 active 后发送。参数互斥与事件格式见 [events-chat.md](events-chat.md)。
 - Session events/list/stream、threads/list/get 走数据面直联，不依赖 ArkBFF。
 - Session 主体列表已对齐 `ListSessionsForTop`：`--agent-id` 发送 `AgentIds`，`--page/--limit` 发送 `PageNumber/PageSize`，`--page-all` 使用页码连续拉取。
 - `+tail` 已有人类可读 pretty 输出；`+new session` 无参数时是 PRD 会话选择器入口，可继续已有 session 或选择 agent/env 起新 session；`+new session <agent-id> --environment-id <env-id>` 固定创建新 session 后 one-shot/stdin/TTY REPL，支持 `/allow`、`/deny`、`/interrupt`。`+chat <prompt>` 保留为 Responses API 快速对话。继续已有 session 也可走 `agent session events send/stream` 或 `+tail`；`+new session`、`+iterate`、`+tail` 的数据面等待由 stream + list 补偿 channel 负责。
@@ -35,7 +37,6 @@
 - `+iterate` 尚未实现 PRD 的 TTY environment/resource 选择器和富 diff；当前省略 environment 时自动选择最近创建项，`--diff` 输出结构化请求预览。
 - Session resources 原生 get/update/delete 未完全暴露；CLI get 由 list 派生，update/delete unsupported。
 - `session resources add` 只封装了 file / local path 体验；`github_repository`、复杂 `memory_store` 等资源只能在 `session create --resource` 或底层 payload 中手写，缺少友好 typed flags 和 add 链路。
-- Event send 已支持 `--events` 数组和基础 text/tool confirmation，但尚未覆盖 PRD 的多模态 `--image @file` / 自动 Files API upload 等便捷参数。
 - `+export` 中 workspace tarball / memory snapshot 暂无可用读取接口，只能在 manifest 中标 unsupported。
 - `arkcli agent +mcp-login` 只对后端 provider 列表中 `CredentialType=mcp_oauth` 的 URL 可靠；static bearer provider 走手动 credential create。Notion / Lark Base 等 provider 仍受后端 metadata discovery 可用性限制。
 - PRD 示例中的 inline/local skill 目录形态未做成直接 `--skill '{type:inline,...}'`；当前推荐路径是本地 zip 用 `agent skill create --zip` 或 `agent agent create --skill-zip` 上传成 custom skill。

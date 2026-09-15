@@ -1,6 +1,6 @@
 ---
 name: arkcli-helper
-version: 1.1.4
+version: 1.1.5
 description: "arkcli helper：为 Claude Code / Codex / OpenCode / OpenClaw / Hermes / ZCode 配置火山方舟 Plan 或 Platform Endpoint 的 model/provider，或给支持的 Agent（含 MCP-only Trae）配置 Harness 工具。真人 TTY 运行 `arkcli helper` 可选择模型和 Harness 能力；`helper mcp` 默认保持整组 Agent Plan MCP 行为，传 `--capability datapro|web-search|agent-memory` 只配单项，传 `--capability cua` 只给目标 Agent 安装云电脑 Skill；连 model/provider 一起配置用 `helper configure`，查状态用 `helper list`，移除用 `helper reset`。Agent Plan / Team 还支持专业数据集、豆包搜索、Agent 记忆、AI Native 应用开发底座、Agent 进化与 routing.v1 强制检索路由；上下文出现 ARKCLI ROUTING ENFORCEMENT / routing.v1，或用户要求在豆包搜索、DataPro、OpenViking、Supabase 之间强制分流时也使用本 Skill：调用这四类受管 Provider 前先提交 Route Plan，再调用唯一授权 Provider；原生 WebSearch/WebFetch/WebExtract 位于路由管理范围之外。Platform 只允许本人创建、Running、已验证为文本输出的 Endpoint，不配置 MCP、Supabase 或强制路由。豆包搜索配置成功后默认关闭目标客户端原生 WebSearch；传 `--keep-native-websearch` 可保留，并可用 `helper reset` 完整恢复 ArkCLI 配置。"
 metadata:
   requires:
@@ -20,6 +20,7 @@ metadata:
 
 ## 命令选择（先选最具体的子命令）
 
+- 普通 Helper 准入从 `arkcli helper list` 和用户指定的目标开始；不要为补齐上下文自动执行 `profile show/list/keys list`。这些 Profile 命令可能在线同步并回写 Key，只有用户显式要求 Profile 管理时才进入，并先说明影响。
 - 用户要查看或配置 Agent 的 model/provider、Plan、Platform Endpoint，或核对 `--with-mcp` / `--with-supabase` / `--with-routing` 等非交互选项时，必须选择 `arkcli helper configure`；只查看用法也要运行 `arkcli helper configure --help`，不能退化成父级 `arkcli helper --help`。
 - 用户只要 Harness 工具、不改 model/provider 时，选择 `arkcli helper mcp [target]`。不传 `--capability` 配整组 Agent Plan MCP；只要专业数据集、豆包搜索或 Agent 记忆时分别传 `--capability datapro|web-search|agent-memory`；只要云电脑时传 `--capability cua`。选择豆包搜索后默认关闭目标客户端的原生 `WebSearch/web_search`，用户要求保留时加 `--keep-native-websearch`。发生关闭时立即输出作用域、配置文件和完整 reset 命令。只查看用法时运行 `arkcli helper mcp --help`。
 - `arkcli-auth` 只处理实际认证阻塞。用户仅要求查看 helper 的 `--help` 时，不要转去登录、`init-volc` 或其他认证命令。
