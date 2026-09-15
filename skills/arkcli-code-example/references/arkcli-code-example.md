@@ -112,6 +112,21 @@ arkcli +code-example \
 - 示例只覆盖 API Key 鉴权方式（`Authorization: Bearer $ARK_API_KEY`）
 - 语音模型广场可搜不等于有示例代码；遇到 `ModelVersion required` 或 no group 之类响应时，不要引导用户为 TTS / ASR 猜版本号，应说明当前不支持
 
+## 内置模板资产
+
+`assets/demo-code/` 内置了一组可直接运行的模板样例（随 Skill 一起分发给 Agent）：
+
+| 文件 | 语言 | 说明 |
+|------|------|------|
+| `python.py` | Python | OpenAI 兼容 `chat.completions`（`openai` SDK） |
+| `go/main.go` | Go | Responses API（`volcengine-go-sdk` arkruntime） |
+
+约定：
+
+- 模板统一使用**带版本号的合并 ID**（如 `doubao-seed-2-0-pro-260215` = 模型名 + PrimaryVersion）；版本号用 `arkcli models get <name> --format json` 查询 `PrimaryVersion` 后拼合，不要把裸家族名当可运行 model
+- API Key 一律用 `$ARK_API_KEY` 环境变量占位，不要把真实 Key 写进模板或生成结果
+- `ark-examples/` 只是 `+code-example` / `+deploy` 的**本地输出目录**（已在 `.gitignore` 中），不是模板存放位置，不要把里面的产物提交进仓库
+
 ## 常见问题
 
 | 现象 | 常见原因 | 处理方式 |

@@ -7,6 +7,14 @@
 参数预览。传入该 flag 应直接报 unknown flag，不能静默忽略，也不能
 输出虚假成功。
 
+## 三方渠道订单首用签署
+
+抖店/移动商城等三方渠道购买的个人版 plan，在 `arkcli helper` / `helper configure`
+配置前会被数据协议签署闸门拦截——TTY 下走一屏式交互签署（数字键打开协议 · Space 勾选 · Enter 继续 · Esc 退出），
+非 TTY 硬拒 `plan_agreement_required`（`--yes` 不放行，逃生 env
+`ARKCLI_ALLOW_HEADLESS_PLAN_AGREEMENT=1`）。详见
+[`../../arkcli-plans/references/arkcli-plans-agreement-signing.md`](../../arkcli-plans/references/arkcli-plans-agreement-signing.md)。
+
 执行 `configure/reset/mcp/supabase` 前，Agent 必须展示准确 target、
 profile、scope 与文件落点并取得确认；只能用 `helper list` 做只读检查。
 不要生成 `arkcli --dry-run helper ...` 或

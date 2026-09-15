@@ -1,6 +1,6 @@
 ---
 name: arkcli-train-finetune
-description: 使用 ArkCLI 创建、查询和管理模型精调训练任务，并从训练指标选择最佳 step、导出训练产物为 custom model、衔接模型仓库与推理部署。任何包含精调任务 ID（`mcj-*`）的查询、查不到原因诊断、日志、trajectory、状态或生命周期操作都应使用本 skill；也适用于选择训练方法、查询精调价格和超参数、创建任务及导出部署。本 skill 不负责数据集管理。
+description: 使用 ArkCLI 创建、查询和管理模型精调训练任务，并从训练指标选择最佳 step、导出训练产物为 custom model、衔接模型仓库与推理部署。任何包含精调任务 ID（`mcj-*`）的查询、查不到原因诊断、日志、trajectory、状态或生命周期操作都应使用本 skill；也适用于选择训练方法、查询精调价格和超参数、校验精调训练/验证数据、创建任务及导出部署。本 skill 不负责独立 Dataset 生命周期管理；精调工作流中的数据校验和 Dataset 引用仍由本 skill 编排。
 ---
 
 # ArkCLI 精调训练
@@ -9,11 +9,12 @@ description: 使用 ArkCLI 创建、查询和管理模型精调训练任务，�
 
 ## 适用场景与能力边界
 
-- 创建精调任务：读取 [`references/create.md`](references/create.md)
+- 校验训练/验证数据、创建精调任务：读取 [`references/create.md`](references/create.md)
 - 列出或筛选任务：读取 [`references/list.md`](references/list.md)
 - 查询、观察或操作一个指定任务：读取 [`references/manage.md`](references/manage.md)
 - 根据指标选择 step、导出产物并部署：读取 [`references/export-deploy.md`](references/export-deploy.md)
-- 不直接管理数据集，但可以使用本地文件、TOS URL、`ds-*/dsv-*` 引用和模型支持的 preset；需要创建或维护 Dataset 时转 [`../arkcli-datasets/SKILL.md`](../arkcli-datasets/SKILL.md)。
+- 精调任务创建或预检所需的本地/TOS 训练、验证数据校验留在本 skill，直接调用 `arkcli dataset validate`；不要因为命令路径属于 `dataset` 就切换 skill。
+- 独立 Dataset 的创建、查询、更新、删除、版本、下载，或不涉及精调任务的独立数据校验，转 [`../arkcli-datasets/SKILL.md`](../arkcli-datasets/SKILL.md)。创建精调任务时可以直接消费本地文件、TOS URL、`ds-*/dsv-*` 引用和模型支持的 preset。
 - 普通训练 Dataset 默认使用 `--train-dataset`（`Multiplier=1`）；需要重复引用、倍率或采样数时改用可重复的 `--train-path`。每项最多设置 `multiplier` 或 `sample_count` 之一，均不设置时仍默认 `Multiplier=1`。preset 必须在 `inject_multiplier` 与 `inject_sample_count` 中二选一。
 - 训练产物的指标分析和 artifact export 由本 skill 编排；custom model 详情、可部署版本准备和 Endpoint 创建必须按模型仓库及部署 skill 执行。
 - 不把 Raw API 或精调 SDK 当默认入口。
@@ -22,7 +23,6 @@ description: 使用 ArkCLI 创建、查询和管理模型精调训练任务，�
 
 ## 反唤起信号
 
-- 只管理数据集而不涉及精调任务 → 使用数据集能力，不要加载本 skill。
 - 只查询公共基础模型目录 → 使用 [`../arkcli-models/SKILL.md`](../arkcli-models/SKILL.md)。
 - 只管理已有推理 Endpoint → 使用 [`../arkcli-infer-endpoint/SKILL.md`](../arkcli-infer-endpoint/SKILL.md)。
 - 纯登录或 profile/config 排障 → 分别使用 [`../arkcli-auth/SKILL.md`](../arkcli-auth/SKILL.md) 或 [`../arkcli-config/SKILL.md`](../arkcli-config/SKILL.md)。
@@ -51,10 +51,7 @@ description: 使用 ArkCLI 创建、查询和管理模型精调训练任务，�
 
 关键命令执行前或执行报错，使用当前安装版本的 `--help` 和 ArkCLI 查询命令获取实时结果。若 CLI 输出与本文命令骨架不一致，以当前 CLI 为准。
 
-数据格式以火山方舟[模型精调数据集格式说明](https://www.volcengine.com/docs/82379/1099461?lang=zh)为主要依据，并使用模型感知的服务端校验确认。不在 reference 中维护容易过期格式说明及样例。
-
-
-
+训练和验证数据优先通过 `arkcli dataset validate` 按目标模型、精确版本和训练类型完成服务端校验，具体流程见 [`references/create.md`](references/create.md#3-获取并校验训练数据)。不默认由 Agent 对照文档逐行检查或自写校验器。火山方舟[模型精调数据集格式说明](https://www.volcengine.com/docs/82379/1099461?lang=zh)仅用于解释校验错误、辅助修复或说明命令未覆盖的格式；文档比对不能替代命令的校验结果。不在 reference 中维护容易过期的格式说明及样例。
 
 ## 默认训练类型、训练方法与部署限制
 

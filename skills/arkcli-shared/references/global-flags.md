@@ -20,6 +20,14 @@
 叶子命令的 `--help` 为准。支持时只在客户端生成 `preview.v1`，不联网、不写文件、
 不启动子进程；不支持时传入该 flag 会明确报错，禁止静默忽略。
 
+## Volc 方舟体验入口
+
+`arkcli exp` 是给人类终端使用的 Volc 方舟体验入口，不是全局 flag。已安装时直接
+启动 `arkexp`；未安装时不再询问，直接从官方 CDN 安装，提示可用
+`arkcli exp uninstall` 卸载后立即启动。交互终端显示安装动画，CI、管道和重定向
+环境降级为静态进度提示。调用可能触发本地安装，AI Agent 只有在用户明确要求打开
+方舟体验时才能执行；卸载必须有用户明确意图。其他产品构建不提供该命令。
+
 ## 解析与组合规则
 
 - Profile：`--profile` > `ARK_PROFILE` > `default_profile` > 第一个 platform profile > `"default"`。

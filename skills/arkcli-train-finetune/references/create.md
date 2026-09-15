@@ -99,7 +99,7 @@ arkcli train finetune create --help
 
 ## 3. 获取并校验训练数据
 
-本 skill 不创建或管理平台 Dataset；需要时先转 [`../../arkcli-datasets/SKILL.md`](../../arkcli-datasets/SKILL.md)。创建任务可接受：
+本 skill 不创建或维护平台 Dataset；只有独立 Dataset 生命周期操作或不涉及精调任务的独立校验才转 [`../../arkcli-datasets/SKILL.md`](../../arkcli-datasets/SKILL.md)。精调任务创建或预检所需的本地/TOS 数据校验继续留在本流程，直接使用下方 `arkcli dataset validate`。创建任务可接受：
 
 - 本地训练文件
 - 已上传的 TOS URL
@@ -123,38 +123,34 @@ CLI 会根据精确模型版本和训练类型检查 Dataset schema，并拒绝�
 
 用户未提供数据时，请其提供训练集文件或现有数据引用。
 
-### `dataset_schema` 映射
+### 使用 CLI 校验数据
 
-先从 `arkcli models finetune-config <model> <version> --type <type>` 读取 `dataset_schema`，再按下表理解它对应的数据集格式。
+本 skill 内直接使用 `arkcli dataset validate` 校验本地文件或 TOS 数据，无需为此创建 Dataset 或切换到数据集管理流程。先确认模型、精确版本及实际训练 `--type`，与后续创建保持一致；查看当前命令支持的参数：
 
-火山方舟的字段细节、样例和限制以公开[模型精调数据集格式说明](https://www.volcengine.com/docs/82379/1099461?lang=zh)为准。
+```bash
+arkcli dataset validate --help
 
+# 本地 JSONL；多个文件重复 --local
+arkcli dataset validate --model <model> --model-version <version> --type <type> \
+  --local <train.jsonl>
 
-| `dataset_schema`      | 数据集格式               |
-| --------------------- | ------------------- |
-| `PromptResponse`      | SFT，文本生成模型          |
-| `ImageRecognitionSFT` | SFT，多模态模型；兼容文本生成模型  |
-| `ImageGenerationSFT`  | SFT，图片生成模型          |
-| `VideoGenerationSFT`  | SFT，视频生成模型          |
-| `TextDPO`             | DPO，文本生成模型          |
-| `ImageRecognitionDPO` | DPO，多模态模型；兼容文本生成模型  |
-| `TextRL`              | 强化学习，文本生成模型         |
-| `ImageRecognitionRL`  | 强化学习，多模态模型；兼容文本生成模型 |
-| `Text`                | 继续预训练，多模态模型、文本生成模型  |
+# 已有 TOS 数据；多个 URI 重复 --tos-uri
+arkcli dataset validate --model <model> --model-version <version> --type <type> \
+  --tos-uri tos://<bucket>/<path>
+```
 
-若 finetune-config 未返回 `dataset_schema`，不要猜测；直接使用 `dataset validate` 或请用户确认数据格式。
+- CLI 自动读取模型配置中的 `dataset_schema`，无需 Agent 先查格式文档、维护静态 schema 映射或自写校验器。训练集和显式验证集都要覆盖；可按数据集分别执行，便于归属结果。
+- `--local` 与 `--tos-uri` 二选一。本地文件会上传并触发服务端校验，不是离线检查；执行前按主 skill 的上传确认规则处理。已有上传授权时不重复询问。
+- TOS URI 必须可列举且包含 `.jsonl` 对象；同一次调用的多个 URI 必须属于同一 bucket，不能使用 `ds-ds/*` 上传暂存路径。以当前 `--help` 为准。
+- 当前命令不直接接收 `ds-*/dsv-*`、preset 或 `--model-id`。已有 Dataset/preset 继续走创建流程的 schema/能力检查；需要内容校验时使用可确认来源的本地文件或受支持 TOS URI。自定义模型续训不能猜测基础模型映射，未确认校验上下文时说明能力缺口。
 
-### 本地离线检查
+### 校验结果与失败处理
 
-火山方舟本地文件先依据公开[模型精调数据集格式说明](https://www.volcengine.com/docs/82379/1099461?lang=zh)检查：
+以 CLI 返回的服务端校验任务结果为准，汇总实际校验的数据来源、模型/版本/训练类型、成功或失败状态，以及返回的错误摘要、行号或统计信息；未返回的字段不补造，不输出完整样本。
 
-
-- 文件可读、编码正确、大小合理
-- JSONL 每个非空行都是一个 JSON object
-- 样本数和无效行数
-- 文档要求的字段、类型和内容结构
-
-使用结构化 JSON 解析器，不用正则表达式验证 JSON。报告准确样本数和失败行号；不要把本地检查描述为平台权威校验。
+- 所有目标数据校验成功后，才报告数据校验通过。`--dry-run` 只预览执行计划，不访问网络、不上传、不做真实校验；参数解析成功或 `create --estimate` 成功也不能替代数据校验结果。
+- 校验失败时，根据返回的错误定位；需要理解字段要求或修复数据时，再读取火山方舟[模型精调数据集格式说明](https://www.volcengine.com/docs/82379/1099461?lang=zh)对应章节。修复后对相同模型配置重新执行 `dataset validate`。
+- 命令不可用、鉴权/网络失败、模型未提供 schema 或校验未完成时，明确“未完成校验”及原因，不将基础检查、文档比对或用户确认格式当作校验通过。只请求补充缺失信息，不自动安装/升级 CLI 或提交训练。
 
 Token 数处理：
 
@@ -195,7 +191,7 @@ Token 数处理：
 - job 名称、模型、版本、训练方法
 - 若采用默认：说明“未指定训练类型和训练方法，默认 SFT + LoRA”
 - 若采用全量训练：再次提示“当前 ArkCLI 还不支持对全量训练产物进行部署，训练完成后的部署需要到控制台完成”
-- 训练和验证数据来源
+- 训练和验证数据来源、`dataset validate` 的实际结果及未覆盖项
 - 自定义超参、推荐超参及其余参数采用默认值的说明
 - 服务端统计的样本或 token 信息
 - 计价单位、单价和预估费用
@@ -208,8 +204,7 @@ Token 数处理：
 - 认证通过后生成并在本次创建流程中复用 `ARKCLI_SKILL_FLOW_ID=ftf_<ULID>`。
 - 按 shared 单命令前缀，在第一条创建业务命令前执行
   `arkcli train finetune _report-activity --action create_flow_enter`。
-- 仅在机器可验证的数据校验成功后执行 `--action data_validation_success`；普通参数解析
-  和 Client Preview `--dry-run` 不上报。
+- 仅在 `dataset validate` 或其他明确的服务端数据校验覆盖本次目标数据并成功后执行 `--action data_validation_success`；普通参数解析、文档比对、Client Preview `--dry-run` 和仅有 Token/费用估算结果均不上报。
 
 把完整预览呈现给用户，明确询问是否创建。只有用户确认后，才执行真实创建命令；非交互执行按 CLI 要求添加 `--yes`。
 

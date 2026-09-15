@@ -15,7 +15,7 @@ metadata:
 **CRITICAL — `auth` 是身份/TTY 工作流，全域不注册 `--dry-run`；不要生成该 flag。**
 
 **⚠️ 0.1.16 变化总览（必读）**：
-1. SSO 登录引入 **Gate 1+2**：浏览器流后比对 SSO trn 与 `is_default profile.OwnerTrn`，4-case 分别走 `BuildFirstProfile` (新建) / `GUIDE_SKIP` (复用) / 提示切 default / 提示新建。详见 `docs/volc-sso.md`。
+1. SSO 登录引入 **Gate 1+2**：浏览器流后比对 SSO trn 与 `is_default profile.OwnerTrn`，4-case 分别走 `BuildFirstProfile` (新建) / `GUIDE_SKIP` (复用) / 提示切 default / 提示新建。详见 `docs/runtime/volc-sso.md`。
 2. **AK/SK 登录通道暂关**：`auth login --access-key / --secret-key` 已注释,promptui 也移除"AK/SK"选项；SSO（火山）+ `arkcli auth login --no-browser`（**根命令 flag, 不是 volc-sso 子命令 flag**）是唯一登录入口。
 3. **auth status / auth whoami 输出新增 profile 切面字段**：`active_profile.{name,type,region,project,owner_trn}` 和 `profiles_summary[...]`；顶层 `auth_method/logged_in/volc_sso/ark_api_key` 等老字段全部保留（向后兼容）。
 4. **Profile 管理迁移到 `arkcli profile`**：`config init/list/show/switch/delete` 已 deprecated，详见 [`../arkcli-config/SKILL.md`](../arkcli-config/SKILL.md)。

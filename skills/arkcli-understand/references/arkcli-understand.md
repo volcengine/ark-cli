@@ -2,6 +2,8 @@
 
 > **前置条件：** 先阅读 [`../../arkcli-shared/SKILL.md`](../../arkcli-shared/SKILL.md)（认证、API Key 错误恢复、全局参数、安全规则）与 [`sub-skills.md`](sub-skills.md)（12 个 sub-skill 的用途与期望输出形态）。
 
+> **三方渠道订单首用签署：** 抖店/移动商城等三方渠道购买的个人版 plan，首次使用前（含本命令）会被数据协议签署闸门拦截——TTY 下走一屏式交互签署（数字键打开协议 · Space 勾选 · Enter 继续 · Esc 退出），非 TTY 硬拒 `plan_agreement_required`（`--yes` 不放行，逃生 env `ARKCLI_ALLOW_HEADLESS_PLAN_AGREEMENT=1`）。详见 [`../../arkcli-plans/references/arkcli-plans-agreement-signing.md`](../../arkcli-plans/references/arkcli-plans-agreement-signing.md)。
+
 `+understand` 是数据面 Responses API（`POST /responses`）之上的「1 引擎 + 语义层」多模态理解工作流。它和 `+chat` 共用同一个 `CreateResponses` 引擎；每个 sub-skill 预置专家 system prompt 和 Plan Profile 使用的 fallback 模型。Platform Profile 省略 `--model` 时改用当前 Profile 的 `Resources.Text.Default` Endpoint。
 
 ## 命令形态

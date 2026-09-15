@@ -2,6 +2,8 @@
 
 > **前置条件：** 先阅读 [`../arkcli-shared/SKILL.md`](../../arkcli-shared/SKILL.md) 了解认证、全局参数和安全规则。
 
+> **三方渠道订单首用签署：** 抖店/移动商城等三方渠道购买的个人版 plan，首次使用前（含本命令）会被数据协议签署闸门拦截——TTY 下走一屏式交互签署（数字键打开协议 · Space 勾选 · Enter 继续 · Esc 退出），非 TTY 硬拒 `plan_agreement_required`（`--yes` 不放行，逃生 env `ARKCLI_ALLOW_HEADLESS_PLAN_AGREEMENT=1`）。详见 [`../../arkcli-plans/references/arkcli-plans-agreement-signing.md`](../../arkcli-plans/references/arkcli-plans-agreement-signing.md)。
+
 通过数据面 Responses API（`POST /responses`）的高层封装。一条命令即返回助手回复，支持多模态、推理、流式、多轮。
 
 ## 命令

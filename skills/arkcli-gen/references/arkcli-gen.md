@@ -2,6 +2,8 @@
 
 > **前置条件：** 先阅读 [`../arkcli-shared/SKILL.md`](../../arkcli-shared/SKILL.md) 了解认证、全局参数和安全规则。
 
+> **三方渠道订单首用签署：** 抖店/移动商城等三方渠道购买的个人版 plan，首次使用前（含本命令）会被数据协议签署闸门拦截——TTY 下走一屏式交互签署（数字键打开协议 · Space 勾选 · Enter 继续 · Esc 退出），非 TTY 硬拒 `plan_agreement_required`（`--yes` 不放行，逃生 env `ARKCLI_ALLOW_HEADLESS_PLAN_AGREEMENT=1`）。详见 [`../../arkcli-plans/references/arkcli-plans-agreement-signing.md`](../../arkcli-plans/references/arkcli-plans-agreement-signing.md)。
+
 图片/视频生成的执行层文档（`+gen` 全参数）。**这是三步工作流的第 3 步**；完整工作流（① `resources list` 查 profile 资源或 `resources resolve` 解析显式 Endpoint → ② 模型名用 `models get` 查 supported_params → ③ `+gen` 生成）见 [`../SKILL.md`](../SKILL.md)。
 
 > **⚠️ 视频任务默认异步**：提交即返回 `task_id`（`status: queued`），用 `arkcli gen get <task_id>` 轮询；要同步阻塞加 `--wait`。图片任务同步返回。

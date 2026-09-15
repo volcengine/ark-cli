@@ -93,6 +93,8 @@ metadata:
 - 用户问 "Agent Plan / Coding Plan 支持什么模型"：`arkcli plans model-list --plan <plan>`
 - 用户要 "切换 ark-code-latest 底层模型 / 改成 Auto 智能调度 / 锁定某个模型"：`arkcli plans model-apply --plan <plan> --model <model-id|output-name|auto>`（**写操作**，与控制台联动；可选项先 `plans model-list` 确认）
 - 用户要 "买 / 续 套餐"：先看 [references/arkcli-plans-buy.md](references/arkcli-plans-buy.md) / [renew.md](references/arkcli-plans-renew.md)，**严格要求显式 `--plan`、`--type`、`--duration`、团队版还要 `--quantity`**，不要替用户做选择
+- 使用 plan 时被拦 `plan_agreement_required`（三方渠道订单首用签署）：见 [references/arkcli-plans-agreement-signing.md](references/arkcli-plans-agreement-signing.md)；**禁止**擅自设 `ARKCLI_ALLOW_HEADLESS_PLAN_AGREEMENT` 替用户签署，引导用户在交互式终端完成签署
+- 使用 plan 时返回 `plan_agreement_status_unavailable`：签署状态尚未确认，检查网络与登录状态后重试；`--yes` 和 `ARKCLI_ALLOW_HEADLESS_PLAN_AGREEMENT` 都不能绕过该错误
 - 用户要 "重置 / 轮换 APIKey"：分清个人版还是企业版，参考对应 reference；**写操作，原 APIKey 立即失效**，必须按 reference 走二次确认（除非用户明确要 `--yes` 跳过）
 - 用户要 "**查席位 / 看团队 seat 绑定情况 / 谁绑了哪个 seat / 列出席位 / 哪些席位激活了 / 团队席位 admin 视图**" → `plans team seat-list --plan <agent-plan-team|coding-plan-team>`(**这是 seat 管理的默认入口**,管理视角列基础信息 + 绑定关系,**不带用量数字**;要看每个 seat 用了多少 token / 套餐百分比 → `arkcli usage seats --with-usage`)
 - 用户要 "把席位分配给员工 / 给员工分配 seat / 解绑席位"→ `plans team seat-assign`,先准备好 `seat-id=user-id` 配对清单

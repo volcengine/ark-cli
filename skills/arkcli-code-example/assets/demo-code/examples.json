@@ -4,5 +4,11 @@
     "task_type": "chat",
     "auth_method": "apiKey",
     "file_path": "python.py"
+  },
+  {
+    "language": "go",
+    "task_type": "chat",
+    "auth_method": "apiKey",
+    "file_path": "go/main.go"
   }
 ]
