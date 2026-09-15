@@ -1,6 +1,6 @@
 ---
 name: arkcli-train-finetune
-description: 使用 ArkCLI 创建、查询和管理模型精调训练任务，并从训练指标选择最佳 step、导出训练产物为 custom model、衔接模型仓库与推理部署。任何包含精调任务 ID（`mcj-*`）的查询、查不到原因诊断、日志、trajectory、状态或生命周期操作都应使用本 skill；也适用于选择训练方法、查询精调价格和超参数、校验精调训练/验证数据、创建任务及导出部署。本 skill 不负责独立 Dataset 生命周期管理；精调工作流中的数据校验和 Dataset 引用仍由本 skill 编排。
+description: 使用 ArkCLI 创建、查询和管理模型精调训练任务，并从训练指标选择最佳 step、导出训练产物为 custom model、衔接模型仓库与推理部署。任何包含精调任务 ID（`mcj-*`）的查询、查不到原因诊断、日志、trajectory、状态或生命周期操作都应使用本 skill；也适用于选择训练方法、查询精调价格和超参数、校验精调训练/验证数据、匹配精调资源组、创建任务及导出部署。本 skill 不负责独立 Dataset 生命周期管理；精调工作流中的数据校验和 Dataset 引用仍由本 skill 编排。
 ---
 
 # ArkCLI 精调训练
@@ -86,6 +86,7 @@ description: 使用 ArkCLI 创建、查询和管理模型精调训练任务，�
 - 手动分页时，`train finetune list --page-number` 必须 `>=1`，`--page-size` 必须在 `1-100`；第 2 页及以后超出当前过滤条件对应的 `total_count` 时是参数错误，不要把空页当成有效结果。
 - 同时传入 `train finetune metrics --from-step` 和 `--to-step` 时，`to-step` 必须严格大于 `from-step`；非法区间应在查询指标名称或曲线前停止。
 - `train finetune pricing --billing-method token` 按 Token 计费项查询；`instance` 必须提供精确的 `--model-version` 和 `--type`，并保持超参与后续创建一致。实例结果只有 `price_complete=true` 才能作为完整小时价范围；否则必须报告 `missing_flavor_ids`。
+- 使用稳定资源组前，必须用与 create 完全相同的模型、版本、训练类型和超参数执行 `train finetune resource-group list`。只有 `allowed=true` 且 `matched=true` 的资源组 ID 才能传给 `create --resource-group`；ID 是不透明字符串，必须按查询结果原样传入；有多个匹配项时让用户选择。
 
 ## 守卫与通用执行规则
 

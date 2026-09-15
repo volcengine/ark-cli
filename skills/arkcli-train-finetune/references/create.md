@@ -12,6 +12,7 @@
 | `arkcli models versions <model>`       | 找基础模型下的模型版本（是否支持精调的信息仅供参考） | 无                                                       |
 | `arkcli train finetune capability get` | 查某模型版本支持的训练方法（以此为准）        | `--model`、`--version`                                   |
 | `arkcli train finetune pricing`        | 按 Token 或实例计费查询训练价格          | `--model`、`--model-version`、`--type`、`--billing-method` |
+| `arkcli train finetune resource-group list` | 查询资源组权限、任务资源需求和匹配结果 | `--model`、`--model-version`、`--type`、`--only-matched` |
 | `arkcli infer endpoint capability get` | 查询基础模型（model+version）、自定义模型（custom-model-id）支持的推理部署方式             | `--model`、`--version` 、`--model-id` |
 
 这些命令的 flags 会随 CLI 演进；常规场景可直接按本 reference 使用，遇到报错或不确定再查 `--help`
@@ -95,6 +96,7 @@ arkcli train finetune create --help
 | `--save-model-limit`                                         | 保留训练产物数量                                                     |
 | `--enable-trajectory`                                        | RL 轨迹日志；需要任务和项目配置支持                                          |
 | `--pipeline`                                                 | RL pipeline 配置文件；若需要 Python plugin 且 CLI 不能表达，按“ArkCLI 能力回退”处理 |
+| `--resource-group`                                           | `resource-group list` 返回的稳定资源组 ID；按不透明字符串原样传入，CLI 会在 estimate 和真实提交前重新校验权限、任务资源需求与可用性 |
 | `--yes`                                                      | 跳过 CLI 确认；Agent 只能在用户二次确认/明确表示直接创建后添加                        |
 
 ## 3. 获取并校验训练数据
@@ -178,7 +180,36 @@ Token 数处理：
 - `save_model_limit` 决定保留多少个训练产物；默认值和上限以当前 CLI/API 为准。
 - 数据容错和 shuffle seed 属于数据配置，不是模型超参；预览时和超参分开展示。
 
-## 5. 创建预览 校验配置、数据、Token与费用
+## 5. 查询并选择稳定资源组（按需）
+
+用户要求使用资源组时，先用与后续创建完全一致的模型、训练类型和超参数查询：
+
+```bash
+arkcli train finetune resource-group list \
+  --model <model> --model-version <version> --type <type> \
+  --hyperparameters '<same-json-as-create>' --only-matched
+```
+
+基于已有自定义模型继续训练时改用 `--model-id <cm-id>`，不要同时传
+`--model/--model-version`。查询结果的解释规则：
+
+- `allowed=false` 表示当前账号或项目未开通精调资源组能力；不要给 create 添加
+  `--resource-group`。
+- `candidate_templates` 是按精确模型、版本、训练类型和超参数解析出的任务资源需求；
+  不要根据资源组名称或总容量自行猜测需求。
+- 只有 `items[].matched=true` 的资源组才能用于当前任务。未匹配项的
+  `unmatch_reasons` 是权威原因；不要绕过或静默忽略。
+- 多个资源组匹配时，展示名称、ID、命中模板和容量摘要，让用户选择；不要擅自选择。
+- 选择后在 estimate 和真实创建命令中都传入 `--resource-group <resource-group-id>`。CLI 会在两次
+  执行前重新查询权限、候选模板和可用性，并在资源组不再匹配时 fail-fast。
+- 如果指定资源组不存在或不匹配，错误会给出权威的不匹配原因，并列出当前任务所有
+  `matched=true` 的资源组名称和 ID；没有可用项时会明确显示“无”。
+
+`resource-group list` 是在线只读预检，不是 Client Preview；不要给它添加
+`--dry-run`。资源组查询与 create 的超参数必须完全一致，包括 `--epochs`、`--lr`、
+`--lora-rank`、`--beta` 等快捷覆盖值。
+
+## 6. 创建预览 校验配置、数据、Token与费用
 
 | 命令                             | 何时用     | 常用参数                   |
 | :----------------------------- | :------ | :--------------------- |
@@ -195,11 +226,12 @@ Token 数处理：
 - 自定义超参、推荐超参及其余参数采用默认值的说明
 - 服务端统计的样本或 token 信息
 - 计价单位、单价和预估费用
+- 使用资源组时：资源组名称、ID、命中的候选资源模板和预检结果
 - 数据容错、随机种子、产物数量等非默认配置
 
 如果 estimate 没有返回某个字段，明确说明“未提供”，不要自行补造。
 
-## 6. 最终确认并创建
+## 7. 最终确认并创建
 
 - 认证通过后生成并在本次创建流程中复用 `ARKCLI_SKILL_FLOW_ID=ftf_<ULID>`。
 - 按 shared 单命令前缀，在第一条创建业务命令前执行
@@ -213,6 +245,7 @@ Token 数处理：
 - job id、名称和初始阶段
 - 模型、版本、训练方法
 - 关键数据与超参数摘要
+- 使用资源组时返回已选择的资源组 ID，并说明提交前预检已通过
 - 控制台 URL（若 CLI 返回）
 - 后续查询命令，例如 `arkcli train finetune get <job-id>` 或 `watch <job-id>`
 

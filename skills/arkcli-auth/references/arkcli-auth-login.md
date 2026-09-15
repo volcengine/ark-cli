@@ -1,5 +1,7 @@
 # auth login
 
+当前版本仅开放原生 SSO 登录（浏览器 / 无浏览器两段式）。Broker 登录入口暂不开放，不使用 `--login-mode`、`--credential-store` 或 `--broker-ppe-env`。
+
 ## 推荐顺序
 
 交互式（推荐）：
@@ -16,7 +18,7 @@ arkcli auth login --no-browser                                  # 火山 SSO 无
 arkcli auth login --no-browser --code <授权码>                  # 无浏览器 Phase 2 (agent/沙箱喂码完成登录)
 ```
 
-> **0.1.16 暂关 AK/SK 登录通道**：`--access-key/--secret-key` flag 已注释、交互菜单也移除了 "AK/SK" 选项。CI / 自动化 / agent / 沙箱场景请改用 `arkcli auth login --no-browser`（见下方「无浏览器两段式」）。**注意 `--no-browser` / `--code` 是 `auth login` 根命令的本地 flag, 不是 `volc-sso` 子命令的 flag；写成 `auth login volc-sso --no-browser` 会触发 `unknown flag --no-browser`。** AK/SK 通道恢复将在后续版本同步更新本文档。
+> **0.1.16 暂关 AK/SK 登录通道**：`--access-key/--secret-key` flag 已注释、交互菜单也移除了 "AK/SK" 选项。CI / 自动化 / agent / 沙箱场景请改用 `arkcli auth login --no-browser`（见下方「无浏览器两段式」）。**`--no-browser` / `--code` 由 `auth login` 注册并可被 `volc-sso` 继承；也支持 `auth login volc-sso --no-browser`。** AK/SK 通道恢复将在后续版本同步更新本文档。
 
 ## 无浏览器两段式跨进程 flow（agent / 沙箱 / CI 必读）
 
