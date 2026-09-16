@@ -79,19 +79,21 @@ error: arkruntime.create_responses: Error code: 403 - {"code":"AccessDenied","me
 1. **自动同步后端 key**：当 key 来源是 profile.yaml（没被 env/flag 覆盖，见下方 caveat），agent 可**自动执行一次** `arkcli profile keys refresh` —— 以后端为 SSOT 把当前 profile 的 key 池拉新，并自动把失效的 default 校正到有效 key（详见 [`../../arkcli-profile/references/arkcli-profile-keys.md`](../../arkcli-profile/references/arkcli-profile-keys.md)）。refresh 是幂等、低风险的同步，只改当前 profile 的 `available_api_keys` / `default_api_key`，**允许 agent 自动跑**，不必先问用户。
 2. **重试原命令一次**。成功 → 自愈完成，回原始任务，不要停在 refresh 结果上。
 3. 仍失败，或 `keys refresh` 自身报控制面鉴权失败（= SSO / 身份过期，不是 key 同步问题）→ 引导 `arkcli auth login volc-sso` 重登。
-4. refresh 后 key 池有多把、但默认那把不对 → `arkcli profile keys use <序号>`；或 `arkcli auth apikey`（交互列出该账号所有 key 让用户选并持久化到 `~/.arkcli/.env`，必须用户亲自执行，agent 不要非交互执行）。
+4. refresh 后 key 池有多把、但默认那把不对 → `arkcli profile keys use <序号>`。只有 `platform` / `coding-plan` 个人版使用普通 API Key 池时，才可以让用户亲自执行 `arkcli auth apikey` 交互选择；该命令不会读取或修复 Agent Plan 专属 Key，也不会读取团队席位 Key，不能把它的 `saved=true` 当成 Plan Key 已恢复。
 
 **⚠️ 自愈前必看的 caveat：**
 
 - **env/flag 覆盖**：若当前 key 来自 `ARK_API_KEY` 环境变量或 `--api-key` flag（优先级高于 profile.yaml），refresh 写 profile.yaml **不生效** —— 先让用户去掉覆盖，再 refresh。
 - **refresh ≠ rotate**：refresh 是把「已被改的」key 同步下来；主动「换一把新 key / 废弃泄露的 key」是 `arkcli plans personal|team rotate-apikey`（见 [`../SKILL.md`](../SKILL.md)）。别拿 refresh 当换 key 用。
+- **空结果不覆盖本地**：远端返回零把可用 Key 时，`profile keys refresh` 必须报错并保留当前 `available_api_keys` / `default_api_key`；不能把一次空响应当作成功同步并清空本地配置。
 - **单 profile 范围**：refresh 只治当前 / `--profile` 那条；多 profile 共用被轮换的 key 时逐个刷。
 
 **边界场景：**
 
-- **用户一个 API Key 都没有** → `arkcli auth apikey` 列表为空 / refresh 池为空 → 引导去 console 创建：`https://console.volcengine.com/ark/region:ark+<region>/apiKey`（`<region>` 跟随当前生效 region，例如 `cn-beijing`）；创建完回来 `arkcli auth apikey` 选刚创建的那把。
+- **`platform` / `coding-plan` 个人版的普通池为空** → 真人 TTY 的 SSO 登录会询问是否创建一把全资源 Key；也可以显式运行 `arkcli auth apikey create`。TTY 必须确认；非交互环境收到 `requires_confirmation` 后必须走共享 Skill 的宿主确认流程。两条路径都只创建一次、最多读 3 次状态，并且不输出明文 Key。控制台手动入口仍为 `https://console.volcengine.com/ark/region:ark+<region>/apiKey`；手动创建后再运行 `arkcli auth apikey` 或 `profile keys refresh`。
+- **Agent Plan 个人版没有 Active 专属 Key** → 这是 `ListApiKeys(Filter.Scene="RealAgentPlanPersonal")` 所在的专属池问题，与普通池无关。专属记录存在但状态非 Active（如 `Restricted`）时，真人 TTY 登录可在明确提示旧 Key 会立即失效后，询问是否只轮转一次并最多读 3 次状态；无专属记录、用户拒绝或非 TTY 时不轮转。手动处理入口是 `https://ark.volcengine.com/region:<region>/subscription/agent-plan`，不要指向普通 API Key 页面或 `auth apikey`。
+- **团队版没有可用 Key** → Key 来自 `GetSeatInfo.Result.ApiKey`，要求存在 Running 席位；这是席位/套餐问题，不属于普通 API Key 池，也不能用 `auth apikey` 修复。转 [`../../arkcli-plans/SKILL.md`](../../arkcli-plans/SKILL.md) 的团队版流程。
 - **用户已有 API Key 但持续报 `AccessDenied` 类权限错误** → 当前这把 key 缺目标资源（模型 / endpoint）访问权限；**refresh / 重选都救不了**（同账号同权限，照样被拒）。引导去 console 给当前 key 加权限，或新建一把带正确权限的 key，再回来 `arkcli auth apikey` 切过去。
-- **team 档 `keys refresh` 报「无 Running 席位」** → 是席位 / 套餐问题，不是 key 同步 → 转 [`../../arkcli-plans/SKILL.md`](../../arkcli-plans/SKILL.md)。
 
 ### 与控制面的区分
 

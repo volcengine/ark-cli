@@ -37,6 +37,7 @@
 - 强制路由最终确认必须发生在能力配置后；零 Provider 不得安装空 allowlist Gate。
 - Route Plan 必须先于受管业务 Provider，使用本轮真实 `turn_id`；禁止四类受管 Provider 跨 Provider fallback 与先调用后补计划。原生 WebSearch/WebFetch/WebExtract 可直接调用，不得为它们单独提交 Route Plan。
 - 豆包搜索配置态必须同时验证 MCP 真实 Key、`byted-web-search` 安装态和 Skill 根目录 `.env` 的 `WEB_SEARCH_API_KEY`；只安装 Skill 不得显示“已配置”。配置时 Helper 自动注入同一把 Plan Key，不得修改第三方 Skill 源码、打印 Key 或要求 Agent 手工传 Key。仅允许“业务请求发出前的本地失败”切到同 Provider MCP 一次。
+- Agent Plan Key 不得从普通池兜底。个人版专属记录非 Active 时，只有真人 TTY 明确确认后才可轮转一次并最多读 3 次；无记录、拒绝或非 TTY 时零写入，且不得引导 `auth apikey`。
 - TTY 豆包搜索 Skill 下载可按 `Ctrl+C` 跳过；必须只取消当前下载，保留搜索 MCP，不写 Skill 凭证、不修改原生 WebSearch，并继续后续已勾选能力。
 - 团队普通成员只能操作当前席位；管理员同时有席位时默认当前席位，企业账号范围必须显式选择。
 
@@ -75,11 +76,12 @@ arkcli helper configure pi --profile <plan-profile> --model <model-id>
 | `helper-pi-configure` | 给 Pi 配上我的 Coding Plan 模型。 | 使用 `arkcli helper configure pi --profile <plan-profile> [--model <model-id>]`；先展示目标 profile/model 与落点 `~/.pi/agent/models.json`、`settings.json` 并确认；不启动 TTY，不加 `--dry-run`。 |
 | `helper-pi-mcp-unsupported` | 顺便给 Pi 装个 MCP / 豆包搜索。 | 说明 Pi 只支持 model/provider、没有 MCP 宿主；不得生成 `helper mcp pi` 或 `--with-mcp`，也不伪造 MCP。 |
 | `helper-zcode-output-limit` | ZCode 用 Coding Plan 的 glm-5.2 报 `InvalidParameter` 400，配置里 output 是 131072。 | 说明 ArkModels 二进制近似值与网关十进制上限的差异；升级后重新执行 `helper configure zcode`，完全退出 ZCode 主进程、重新打开并新建会话，期望 `limit.output=128000`；不得把 `limit.context` 同步改小或硬编码模型名。 |
-| `helper-capability-cua-only` | 模型保持 GPT，只给 Codex 安装 Agent Plan 的 CUA。 | 使用 `arkcli helper mcp codex --capability cua`；说明仅个人版 Large/Max，只安装 `byted-util-ark-cua` 给 Codex，不改模型、不扫描其他 Agent。 |
+| `helper-capability-cua-only` | 模型保持 GPT，只给 Codex 安装 Agent Plan 的 CUA。 | 使用 `arkcli helper mcp codex --capability cua`；说明仅个人版 Medium/Large/Max，只安装 `byted-util-ark-cua` 给 Codex，不改模型、不扫描其他 Agent。 |
 | `helper-matrix-two-state-planes` | 套餐抵扣开了，为什么配置状态还是未配置？ | 解释抵扣来自服务端权益，本地配置来自所选 Agent 的 MCP/Skill/CLI；二者独立，不把任一状态推导成另一状态。 |
 | `helper-matrix-three-state-checkbox` | 已经配置过专业数据集，还能重新配吗？Arkclaw 能选吗？ | 全部可配置能力默认 `[✓]` 并会重配；可取消为 `[ ]`；Arkclaw 等仅远端能力显示 `[-]` 且不可选择。 |
 | `helper-matrix-zero-selection` | 一项都不选就进入配置。 | 阻止进入并提示至少选择一项；允许显式“跳过能力配置”。 |
 | `helper-web-search-install-skip` | 豆包搜索 Skill 下载太慢，我在 Spinner 上按 Ctrl+C。 | 立即终止当前 Skill 下载；保留已注入的搜索 MCP，跳过 Skill 凭证与原生 WebSearch 选择，不显示豆包搜索配置完成，并继续 Agent 记忆等后续已勾选能力。 |
+| `helper-agent-plan-restricted-key` | Helper 选了 Agent Plan，但专属 Key 状态是 Restricted；普通 API Key 页面里明明有 Key。 | 解释普通池与 Agent Plan 专属池无关。真人 TTY 可在说明旧 Key 立即失效后询问是否轮转；确认后只写一次、最多读 3 次，Active 即停。拒绝/非 TTY 不写；仍失败指向 Agent Plan 使用配置页，不运行或推荐 `auth apikey`。 |
 | `helper-matrix-unknown-harness` | 服务端新加了一个 Harness，但 arkcli 不认识。 | 说明仍显示为仅远端能力，可查看权益；不按名称猜本地适配器。 |
 | `helper-overdraft-confirm` | 直接帮我打开超额后付费。 | 不自动执行；要求真人进入详情、阅读服务端链接/确认文案并明确确认，默认取消；不得用 `--dry-run` 绕过。 |
 | `helper-team-scope` | 我是团队管理员，也有自己的席位，矩阵默认改哪个？ | 默认当前席位；企业账号总闸需显式切到企业账号范围。 |

@@ -75,7 +75,7 @@ Agent 行为约定：
 4. 用户要新建 profile：先问清楚 type（platform / agent-plan / coding-plan）→ `arkcli profile create --type ... --set-default`
 5. 用户问 default 模型是什么 → plan 类用 `arkcli profile models list`，platform 用 `arkcli profile show` 看 `resources` 字段
 6. 用户要换 default 资源 → 按上面的硬状态机取真实候选、消歧、`profile set-default`，再只读核验
-7. 用户的 default API Key 报错 / key 列表过期 → `arkcli profile keys refresh`，然后 `arkcli profile keys list --format json` 看新清单
+7. 用户的 default API Key 报错 / key 列表过期 → `arkcli profile keys refresh`，然后 `arkcli profile keys list --format json` 看新清单。refresh 按 profile 类型取对应池：普通池、Agent Plan 个人版专属池或团队席位 Key；空结果会报错并保留本地 Key，不会成功清空。
 8. 用户要选别的 key 作 default → `arkcli profile keys use <api-key>`（必须 ∈ `profile.available_api_keys`）
 9. 用户要换 active project（不重登）→ `arkcli profile project`（无参拉真实 ListProjects 交互选；先复述「会把 platform profile 重命名/重派生到新 project，个人版 plan profile 保留」并确认）
 
@@ -101,7 +101,7 @@ Agent 行为约定：
 | `arkcli profile project [<name>]` | 重选 active project（无参拉真实 ListProjects 交互选，列表置顶「账号全部资源」=不传 ProjectName/account-wide）；把 platform profile 重派生到新 project，个人版 plan profile 原样保留；不重登 | 0.1.17 新增 |
 | `arkcli profile keys list` | 列 default + available API Keys（masked） | 0.1.16 新增 |
 | `arkcli profile keys use <key>` | 切 default API Key（key 必须 ∈ available list） | 0.1.16 新增 |
-| `arkcli profile keys refresh` | 重拉控制面 ListApiKeys，更新 available list | 0.1.16 新增 |
+| `arkcli profile keys refresh` | 按 profile 类型重拉普通池 / Agent Plan 专属池 / 团队席位 Key，非空时更新 available list | 0.1.16 新增 |
 | `arkcli profile models list` | plan 类 profile 的 PlanTier + Resources defaults | 0.1.16 新增 |
 | `arkcli profile models refresh` | 重拉 ListAgentPlanLatestModel，更新 Text.Default | 0.1.16 新增 |
 | `arkcli profile set-default --modality <m> <id>` | 设某 modality 的 default 资源 ID | 0.1.16 新增 |
@@ -140,6 +140,8 @@ Agent 行为约定：
 - `models refresh: profile %q type=%q (仅 agent-plan 支持)` → 不是 agent-plan profile，先 `profile use <agent-plan-profile>` 或切对 `--profile`
 - S10 之后, coding-plan profile 下 `profile set-default --modality image|video <ep>` 不再 fail-fast: verify 会借道 platform 控制面 ListEndpoints 校验 ep-id 是否存在
 - `keys refresh: fetch api keys: NotLogin` → 控制面鉴权失败 (如登录态/STS 过期)；fetcher 会用 `.env` 缓存单 key 兜底，profile.available_api_keys 仅含 1 项，恢复后再 refresh
+- `keys refresh` 报没有可用 Key → 先按 profile type 判断：`platform` / `coding-plan` 个人版去普通 API Key 管理页；`agent-plan` 个人版去 Agent Plan 使用配置页检查专属 Key；团队版检查 Running 席位。不得把所有类型都引向普通 API Key 页面。
+- `arkcli auth apikey` 只操作普通 API Key 池；它返回 `saved=true` 也不表示 Agent Plan 专属 Key 或团队席位 Key 已恢复。
 - 切账号后 keys / models refresh 行为奇怪 → 检查 `arkcli auth whoami`，可能 active profile 仍绑旧 identity；P0-D 之后 STS / token 都在 per-identity store，但 active profile.identity_key 是 yaml 字段，跨账号要么 `profile use <new>`，要么走 SSO Gate 2 自动新建
 
 ## deprecated 命令自然语言重定向表

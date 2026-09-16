@@ -2,10 +2,10 @@
 
 > **前置**：先读 [`../SKILL.md`](../SKILL.md)。
 
-`profile keys` 是 0.1.16 引入的 API Key 管理子树，跟 `arkcli auth apikey`（交互式选 key）**不是同一个东西**：
+`profile keys` 是 0.1.16 引入的 API Key 管理子树，跟 `arkcli auth apikey`（只交互选择普通池 Key）**不是同一个东西**：
 
 - `profile keys list/use/refresh` 操作的是 **profile.yaml 里的 available_api_keys 列表 + default_api_key 选择**
-- `arkcli auth apikey` 操作的是 **`.env` 里的 `VOLCENGINE_ARK_API_KEY`（identity-level 凭证）**
+- `arkcli auth apikey` 操作的是 **普通 API Key 池**，并写入 `.env` 的 `VOLCENGINE_ARK_API_KEY`（identity-level 兼容凭证）；它不读取或修复 Agent Plan 专属 Key，也不读取团队席位 Key
 
 ## 命令模板
 
@@ -17,7 +17,7 @@ arkcli profile keys list --profile platform_cn-beijing_default --format json
 # 切 default key（必须 ∈ available list）
 arkcli profile keys use 392xxxxdab0
 
-# 重拉控制面 ListApiKeys → 更新 available list（写 profile.yaml）
+# 按 profile 类型重拉对应 Key 来源 → 更新 available list（写 profile.yaml）
 arkcli profile keys refresh
 arkcli profile keys refresh --profile platform_cn-beijing_default
 ```
@@ -27,11 +27,18 @@ arkcli profile keys refresh --profile platform_cn-beijing_default
 1. **用 target profile 的身份打控制面**（codex P0-A 修正）
    - `--profile X` 时内部 `Factory.RebuildForProfile(X)` 重建 invoker
    - 不会再用 active=A 的 token 打控制面后写到 B
-2. **用 `FetchActiveRaw` 拿 full plaintext**（codex P1-B 修正）
-   - `apikeyservice.List` 返回的 `Items[].Key` 是 mask 字符串（`392****dab0`）
+2. **按 profile 类型选择 Key 来源，禁止串池**
+   - `platform` / `coding-plan` 个人版：普通 `ListApiKeys` → `GetRawApiKey`
+   - `agent-plan` 个人版：`ListApiKeys(Filter.Scene="RealAgentPlanPersonal")` → `GetRawApiKey`
+   - `agent-plan-team` / `coding-plan-team`：`GetSeatInfo.Result.ApiKey`，要求 Running 席位
+3. **List 返回 mask，profile 必须落 full plaintext**（codex P1-B 修正）
+   - `ListApiKeys` 返回的 `Items[].Key` 是 mask 字符串（`392****dab0`）
    - 直接写到 `available_api_keys` 会让数据面 SDK 拿 mask 当 Bearer → server 报 `API key format is incorrect`
-   - `FetchActiveRaw` 内部 List + 对每个 active item 调 `GetRawApiKey` 拿真 UUID
-3. **graceful fallback**：控制面拉 key 失败 (登录态/STS 过期、上游临时不可用) → 用 `.env` 缓存单 key 兜底
+   - 普通池和 Agent Plan 个人版池都要对 Active item 调 `GetRawApiKey` 拿真实 Key
+4. **空结果 fail closed**
+   - 对应来源返回零把可用 Key 时，refresh 报类型专属错误，并保留已有 `available_api_keys` / `default_api_key`
+   - 不得把空结果当成功同步，更不能清空本地 Key
+5. **graceful fallback**：控制面拉 key 失败 (登录态/STS 过期、上游临时不可用) → 用 `.env` 缓存单 key 兜底
    - stderr 打 warn：`控制面拉 API Key 列表失败 (NotLogin), 用 .env 缓存单 key 兜底`
    - `profile.available_api_keys` 仅含 1 项，恢复后再 refresh
 
@@ -47,9 +54,11 @@ refresh 本质是「**以后端为 SSOT、单向把当前 profile 的 key 同步
 | key 来自 `ARK_API_KEY` env / `--api-key` flag | ❌ 不能（覆盖优先级高于 profile.yaml，refresh 写盘不生效） | 先去掉覆盖，再 refresh |
 | `AccessDenied` 针对某资源（key 缺权限） | ❌ 不能（同账号同权限，refresh 后还是同样被拒） | console 给 key 加权限 / 建带权限新 key |
 | SSO / 身份过期（refresh 自己的控制面调用也 401） | ❌ 不能 | `arkcli auth login volc-sso` 重登 |
+| Agent Plan 个人版专属记录非 Active（如 `Restricted`） | ❌ refresh 只读，不主动轮转 | TTY 登录/Helper 可在确认后轮转一次并最多读 3 次；或去 Agent Plan 使用配置页手动更新 |
+| 对应来源返回零把可用 Key | ❌ 不能；命令报错且保留本地 Key | 按 profile 类型去普通 Key 页面、Agent Plan 使用配置页或团队席位页处理 |
 | team 档无 Running 席位 | ❌ 不能（refresh 直接报错） | 查席位 / 套餐（`arkcli-plans`） |
 
-**refresh ≠ rotate**：refresh 同步「已被改的」key；主动「换一把 / 废弃泄露的 key」走 `arkcli plans personal|team rotate-apikey`。**单 profile 范围**：只治当前 / `--profile` 那条，不影响其它 profile。
+**refresh ≠ rotate**：refresh 同步「已被改的」key，本身不会触发轮转；主动「换一把 / 废弃泄露的 key」走 `arkcli plans personal|team rotate-apikey`。Agent Plan 个人版的交互式登录/Helper 只在专属记录存在但非 Active 时提供一次经确认的恢复轮转，并最多读 3 次状态。**单 profile 范围**：只治当前 / `--profile` 那条，不影响其它 profile。
 
 ## 输出形态
 

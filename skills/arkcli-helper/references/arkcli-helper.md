@@ -48,7 +48,7 @@ arkcli helper mcp [target] [--capability <datapro|web-search|agent-memory|cua>] 
 | `datapro` | 个人版 / 团队版 | 只注入 `dataPro-search`；不查 OpenViking，不安装豆包搜索 Skill |
 | `web-search` | 个人版 / 团队版 | 只注入搜索 MCP + 安装 `byted-web-search` + 写 Skill 凭证；默认关闭原生 WebSearch |
 | `agent-memory` | **仅个人版** | 只配 OpenViking control-plane，有库时同时配 data-plane；团队版 fail-fast |
-| `cua` | **仅个人版 Large/Max** | 只给位置参数指定的 target 安装 `byted-util-ark-cua` Skill；仅本地读 profile 资格，不刷新 Plan Key、不注入 MCP、不写模型、不扫描其他 Agent；安装失败返回非零 |
+| `cua` | **仅个人版 Medium/Large/Max** | 只给位置参数指定的 target 安装 `byted-util-ark-cua` Skill；仅本地读 profile 资格，不刷新 Plan Key、不注入 MCP、不写模型、不扫描其他 Agent；安装失败返回非零 |
 
 profile 仍完全复用现有 `--profile`：账号只有一个 Agent Plan profile 时自动选择；个人版与团队版并存时必须显式指定。不增加另一个 agentplan/team 参数。
 
@@ -176,7 +176,7 @@ ZCode 主进程、重新打开并新建会话；只切换模型或继续使用�
 |------|------|------|
 | `未知 --capability` | 传了服务端 HarnessName、MCP server ID 或 `all` | 只用 `datapro` / `web-search` / `agent-memory` / `cua`；要整组时去掉该 flag |
 | `agent-memory 仅支持 Agent Plan 个人版` | `--profile` 指向 `agent-plan-team` | 换个人版 profile；团队版不含 OpenViking |
-| `cua 仅支持 Agent Plan 个人版 Large/Max` | profile 是团队版或个人版 Small/Medium | 换合格的个人版 profile，不要改用 `configure --with-cua` 绕过资格闸 |
+| `cua 仅支持 Agent Plan 个人版 Medium/Large/Max` | profile 是团队版或个人版 Small | 换合格的个人版 profile，不要改用 `configure --with-cua` 绕过资格闸 |
 | `无法确定要配置哪个 agent` | host 不是可检测的 3 个 / 信号冲突 / 无信号(含 Codex / Trae / DSH / ZCode / WorkBuddy 等) | 显式 `arkcli helper mcp <claude-code\|codex\|opencode\|openclaw\|trae\|deepseek-harness\|zcode\|workbuddy>` |
 | `<X> 暂不支持 MCP 注入` | target 是 hermes 或未来不支持的 agent | 仅 claude-code/codex/opencode/openclaw/trae/deepseek-harness/zcode/workbuddy 可注入 |
 | `--scope project 仅 Trae 支持` | 对非 Trae agent 传了 `--scope project` | 去掉 `--scope`(其它 agent 一律用户级全局) |
@@ -185,7 +185,7 @@ ZCode 主进程、重新打开并新建会话；只切换模型或继续使用�
 | `未找到 Agent Plan profile` | 账号无 agent-plan 订阅 / 未登录 | `arkcli auth login` 开通 Agent Plan |
 | `检测到多个 Agent Plan profile` | 多个 agent-plan profile | 加 `--profile <名>` 指定 |
 | `profile X 不是 Agent Plan` | `--profile` 指了非 Agent Plan(agent-plan / agent-plan-team 之外) | 换成 Agent Plan profile |
-| 豆包搜索(web-search)写了占位符 | plan profile 无可用 API Key | `arkcli auth apikey` 选一把,或 `arkcli profile keys refresh` 刷新后重跑 |
+| 豆包搜索(web-search)写了占位符 | plan profile 无可用专属/席位 API Key | 先运行 `arkcli profile keys refresh`。Agent Plan 个人版专属记录非 Active 时，真人 TTY 的 Helper 会在明确提示旧 Key 立即失效后询问是否只轮转一次，并最多读 3 次状态；无专属记录则去 Agent Plan 使用配置页。团队版检查 Running 席位。不要用只操作普通池的 `arkcli auth apikey` 修复 Plan profile |
 | `检测到多个 OpenViking 库` | 账号多个 OpenViking 库且没指定 | 使用宿主结构化选择能力展示本次错误返回的库名；选定后加 `--ov-resource <库名>` 重跑 |
 | 跳过了 openviking-dataplane(个人版) | 个人版账号下 0 个 OpenViking 库 | 去 create URL 建库后重跑;或接受跳过(另三台含 openviking-controlplane 已注入)。注:**团队版本就不注入 OV**,不会出现这条 |
 | openviking-dataplane 写了占位符 | OpenViking 列库 / 取 key 失败 | 手动填 `Authorization: Bearer <真实 key>`,或重跑 |
