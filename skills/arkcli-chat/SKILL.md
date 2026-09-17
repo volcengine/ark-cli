@@ -1,6 +1,6 @@
 ---
 name: arkcli-chat
-version: 1.2.4
+version: 1.2.5
 description: "arkcli +chat：通过数据面 Responses API 快速对话/推理，支持多模态、流式、多轮、临时 API Key/Base URL/Endpoint 执行与无副作用 dry-run。当用户给出 Endpoint 但未说明工作流时，先用 resources resolve 识别候选；已经出现 Responses API capability/access 错误时，只读用 models get 核对精确模型的 api_support，不重试真实调用。有明确产出形态的多模态理解走 arkcli-understand。"
 metadata:
   requires:
@@ -91,6 +91,17 @@ stored response 不存在/过期时准确报告，不能悄悄去掉 previous-re
 4. `supported=false` 才能说模型目录声明不支持；Responses 项缺失则说明元数据不足，不做猜测。
 
 全程禁止再次执行 `+chat`、自动 `models activate`、切 profile 或修改默认资源。
+
+## 模型能力提示（stderr warn，不阻断）
+
+`+chat` 真实执行时会在发请求前读一次 ArkModels 元数据，把模型差异以 `warn: ` 前缀打到 **stderr**；请求照常发出。识别要点：
+
+1. **只警告、不阻断**：出现 `warn:` 行不代表请求失败。值为 `enabled`/`disabled`、别名表、声明取值集都只是「模型声明」，服务端与 SDK 解码器才是裁决方。
+2. **不要把声明集当接受集**。实测：`glm-5-2` 声明 `reasoning_effort` 为 `[none, minimal, high, max]`，但服务端**拒绝** `none`/`minimal` 而**接受** `low`/`medium`（只出现在其 `mapping_config` 别名表里）。声明集与接受集可能近乎互补。
+3. **只按实际存在的元数据提示**：缺少 reasoning 元数据时不得把其他 capability 当成 reasoning 声明；模型不在 ArkModels 中（如 `kimi-k3`）或查询失败时**静默跳过**，不产生任何 warn。
+4. **完整版本 ID 必须原样执行**：可以用裸模型名查对应版本元数据，但不得把用户指定的旧版本自动改写成当前主版本。
+5. **stderr 变化不影响 stdout 契约**：`--format json` 的 stdout 结构不变，`warn:` 行只进 stderr。需要稳定 JSON 时只解析 stdout，同时保留并检查 stderr，不得用 `2>/dev/null` 丢弃 warning。
+6. **`--dry-run` 不读元数据**：Client Preview 保持零网络，不会出现任何 `warn:` 行。
 
 ## 命令一览
 

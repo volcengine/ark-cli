@@ -1,6 +1,6 @@
 ---
 name: arkcli-api-explorer
-version: 1.1.0
+version: 1.1.1
 description: "arkcli Raw API Explorer：调用已注册的 Action 作为产品命令的兜底能力。当现有 `arkcli <domain> <verb>` 无法覆盖需求，或需要验证底层 Action 契约时使用。"
 metadata:
   requires:
@@ -52,6 +52,7 @@ metadata:
    - `arkcli api`
 4. 定位契约与必填字段（禁止猜 JSON）：
    - 在代码中查 `internal/apis/<domain>/` 对应的 req/resp 结构体
+   - 同一 Action 因 `MissingParameter` / `InvalidParameter` 连续失败两次，且错误没有给出确定值时，停止更换相近字段名试错；回到注册 operation、req/resp tag 或官方契约确认。禁止循环枚举 `Scene` / `Type` / `BizType` 等猜测字段。
 5. 先用叶子命令的 Client Preview 核对最终 descriptor 和 payload：
    - `arkcli api <registered-action> --params '{...}' --dry-run`
    - Preview 是纯本地行为，不登录、不请求后端、不证明权限、配额或资源存在

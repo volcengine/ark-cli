@@ -87,9 +87,14 @@ metadata:
 
 ## 认证与 Profile
 
-- 业务命令前先 `arkcli auth status --format json`。未登录、SSO 过期、STS refresh 失败时先处理登录。
-- 当前数据面 Files / Session resources / events / threads 需要可用 ARK API Key。CLI 默认使用 profile / identity 解析出的 Key；也可用全局 `--api-key` 做本次调用覆盖。若同时自定义 `--base-url`，必须显式成对提供二者；无 Profile 的 stateless 模式也必须成对提供。
+- 未显式提供 API Key 时，Managed Agent 使用 `type=platform` 的 Profile，不自动使用 Agent Plan / Coding Plan（含团队版）的套餐凭证。登录成功不代表默认 Profile 支持 MA。
+- 需要使用 Profile 凭证时，用 `auth status --format json` 核对类型；默认是套餐类型时，对本次命令指定已确认的 `--profile <platform-profile>`，不自动执行 `profile use` 改全局默认。没有可用 Platform 或身份/项目不明确时，按 Profile Skill 处理并取得确认，不猜名称或跨账号重试。
+- 数据面命令接受显式 `--api-key` 或 `ARK_API_KEY`，此时即使默认是套餐 Profile，也不会因其类型被拦截。优先级为 `--api-key` > `ARK_API_KEY` > Platform Profile 的 Key；Key 的有效性与权限由服务端验证，认证失败时停止，不跨账号重试。
+- 未显式指定地址时，MA 根据当前产品、Region、`--env` 使用标准数据面地址，不继承 Profile 的套餐或自定义路由。仅提供 Key 即可调用数据面，无 Profile 也不必额外提供地址。显式 `--base-url` / `ARK_BASE_URL` 优先，但必须同时显式提供 Key；只覆盖地址不能替换套餐凭证。
+- 控制面仍依赖登录凭证，纯控制面命令不接受 Key/地址覆盖；包含控制面步骤的混合流程也不能只靠 API Key 免登录。涉及控制面时先 `arkcli auth status --format json`，处理未登录、SSO 过期或 STS refresh 失败。仅使用显式 Key 的数据面调用不要求先登录。
+- 真实执行返回 `managed_agent_profile_required` 时停止，不改走 raw API 绕过。离线 `--dry-run` 不检查在线资格，预览成功不代表真实调用成功。上述覆盖均只影响本次调用，不修改默认 Profile 或保存的 Key。
 - 线上环境已就位，默认走 `--env prod`，不要再默认跑 stg。
+- 用户明确要求 stg 时使用 `--env stg` 和配套 Key；未指定地址时 MA 数据面自动使用标准 stg 地址。若显式提供地址，确认它也属于目标环境（显式地址不会被 `--env` 改写）。
 - 非交互 SSO 登录是两段式：先 `arkcli auth login --no-browser` 拿 URL；用户贴回 base64 code 后，再跑 `arkcli auth login --no-browser --code <code>`。
 
 ## List 分页

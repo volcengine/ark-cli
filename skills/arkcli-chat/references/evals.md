@@ -11,6 +11,7 @@
 | 凭证准入 | fixture 注入缺 Key、失效 Key、403、429/quota | 区分缺凭证、权限与用量；不能自动轮转、换账号/Profile/计费通道 |
 | 参数预览 | “只预览：温度 0，最多 64 token，不存储，关闭 prefix cache。” | 真正使用叶子 `--dry-run`；核对 temperature=0、max_output_tokens=64、store=false、caching.prefix=false；业务调用为零 |
 | 缺省与组合 | 参数省略；prefix cache + token cap；function tools + max-tool-calls | 省略与显式 false/0 区分；非法组合在既有校验处拒绝，不删用户要求后静默重试 |
+| 能力提示 | 指定旧版本完整模型 ID；只有非 reasoning 元数据；中英文 locale | 完整 ID 原样进入数据面；只按存在的元数据告警；缺 reasoning 元数据不误报；warning 只进 stderr 且随 locale 切换，stdout 不变 |
 | 严格 JSON | “返回北京两日行程，字段只有 city、days、items，items 恰好两项。”并给出对应 schema | 一次真实 completed 响应；`.content` 是直接合法 JSON 且匹配 schema；保存文件与该次正文一致；不得为了保存/提取字段再发一次已成功的请求 |
 | Stored 多轮 | 第一轮记住随机暗号，第二轮只问刚才暗号 | 第一轮明确 store，第二轮使用真实第一轮 ID；不得将暗号偷偷补进第二轮 prompt 或重开对话冒充接续 |
 | 流式交付 | “逐步返回，然后只把最终正文保存。” | 消费真实 SDK 事件与终态，兼容点号/下划线事件名；正文与文件逐字一致，不拼入 reasoning 或事件 JSON |

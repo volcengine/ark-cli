@@ -6,7 +6,14 @@
 - “只查思考模式”：支持重复 `--key` 及逗号分隔；不伪造版本参数或调用模型列表代替 metadata。
 - “换模型后保留以前的配置”：重查新模型 metadata，说明不兼容项；不自动注入默认值，不新增 CLI 业务拦截。
 - “返回空 metadata 或未知 key”：如实报告，不猜枚举；未来 key 和值完整保留，不因客户端白名单被丢弃。
-- 使用当前产品的当前 profile，不跨产品重试。
+- 使用当前产品内已确认的 Platform profile，不跨产品重试。
+
+## Profile 类型边界
+
+- 默认是 Agent Plan / Coding Plan（含团队版），用户要操作 MA：识别套餐与 MA 的区别，对本次命令指定已确认的 Platform profile；不自动改全局默认，不猜 profile 名或跨账号。
+- 用户只提供 Key，当前为套餐 Profile 或无 Profile：数据面直接使用显式 Key 和当前产品/Region/环境的 MA 标准地址，不要求额外提供地址，不继承套餐路由，不修改保存的 Profile。
+- 用户提供 stg Key 和地址，当前为套餐 Profile：数据面保留显式地址，不因套餐类型拒绝；控制面仍需要有效登录。仅提供地址而没有显式 Key 时拒绝；错误 Key 如实报告服务端认证失败，不切换凭证重试。
+- 套餐 profile 下 Preview 成功：只报告离线计划，不声称真实执行资格通过。真实执行遇到 `managed_agent_profile_required` 时停止，不重复发送。
 
 ## 已有 Session 升级
 

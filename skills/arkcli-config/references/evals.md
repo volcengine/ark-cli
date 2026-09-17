@@ -77,10 +77,11 @@ arkcli config reset --help
 
 当前默认 enrollment 还必须满足：
 
-- 只有真正全新的 stable 全局 npm 安装默认进入 `fresh_pending`；已有配置和无法判断历史的安装 fail closed。
-- 第一次成功的人工业务命令只告知并完成宽限，第二次只激活 exact consent，两次都不得调度；第三次以后才可能调度。
+- 只有真正全新且安装版本等于 registry `latest` 的 stable 全局 npm 安装默认进入 `fresh_pending`。
+- 第一次成功的、符合安全条件的人工业务命令会在同一策略事务完成 grace 与 exact consent；重新校验 active 后该 invocation 即可调度。
 - AI Skill、CI、非 TTY、Preview、config/update 与内部维护命令不消耗宽限、不调度。
-- 手工 npm 重装、降级或 `--ignore-scripts` 后旧 consent 失效并暂停；不得声称会自动重新授权。
-- 长期锁定先执行 `arkcli config set update.mode disabled`，再安装精确版本。新机器先给安装命令设置 `ARKCLI_NO_UPDATE_NOTIFIER=1`，随后持久写入 `disabled`。
+- 重装后版本等于 registry `latest` 时不改 mode：已有 `automatic` 换发 exact receipt，已有 `disabled` / `notify` 保持关闭；不等时持久化 `disabled`。
+- registry 失败不改 mode、不发新 receipt；`--ignore-scripts` 不完成对齐。恢复时先安装 latest，再显式设置 `automatic`。
+- 长期锁定仍建议先执行 `arkcli config set update.mode disabled`，再安装精确版本；安装 `@latest` 不会自动重开 automatic。
 - automatic 成功结果只在下一次人工业务命令的 stderr 显示一次，不得污染 stdout 或改变业务退出码。
 - 不用通用 YAML 编辑或定时任务替代产品命令。

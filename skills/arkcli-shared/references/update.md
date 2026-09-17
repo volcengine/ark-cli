@@ -2,7 +2,7 @@
 
 本 reference 只负责回答“当前版本是否最新”和执行用户明确要求的升级。它不访问业务账号，不需要先跑 `auth status`。
 
-`update.mode` 的读取、写入、默认值和 automatic production gate 属于 [`../../arkcli-config/SKILL.md`](../../arkcli-config/SKILL.md)。不要因发现新版本或仅看到 postinstall enrollment 就推断 active automatic consent；gate 开启后的新安装 pending、首次宽限、手工重装暂停与版本锁定流程以 config Skill 为准。
+`update.mode` 的读取、写入、默认值和 automatic production gate 属于 [`../../arkcli-config/SKILL.md`](../../arkcli-config/SKILL.md)。不要因发现新版本或仅看到 postinstall enrollment 就推断 active automatic consent；新安装 pending、registry latest reconciliation、exact receipt 换发与版本锁定流程以 config Skill 为准。
 
 本 reference 的所有 Agent 命令都必须携带下方 `ARKCLI_CALLER_TYPE=ai_agent` 等 caller metadata。它不仅用于归因，也保证 AI Skill 不消耗人工首次宽限、不激活 exact consent、不调度 automatic。不要删除这些变量后用 Agent 模拟人工命令。
 
@@ -52,7 +52,7 @@ arkcli update --yes
 
 显式 `arkcli update` 和 `arkcli update --check` 在所有更新模式下都可用；`disabled` 只关闭静默安装。`disabled` 仍允许隐式检查和版本提示。
 
-用户要求长期锁定版本时，不要只执行 npm 降级。先引导用户持久设置 `arkcli config set update.mode disabled`，再安装精确版本；新机器首次安装历史版本时，先对安装命令设置 `ARKCLI_NO_UPDATE_NOTIFIER=1`，随后持久写入 `disabled`。手工重装后 automatic consent 会暂停，不能声称旧授权仍然有效。
+用户要求长期锁定版本时，不要只执行 npm 降级。先引导用户持久设置 `arkcli config set update.mode disabled`，再安装精确版本。重装不得沿用旧 exact receipt：安装版本等于 registry 当前 `latest` 时不改 mode，已有 automatic 会换发 receipt；非 latest 持久化 disabled。安装 `@latest` 不会把 disabled 改回 automatic，恢复时先安装 latest，再显式设置 automatic。
 
 `update` 会启动外部 npm，属于 `opaque_external_execution`，不支持 `--dry-run`。不要伪造 Client Preview，也不要用 raw API 代替；用版本差异说明和明确确认完成安全闭环。
 

@@ -89,7 +89,7 @@ metadata:
 | 命令 | 说明 | 状态 |
 |------|------|------|
 | `arkcli config reset` | 删除整个本地配置文件（保留） | ✅ 活跃 |
-| `arkcli config set update.mode automatic` | 显式为当前 exact install 启用 automatic；手工重装后也用它恢复授权 | ✅ 活跃 |
+| `arkcli config set update.mode automatic` | 显式为当前 exact install 启用 automatic；从非 latest 版本恢复时先安装 latest 再执行 | ✅ 活跃 |
 | `arkcli config set update.mode disabled` | 关闭静默自动安装，保留隐式版本检查、更新提示和手工 update | ✅ 活跃 |
 | `arkcli profile show [--profile <name>]` | 查看 Profile；可能同步并回写 Key | ✅ Profile 管理，替代 `config show` |
 | `arkcli profile list` | 列出 Profile；可能同步并回写各 Profile 的 Key | ✅ Profile 管理，替代 `config list` |
@@ -100,28 +100,27 @@ metadata:
 
 公开模式只有 `automatic` 和 `disabled`。`disabled` 保留隐式版本检查和更新提示，但绝不静默安装；显式 `arkcli update` 和 `arkcli update --check` 也始终可用。缺失 `update.mode` 和历史配置中的 `notify` 对外都按 `disabled` 处理，历史配置中的 `notify` 继续按 `disabled` 兼容读取，但不得再建议用户设置 `notify`。
 
-Windows、macOS、Linux 的 fail-closed transaction 与六个产品/平台生产 gate 均已开启。普通 npm postinstall 绝不直接创建 active mutation consent，也不立即更新；只有能证明“此前没有产品状态目录”的 stable 全局 npm 新安装才创建绑定 exact install 的惰性 pending evidence。首次运行和环境变量本身不能绕过后续宽限与 exact consent。
+Windows、macOS、Linux 的 fail-closed transaction 与六个产品/平台生产 gate 均已开启。stable 全局 npm postinstall 会将安装后版本与 registry 当前 `latest` 比较：非 latest 持久化 `disabled`；当前 latest 不改 mode，已有 `automatic` 时为新 exact install 换发授权。postinstall 不立即执行版本替换。
 
 ### 新安装 enrollment
 
-只有能证明“此前没有产品状态目录”的 stable 全局 npm 新安装才默认写入 `automatic`。postinstall 只创建绑定当前 exact install 的惰性 pending evidence，不创建 active consent：
+只有能证明“此前没有产品状态目录”且安装版本等于 registry `latest` 的 stable 全局 npm 新安装，才默认写入 `automatic` 并创建绑定当前 exact install 的惰性 pending evidence：
 
-1. 第一次成功的人工业务命令在 stderr 告知 automatic 已开启及关闭命令；本次不调度更新，只完成宽限。
-2. 第二次成功的人工业务命令只激活 exact-install consent；本次仍不调度更新。
-3. 第三次及后续人工业务命令才可能调度 automatic patch 更新。
+1. 第一次成功的、符合安全条件的人工业务命令在一个策略事务中完成 pending → grace → active。
+2. 重新检查确认 exact-install consent 已 active 后，该 invocation 即可调度 automatic patch 更新。
 
 由 npm `postinstall` 启动的全部 CLI 进程（包括其中的 `+connect`）以及用户手工执行的 `+connect` 都不消耗 enrollment、不做隐式版本检查，也不调度 automatic。AI Skill、CI、非 TTY、Client Preview、`config`、`update` 和内部维护命令同样不消耗 enrollment，也不调度 automatic。更新成功后，下一次成功的人工业务命令只在 stderr 显示一次 `旧版本 -> 新版本` 结果，不修改 stdout 或业务退出码。
 
 当前生产 automatic 按明确产品策略关闭 24/48/72 小时与 10%/50%/100% cohort admission；原 rollout 实现与回归测试仍保留，在线 Probe 仍要求两次独立观测。普通 automatic 仍须满足 exact consent、实时 registry target/SRI/tarball 校验、reservation、退避和全部 staged-apply 安全边界。
 
-手工 npm 重装、降级、安装身份变化或 `--ignore-scripts` 安装后，如果当前 exact install 没有对应 pending/consent，automatic 必须暂停，不得沿用旧安装授权。恢复时由用户明确执行 `arkcli config set update.mode automatic`；长期锁定版本使用：
+每次 npm 重装都不得沿用旧 exact-install receipt。若安装版本等于当前 `latest`，不改既有 mode：`automatic` 换发新 receipt，`disabled` / 历史 `notify` 仍保持关闭。若安装版本不等于 `latest`，持久化 `disabled`。registry 失败时不改 mode、不发新 receipt；`--ignore-scripts` 也不会完成对齐。从非 latest 版本恢复时，先安装 latest，再明确执行 `arkcli config set update.mode automatic`。长期锁定版本使用：
 
 ```bash
 arkcli config set update.mode disabled
 npm i @volcengine/ark-cli@<exact-version> -g --registry https://registry.npmjs.org
 ```
 
-新机器首次安装历史版本时，先对安装命令设置 `ARKCLI_NO_UPDATE_NOTIFIER=1`，安装后再写入持久 `disabled`。`disabled` 位于 `$HOME/.arkcli/config.yaml`，npm 重装不能覆盖。`arkcli config reset` 会尽力撤销 exact consent 后再清配置，不会把用户自动放回 automatic。
+为避免 registry 不可用时的不确定，需要确定锁版时仍建议先执行 `arkcli config set update.mode disabled` 再安装精确版本。`disabled` 位于 `$HOME/.arkcli/config.yaml`，安装 `@latest` 也不会自动改回 `automatic`。`arkcli config reset` 会尽力撤销 exact consent 后再清配置。npm 解析 `@latest` 与 postinstall 查询之间恰好发新版时，存在极小概率误判为非 latest 的竞态。
 
 ## 参考
 

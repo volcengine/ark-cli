@@ -1,6 +1,6 @@
 ---
 name: arkcli-shared
-version: 2.2.2
+version: 2.2.3
 description: "arkcli 共享执行协议：首次配置入口、业务命令执行前的认证闸门、命令路由与选择顺序、输出/安全/二次确认规则。深度细节（身份解析、AK-SK 边界、API Key 恢复、实名闸门、profile 默认与漂移、临时数据面执行上下文、版本检查与显式升级、全局 flags、故障分流）按需在 references/ 加载。当用户第一次使用 arkcli、遇到未登录/鉴权失败、询问版本是否最新或要求升级 arkcli、需要判断该走产品命令还是 raw api、或任何 arkcli-* skill 需要公共上下文时触发。"
 metadata:
   requires:
@@ -119,6 +119,8 @@ arkcli profile use <name>                                    # 切换默认 prof
 
 - 全局 `--format` 支持 `json`、`yaml`、`table`、`csv`、`jsonl`、`pretty`；脚本场景优先用 `json`/`yaml`，需要抽字段时配合 `--transform`
 - `stdout` 只放结构化结果；解释 / 调试 / 错误都走 `stderr`
+- 消费结构化输出时，禁止先用 `head` / `tail` / `sed -n` / `head -c` 按行或字节截断再解析。这样既可能破坏 JSON，也会漏掉数组后部的目标项、default 标记或 warning 对应的数据。输出较大时，优先使用命令自己的 `--output <file>`；没有该 flag 时只把完整 stdout 重定向到文件，再用 `jq` / `yq` 提取所需字段。
+- 首次调用和决定结论的调用不得用 `2>/dev/null` 吞掉 stderr；scope 提示、软截断告警和可恢复错误可能只出现在 stderr。
 
 ## 安全规则
 

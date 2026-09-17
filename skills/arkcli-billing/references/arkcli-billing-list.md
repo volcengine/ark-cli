@@ -165,12 +165,14 @@ arkcli billing list --start 2026-05 --output bills.json
 
 需要拼全量数据时 (撞 cap 或 windowed sample 都适用):
 
+以下示例故意保留 stderr。不要加 `2>/dev/null`：scope 提示、软截断 WARN 和部分失败原因可能只写在 stderr，吞掉后会把不完整结果误当成全量。
+
 **单月分页拉全量**:
 ```bash
-total=$(arkcli billing list --start 2026-05 --limit 1 2>/dev/null | jq '.total_records')
+total=$(arkcli billing list --start 2026-05 --limit 1 | jq '.total_records')
 offset=0; all="[]"
 while [ "$offset" -lt "$total" ]; do
-  page=$(arkcli billing list --start 2026-05 --limit 300 --offset "$offset" 2>/dev/null | jq '.items')
+  page=$(arkcli billing list --start 2026-05 --limit 300 --offset "$offset" | jq '.items')
   all=$(jq -n --argjson a "$all" --argjson b "$page" '$a + $b')
   offset=$((offset + 300))
 done
@@ -180,10 +182,10 @@ echo "$all" | jq 'length'   # 应等于 total_records
 **跨月嵌套翻页拉每月全量** (外层 fan-out + 内层 +offset):
 ```bash
 for m in 2026-03 2026-04 2026-05; do
-  total=$(arkcli billing list --start "$m" --limit 1 2>/dev/null | jq '.total_records')
+  total=$(arkcli billing list --start "$m" --limit 1 | jq '.total_records')
   offset=0; items="[]"
   while [ "$offset" -lt "$total" ]; do
-    page=$(arkcli billing list --start "$m" --limit 300 --offset "$offset" 2>/dev/null | jq '.items')
+    page=$(arkcli billing list --start "$m" --limit 300 --offset "$offset" | jq '.items')
     items=$(jq -n --argjson a "$items" --argjson b "$page" '$a + $b')
     offset=$((offset + 300))
   done

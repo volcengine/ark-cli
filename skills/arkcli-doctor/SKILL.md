@@ -1,6 +1,6 @@
 ---
 name: arkcli-doctor
-version: 1.0.0
+version: 1.0.1
 description: "arkcli doctor 统一入口，覆盖 CLI 健康、account、error、infer-endpoint、model、metrics、report 与 Ark 图片/视频来源特征验证。用户给 1-20 个媒体 URL 并问是否由 Ark/Seedance/Seedream 生成时，走 doctor +verify-origin：整批只披露并确认一次费用，确认前不发 Create/Get 业务请求，最终完整转交服务端 JSON，禁止解释 IsOfficial。其余错误码、模型名、ep-xxx、失败/慢/超时/限流、健康度、P99/Cache、内容审核、DNS/TCP/TLS/时钟等按正文诊断路由。来源验证不判断内容真假、版权归属、法律认证或内容安全。安装/登录/profile/API Key 归 arkcli-shared/auth；纯用量明细归 arkcli-usage；部署、Endpoint CRUD、模型元信息归对应 skill。"
 metadata:
   requires:
@@ -105,6 +105,14 @@ arkcli doctor +verify-origin <url> [url...]     # 1-20 个媒体来源特征验�
 
 > 暂不支持 request_id 反查能力（涉及鉴权与平台内部数据）。Path 4/5 不要瞎猜，直接追问。
 
+## 回答证据分级
+
+最终回答必须把内容分为以下三类，不能把相关性或建议写成已证实根因：
+
+- **证据**：只引用本轮 doctor stdout 中的字段、数值、状态和错误码，并注明来源字段。
+- **推断**：基于证据给出的原因判断，显式使用“推断”“可能”或“符合某种模式”等措辞；不要把相关性写成已确认因果。
+- **未知**：doctor 未覆盖或当前数据无法证明的事项，明确说明缺少什么证据以及可行的下一步。仅有 `request_id` 时属于这一类，不能声称已查到该请求的日志或 trace。
+
 > [!IMPORTANT]
 > **Path 1 vs Path 2 不要走错**：只要用户消息里既给了**错误码**又给了**资源 ID**（模型名 / `ep-xxx`），**MUST** 走 Path 1（先 `doctor <scope> <id>` 拿到该资源在该错误码上的真实分布 / 占比 / top endpoint，再加载 `error-codes.md` 对应 subtype 解读修复）。**不要**直接 `doctor error <code>` 当成 Path 2 处理——那会丢失模型上下文（错误率分布、top endpoint、配额压力等关键诊断信号）。
 >
@@ -155,7 +163,7 @@ doctor 命令家族输出**两套** JSON schema——按命令分。
 
 ### A. 各 scope 命令（`arkcli doctor` / `account` / `infer-endpoint` / `model`）
 
-`arkcli doctor <scope> <id> --format json` 返回一份结构化 JSON。**不要做严格 schema 校验**——字段会随版本增减（如 TTFT/TPOT/replicas、request_id 反查），按字段名按需取。
+`arkcli doctor <scope> <id> --format json` 返回一份结构化 JSON。**不要做严格 schema 校验**——字段会随版本增减（如 TTFT/TPOT/replicas 等指标），按字段名按需取；这不表示支持 `request_id` 反查。
 
 **注意**：默认 CLI scope（`arkcli doctor` 无参）的 schema 是**扁平三段**（`installation` / `connectivity` / `configuration`），跟业务 scope 的通用字段（`checks[]` / `findings[]`）不对齐——CLI 段项目固定且少，直接看字段即可。业务 scope 遵循下表：
 
@@ -185,7 +193,7 @@ doctor 命令家族输出**两套** JSON schema——按命令分。
 | `skill`           | 固定 `arkcli-doctor`（就是本 skill）                                                              |
 | `reference`       | 统一是 `error-codes`（指向 [`references/error-codes.md`](references/error-codes.md)）；用 `subtype` / `code` 定位具体小节 |
 
-**给用户看时**：摘 `findings` + `recommended_fixes`（scope 命令）或 `root_cause` + reference 段里的修复方案（error 命令），**不要复述完整 JSON**；建议执行需用户二次确认。
+**给用户看时**：按“证据 / 推断 / 未知”分层，摘 `findings` + `recommended_fixes`（scope 命令）或 `root_cause` + reference 段里的修复方案（error 命令），**不要复述完整 JSON**；建议执行需用户二次确认。
 
 ### 聚合 vs 原始时序
 

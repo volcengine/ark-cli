@@ -1,6 +1,6 @@
 ---
 name: arkcli-billing
-version: 1.1.2
+version: 1.1.3
 description: "查询火山引擎 ARK 拆分账单明细（结算金额、Token 用量计费），支持按账期月、月范围、Endpoint、API Key、产品编码等维度过滤。当用户问账单、花了多少钱、对账、账期、按 EP / API Key 拆账、按产品拆账、月度账单、出账明细时使用。注意 billing 跟 usage stats 不同：stats 出推理量（近实时），billing 出结算金额（T+1 出账，财务口径）。"
 metadata:
   requires:
@@ -72,6 +72,7 @@ dim 间 fallback (endpoint→apikey) agent **可以自动重试**,因为同 mine
 
 ## Agent 关键纪律
 
+- **保留 stderr**：首次查询和用于得出结论的查询不得加 `2>/dev/null`。账号全量 scope 提示、软截断 WARN 与部分失败原因都可能只写 stderr；需要解析 JSON 时只接管 stdout，或优先使用 `--output FILE`。
 - **`is_truncated=true` 时停下问用户,不要自动决策** — 撞 cap (preflight 模式下 items 不返,只有 metadata + partial_failures + stderr 警告) 是规模信号不是错误。先把 `total_records` 和 `partial_failures[*].total` 报给用户,列出 4 条出路,**等用户明确选一个再继续**。选哪条要看用户当前任务意图(对账 / 排查 / 导出),agent 不要替用户拍。**永远不要 sum items 当总额**(items 可能为空或部分):
   - 想要全量明细 → `--output FILE` (落盘 stdout 不爆;自动放宽 cap 到 300k 行)
   - 只要总金额 → `--split-dim apikey|endpoint` (服务端聚合到几十行)

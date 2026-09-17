@@ -128,7 +128,7 @@ arkcli +chat --model ep-... --api-key '<temporary-key>' --dry-run "hello"
 
 ## 返回值
 
-> **重要：`+chat` 输出已被 arkcli 扁平化为标量字段，不是 Responses API 原生 `output[].content[].text` 嵌套结构。** 助手文本直接以 `content` 字符串呈现（service 层把所有 `output_text` 片段拼接成单段）；推理文本同理走 `reasoning_content`。`--format` 全局只接受 `json`，**不**会切回原生嵌套 shape——按 `output[].content[].text` 写 `jq` 一定取不到。
+> **重要：`+chat` 输出已被 arkcli 扁平化为标量字段，不是 Responses API 原生 `output[].content[].text` 嵌套结构。** 助手文本直接以 `content` 字符串呈现（service 层把所有 `output_text` 片段拼接成单段）；推理文本同理走 `reasoning_content`。全局 `--format` 可改变序列化格式，但不会切回 Responses API 原生嵌套 shape；要用 `jq` 解析时选择 `--format json`，并直接读取 `.content`。
 
 **默认输出**（扁平 schema）：
 
