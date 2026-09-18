@@ -33,6 +33,36 @@ JSON 格式的模型详情，聚合自多个底层 API，包含模型名、版�
 - 字段缺失或空数组：该版本当前没有可用参数目录，`--transform supported_params` 可能显示 `null`。
 - 上游字段存在但 JSON 损坏：CLI 在 stderr 输出带模型名和版本的 `warn: model supported_params enrichment failed: ...`，stdout 仍返回其余模型详情。
 
+## 价格与权益
+
+价格来自新价格服务，输出为 `pricing.model_name`、`pricing.prices` 和可选 `pricing.dimension_attributes`。旧 `pricing.charge_items` / `pricing.multi_charge_items` 已删除，脚本和 Agent 必须迁移，不能继续按旧 `type` 筛选。
+
+```bash
+# 查看价格及原有开通状态、权益
+arkcli models get doubao-seed-2-0-pro-260215 --format json --transform pricing
+
+# 只查看统一价格数组（不包含免费额度或开通状态）
+arkcli models get doubao-seed-2-0-pro-260215 --format json --transform pricing.prices
+```
+
+| 字段 | 消费规则 |
+|------|----------|
+| `service_type` | 区分 `infer`、`fast-infer`、`flex-infer`、`batch-infer`、`infer-storage`、`finetuned-infer`、`finetuned`；训练与推理不能混选 |
+| `label` | 计费项标识，必须结合服务与适用条件判断；不等同于旧 `type` |
+| `dimensions` | 完整适用条件，含上下文档位、时段、分辨率等；`ranges` 可提供范围描述，空串维度值也有意义 |
+| `usage_unit` / `unit_code` / `usage_period` | 用量单位、价格单位及可选周期；原样读取，不固定按千 Token 换算，不猜币种 |
+| `price` / `original_price` | 可空数字；`null` 是缺价，`0` 是该条件下零价，不能互相替代 |
+| `discount_price_start_time` / `discount_price_end_time` | 可选折扣时间；说明适用时间，不自行补值 |
+| `group_index` | 本次响应内的原始分组下标，不是跨请求稳定 ID；不同组不能直接合并 |
+| `dimension_attributes` | 模型级维度属性；保留了未被价格行引用的属性，可用于理解范围 |
+
+- 先按业务服务、计费项和全部适用条件筛选，再展示价格；多条仍匹配时列出差异，不能默认取第一条或最低价。未知维度无法解释时说明条件不明，不估算总价。
+- `pricing.prices: []` 表示当前查询没有价格，不证明模型免费、未开通或不存在。价格请求失败时命令返回错误，不回退旧价。
+- `pricing.state`、`inference_free_usage`、`resource_pack_items`、`sub_services` 及其他原有非价格字段继续由旧权益接口提供，字段路径不变；权益缺失不能按零额度或未开通解释。
+- 价格按详情解析后的基础模型名查询；`--version` 不会变成价格请求条件。当前使用模型广场默认维度，地域为 global，不能把 profile 的物理地域当作价格维度。
+- 本次变更只适用于 `models get`；`pricing models`、精调查价和估价仍使用各自的现有契约，不能将这里的新字段套用到它们的输出。
+
+
 ## 常见错误
 
 | 错误 | 原因 | 处理方式 |

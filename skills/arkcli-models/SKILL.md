@@ -1,6 +1,6 @@
 ---
 name: arkcli-models
-version: 1.0.5
+version: 1.0.6
 description: "arkcli 模型查询与基础模型服务激活能力：列出、搜索、获取火山公共基础模型详情，以及用户明确要求的开通/激活模型服务（`arkcli models activate`）；Volc 还支持 TTFT/TPOT 性能排名、延迟趋势和输入长度对比。激活已有基础模型服务不等于部署/创建 Endpoint，不得转成 `+deploy`。优先使用产品命令 `arkcli models ...`，而不是直接调用 Raw API。反触发：用户的最终目标是创建 / 部署 Endpoint 时，本 skill 只承担一次有界的只读候选查询，owning skill 由创建路径确定：普通产品创建走 arkcli-deploy；用户显式要求 raw CRUD / CI / 无守卫的 `infer endpoint create` 走 arkcli-infer-endpoint。候选查询只执行一次 `models search ... --size 10 --format json`，并把实时返回的 `name` 与非空 `primary_version` 组合成可直接传给 `--model` 的完整 ID，不能拉全量清单、把裸家族名当可部署 ID，或逐候选追加 `models get`。注意：查询/管理账号下自传或精调的自定义模型（`cm-xxx`）走 arkcli-custommodel。"
 metadata:
   requires:
@@ -56,6 +56,11 @@ metadata:
 - **例外**：语音模型查询本身就是终点。查到 `doubao-seed-tts-*`、`doubao-seed-asr-*`、`seedasr-*`、播客、音色设计、实时语音交互等广场语音模型后，停在"可搜到但 arkcli 不支持调用/部署/示例/用量/费用"说明，不继续交给 `+deploy` / `+code-example` / `usage` / `pricing` / `onboard`，也不主动补非 arkcli 接入路径。
 
 ## 快速决策
+
+### 已知模型的价格查询
+
+先读 [`references/arkcli-models-get.md`](references/arkcli-models-get.md)，使用 `arkcli models get <model-id> --format json`，读取 `pricing.prices`。按 `service_type`、`label`、`dimensions`、`usage_unit`、`unit_code` 和可选 `usage_period` 判断适用价格，不取第一条，不再读取旧 `pricing.charge_items` / `pricing.multi_charge_items`。`price: null` 表示缺价，`0` 表示该条件下零价，空数组不代表免费或未开通；开通和权益仍看 `pricing.state`、`pricing.inference_free_usage` 等独立字段。`--version` 选择详情版本，价格按返回的基础模型 `name` 查询，不保证为版本专属报价。
+
 
 ### 精确模型的 API capability 排障
 

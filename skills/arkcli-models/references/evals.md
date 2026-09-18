@@ -42,6 +42,16 @@ arkcli models search --modality text --min-context-window 200000 --capability th
 | `models-performance-rank` | 现在首 Token 最快的是哪个模型？ | Volc 使用 `arkcli models performance rank --metric ttft --format json`，说明公共数据和延迟。 |
 | `models-performance-endpoint` | 我的 ep-xxx 为什么慢？ | 不执行 performance；转 `arkcli-doctor`。 |
 
+## 模型详情价格迁移
+
+| case | prompt | 期望 |
+|------|--------|------|
+| `models-get-dimensional-price` | 这个已知模型的普通推理输入价格是多少？有不同上下文档位吗？ | 读取 get reference，用 `models get` 的 `pricing.prices`，按服务、计费项、维度和单位解释各档；不读旧 charge_items，不取第一条 |
+| `models-get-missing-price` | 价格返回 null 或空数组，是免费吗？ | 区分 null、空数组与 0；不推断免费、未开通或模型不存在，不回退旧接口价格 |
+| `models-get-entitlements` | 查价格，同时看看开通状态和免费额度。 | 新价格读 `pricing.prices`，状态和额度读原 `pricing.state` / `pricing.inference_free_usage`；互不推断 |
+| `models-get-price-scope` | 指定版本和地域后，这就是该版本在该地域的价格吗？ | 说明价格按基础模型名、global 默认维度查询，不能从详情版本或 profile 地域推断专属报价 |
+
+
 ## 判分重点
 
 - 必须路由到 `arkcli-models`。
