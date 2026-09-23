@@ -105,7 +105,7 @@ Platform profile 只负责配置 Agent 的 model/provider：`model` 写为用户
 
 - 只展示**当前 SSO 子用户创建**、`Running`、模型被明确验证为**文本输出**的 Endpoint；VLM（图文输入、文本输出）可用。
 - 生图、生视频、生 3D、音频、Embedding、内容生成或未知模型一律不展示，也不能通过 `--model` 绕过。
-- Agent 配置中的 `model` 仍写 Endpoint ID；context window、max completion tokens、输入/输出模态按 Endpoint 绑定的基础模型名，复用 Agent Plan / Coding Plan 现有的 ArkModels 元数据富化规则。元数据查询失败时同样 best-effort 省略扩展字段，不阻断已通过资格校验的 Endpoint。
+- Agent 配置中的 `model` 仍写 Endpoint ID；context window、max completion tokens、输入/输出模态按 Endpoint 绑定的基础模型名，复用 Agent Plan / Coding Plan 现有的 ArkModels 元数据富化规则（ArkModels 权威数据优先；查不到或字段为零时用内置 Plan 模型能力表兜底，仍未知才省略扩展字段并在 helper configure 输出中提示）。元数据查询失败同样 best-effort，不阻断已通过资格校验的 Endpoint。
 - Hermes Agent 支持把 Platform Endpoint 写成 `volcengine-platform` model/provider；仍不支持 MCP 注入。
 - 该接入只为 Platform 增加元数据调用方，不修改 Plan 模型清单、默认模型、元数据查询、MCP 或 Supabase 行为。
 - 没有自己创建的 Endpoint 时，向导打开 `https://ark.volcengine.com/region:cn-beijing/endpoint/create?agentMode=close`；创建完成后选择“刷新列表”。已有但未运行的 Endpoint 需先启动再刷新。

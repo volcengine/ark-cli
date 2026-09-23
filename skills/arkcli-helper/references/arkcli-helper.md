@@ -209,7 +209,7 @@ arkcli helper configure codex \
 
 - Platform 下不能传 `--model`，也不能使用 `--with-mcp`、`--with-supabase` 或 `--with-routing`。
 - 没有自己创建的 Endpoint 时，交互向导会打开 `https://ark.volcengine.com/region:cn-beijing/endpoint/create?agentMode=close`，用户创建后选“刷新列表”。
-- Endpoint ID 写入 Agent 配置的 `model`；base URL 使用 `https://ark.<region>.volces.com/api/v3`。context window、max completion tokens、输入/输出模态通过 Endpoint 绑定的基础模型名，复用 Plan 当前的 ArkModels `LookupModelMeta → enrichModelMeta` 管道；查询失败时扩展字段保持未知并省略。
+- Endpoint ID 写入 Agent 配置的 `model`；base URL 使用 `https://ark.<region>.volces.com/api/v3`。context window、max completion tokens、输入/输出模态通过 Endpoint 绑定的基础模型名，复用 Plan 当前的 ArkModels `LookupModelMeta → enrichModelMeta` 管道（ArkModels 权威数据优先；查不到或字段为零时用内置 Plan 模型能力表兜底，仍未知才省略扩展字段并在 helper configure 输出中提示）。
 - Hermes Agent 使用 `volcengine-platform` provider，把 Endpoint ID 写入 `model.default` 和 provider 模型列表，并写入上述 OpenAI-compatible base URL。Hermes 仅支持 model/provider，不支持 MCP 注入。
 - Pi 把 Endpoint ID 作为 model 写入 `~/.pi/agent/models.json` 的 plan provider（`api: openai-completions` + 上述 base URL），并把 `~/.pi/agent/settings.json` 的 `defaultProvider` / `defaultModel` 指过去。Pi 仅支持 model/provider，不支持 MCP 注入。
 - Platform 元数据接入不修改 Agent Plan / Coding Plan 的模型列表、默认模型、富化结果或失败退化语义。Chat/Responses 的具体调用方式继续由 Agent 当前 harness 行为决定。

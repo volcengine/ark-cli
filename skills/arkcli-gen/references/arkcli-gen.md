@@ -36,15 +36,15 @@ arkcli +gen --model doubao-seedream-5-0-260128 \
 arkcli +gen --model doubao-seedream-5-0-260128 --image-count 4 "未来城市天际线 4 个风格变体"
 
 # 3) 文生视频 (T2V)
-arkcli +gen --model doubao-seedance-1-5-pro-251215 "一只柴犬在樱花树下奔跑，慢镜头"
+arkcli +gen --model doubao-seedance-2-0-260128 "一只柴犬在樱花树下奔跑，慢镜头"
 
 # 4) 图生视频 / 首帧到视频 (I2V) — 第 1 张图默认作为首帧
-arkcli +gen --model doubao-seedance-1-5-pro-251215 \
+arkcli +gen --model doubao-seedance-2-0-260128 \
   --input @first.jpg \
   "镜头缓慢拉远，主体保持不动"
 
 # 显式指定 first / last 帧
-arkcli +gen --model doubao-seedance-1-5-pro-251215 \
+arkcli +gen --model doubao-seedance-2-0-260128 \
   --input first:@start.jpg --input last:@end.jpg \
   "从这两帧之间生成补间动画"
 
@@ -78,7 +78,7 @@ arkcli +gen --model "$MODEL" --modality video \
   "城市夜景，固定视角"
 
 # 输出完整 JSON
-arkcli +gen --model doubao-seedance-1-5-pro-251215 --format json "产品广告视频"
+arkcli +gen --model doubao-seedance-2-0-260128 --format json "产品广告视频"
 
 # 自定义推理接入点：先解析权威模态；唯一 image/video 时可自动识别
 arkcli resources resolve ep-20260416234150-zsd4v --format json
@@ -173,7 +173,7 @@ arkcli +gen --model ep-... --api-key '<temporary-key>' "一只柴犬奔跑"
 | `--camera-fixed` | 否 | bool | 视频任务：固定虚拟镜头 |
 | `--return-last-frame` | 否 | bool | 视频任务：返回最后一帧 URL（用于续接生成） |
 | `--draft` | 否 | bool | 视频任务草稿模式：更快 / 更便宜 / 质量更低 |
-| `--priority` | 否 | int | 视频任务调度优先级 0-9，越高越优先。**受 supported_params 约束**——Step 2 先查模型是否支持及范围（实测 seedance-2.0 / 2.0-fast 支持 `[0,9]`，1.5-pro 不支持）；模型不支持时传了会被校验拒 |
+| `--priority` | 否 | int | 视频任务调度优先级 0-9，越高越优先。**受 supported_params 约束**——Step 2 先查模型是否支持及范围（实测 seedance-2.0 / 2.0-fast 支持 `[0,9]`）；模型不支持时传了会被校验拒 |
 | `--service-tier` | 否 | string | 视频任务：服务等级 |
 | `--safety-id` | 否 | string | 视频任务：调用方传入的安全标识 |
 | `--execution-expires-after` | 否 | int | 视频任务服务端 TTL（秒） |
