@@ -21,6 +21,7 @@ metadata:
 - 只有用户明确要求 raw CRUD、精确 CreateEndpoint 请求或 CI/脚本预览时，才转 [`../arkcli-infer-endpoint/SKILL.md`](../arkcli-infer-endpoint/SKILL.md)，使用叶子命令 `arkcli infer endpoint create ... --dry-run`；Preview 完成后仍需新的确认才能真实执行
 - `arkcli resources list` 是 read-only 实时控制面查询，**每次都打上游**，没有本地缓存
 - 列表是资源发现结果，可能受 project、创建者和模态过滤；列表为空或当前 default 未出现在 items 中，不等于指定 Endpoint 不存在或不可调用。
+- 只读核对身份或默认资源、没有指定精确资源 ID 且列表为空时，报告已确认事实和信息缺口，结束核对；不要为补齐字段转到 `profile show/list/keys list`。空列表不是配置修复或 Key 同步的授权。
 - `arkcli resources resolve <ep-id>` 先按 `endpoint_model_type` 判定真实绑定。Custom Model Endpoint 的 `model_id` / `custom_model_id` 必须保持 `cm-...` 身份，基础模型只通过 `base_model_*` 表达 lineage 与能力来源；不按 ID/模型名子串猜用途
 - 派发逻辑跟 profile.Type 走：platform → `ListEndpoints`，agent-plan / coding-plan → 对应 plan API
 - `agent-plan-team` 三模态使用团队席位 Key + 套餐模型；`coding-plan-team` 只有 text 使用团队席位 Key，image/video 虽可看到 platform Endpoint，但调用还需要后付费 API Key

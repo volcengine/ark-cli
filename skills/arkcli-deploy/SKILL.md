@@ -14,6 +14,27 @@ metadata:
 
 **前置：** 先用 Read 读 [`../arkcli-shared/SKILL.md`](../arkcli-shared/SKILL.md) 获取共享认证/配置/写操作守卫规则。
 
+## 创建意图中的模型澄清
+
+只要用户的最终目标仍是“创建 / 新建 / 部署 Endpoint”，即使尚未给出完整模型 ID，也必须留在 `arkcli-deploy` 工作流；`arkcli-models` 此时只是临时调用的只读候选查询能力，不能把创建任务改路由成纯模型发现。
+
+候选必须来自**本轮** ArkCLI 的实时结构化输出，禁止从模型记忆、示例或旧版本号补全。
+
+**查询预算是当前用户回合恰好一次 Bash 调用。** 在执行前一次性确定 keyword、过滤条件和 `--size`。`models search` 的 keyword 是单个 catalog 子串，不要把多个概念拼成带空格的短语：先选最能缩小范围的一个 ASCII token，其余条件放到同一次调用的 flags 或 `jq` 本地过滤。例如“豆包代码模型”用 keyword `code`，再在同一管道按 `name` 的 `doubao|seed` 过滤；“生图”用 `seedream`。不确定稳定 token 时宁可省略 keyword 并使用已有结构化 filter，禁止把未翻译的中文短语直接提交后再换词重试。若担心输出过长，把字段投影直接放进同一条管道，例如
+`arkcli models search "<keyword>" --size 0 --format json | jq -c '{items: [(.items // [])[] | {name, primary_version, lifecycle_status, input_modalities, output_modalities}]}'`。
+这次调用无论成功、空结果、截断还是失败，都不得换关键词、调大分页、重跑同一命令或为了重新格式化再调用一次 ArkCLI；只能使用已捕获的 stdout，信息不足就如实停止。
+
+1. **完全没给模型**：执行一次有界查询，例如 `arkcli models search --size 10 --format json`。若用户已说明用途或模态，把对应的 keyword / `--modality` 加进同一次查询。
+2. **只给品牌、系列或家族名**（例如 “Doubao”“Seed 2”）：执行一次 `arkcli models search <keyword> --size 10 --format json`；家族名不是可直接传给 `--model` 的完整 ID。
+3. 从同一次返回的 `items` 中读取 `name`、`primary_version`、`lifecycle_status` 和模态等已有字段。优先保留 `lifecycle_status=Published` 且名称不含 `internal` / `test` 的候选；状态缺失或非 Published 时只能如实标为未核实，不能称为“可部署”。完整模型 ID 按模型查询契约确定：`primary_version` 非空时使用返回值精确拼成 `<name>-<primary_version>`，为空时才使用 `<name>`；这是结构化字段组合，不是从名称或日期规律猜版本。不要自行给 `name` 拼 `pro`、`lite` 或任何未返回的版本后缀。
+4. **0 个可用候选**：说明本轮没有查到，并请用户补充用途、模态或关键词；不要猜一个继续。
+5. **1 个可用候选**：复述本轮返回的完整 ID，请用户确认；若用户已要求本轮只查询，则停在这里。
+6. **多个可用候选**：列出精简候选及完整 ID，请用户明确选择；若候选仍过多，按用户用途缩小范围，不能擅自选第一项。
+
+澄清阶段的收敛边界：本回合第一次 `search` 返回后，**禁止再次执行 `models search`，也不要对候选循环执行 `models get`、价格查询或其他详情调用**。只有用户选定单个候选后又明确要求比较某个缺失属性，才在后续回合追加一次针对性查询。模型尚未唯一确定前，禁止执行 `+deploy`、`infer endpoint create` 或 Raw API 创建。
+
+Endpoint 名称不应阻塞上述只读候选查询；模型选定后，再收集名称并确认最终创建参数。
+
 **新增 flag `--set-default <modality>`**: 部署成功后自动把新 endpoint 设为 active profile 该 modality (`text` / `image` / `video`) 的默认资源。仅在真实部署成功且用户明确传 modality 时生效；失败仅 stderr warn，不阻断部署主流程。详见 [`../arkcli-shared/references/profile-defaults.md`](../arkcli-shared/references/profile-defaults.md)。
 
 **写操作 + 计费**：`+deploy` 创建在线推理 Endpoint 是真实写操作，会产生计费资源。该工作流依赖在线探测，**不支持 `--dry-run`**；执行前必须与用户显式确认最终参数。
@@ -50,25 +71,6 @@ metadata:
 - `+deploy` 创建成功后会**自动**把示例渲染到 `./ark-examples/<ep-id>/`（按 ep-id）；想按基础模型名另出一份则跑 `+code-example`
 - 模型未开通时 `+deploy` 的开通在**非 TTY 下被硬拒、`--yes` 也不放行**；**禁止自己补 `--yes` / `echo Y` / 设 `ARKCLI_ALLOW_HEADLESS_ACTIVATION`**，必须把开通（计费）交还真人在终端 / console 处理
 - 语音模型（TTS / ASR / 播客 / 音色 / 实时语音交互）广场可搜不等于可部署；命中这类模型时停在 `arkcli models search <keyword>`，不要给 `+deploy` 命令
-
-## 创建意图中的模型澄清
-
-只要用户的最终目标仍是“创建 / 新建 / 部署 Endpoint”，即使尚未给出完整模型 ID，也必须留在 `arkcli-deploy` 工作流；`arkcli-models` 此时只是临时调用的只读候选查询能力，不能把创建任务改路由成纯模型发现。
-
-候选必须来自**本轮** ArkCLI 的实时结构化输出，禁止从模型记忆、示例或旧版本号补全。
-
-**查询预算是当前用户回合恰好一次 Bash 调用。** 在执行前一次性确定 keyword、过滤条件和 `--size`。`models search` 的 keyword 是单个 catalog 子串，不要把多个概念拼成带空格的短语：先选最能缩小范围的一个 ASCII token，其余条件放到同一次调用的 flags 或 `jq` 本地过滤。例如“豆包代码模型”用 keyword `code`，再在同一管道按 `name` 的 `doubao|seed` 过滤；“生图”用 `seedream`。不确定稳定 token 时宁可省略 keyword 并使用已有结构化 filter，禁止把未翻译的中文短语直接提交后再换词重试。若担心输出过长，把字段投影直接放进同一条管道，例如
-`arkcli models search "<keyword>" --size 0 --format json | jq -c '{items: [(.items // [])[] | {name, primary_version, lifecycle_status, input_modalities, output_modalities}]}'`。
-这次调用无论成功、空结果、截断还是失败，都不得换关键词、调大分页、重跑同一命令或为了重新格式化再调用一次 ArkCLI；只能使用已捕获的 stdout，信息不足就如实停止。
-
-1. **完全没给模型**：执行一次有界查询，例如 `arkcli models search --size 10 --format json`。若用户已说明用途或模态，把对应的 keyword / `--modality` 加进同一次查询。
-2. **只给品牌、系列或家族名**（例如 “Doubao”“Seed 2”）：执行一次 `arkcli models search <keyword> --size 10 --format json`；家族名不是可直接传给 `--model` 的完整 ID。
-3. 从同一次返回的 `items` 中读取 `name`、`primary_version`、`lifecycle_status` 和模态等已有字段。优先保留 `lifecycle_status=Published` 且名称不含 `internal` / `test` 的候选；状态缺失或非 Published 时只能如实标为未核实，不能称为“可部署”。完整模型 ID 按模型查询契约确定：`primary_version` 非空时使用返回值精确拼成 `<name>-<primary_version>`，为空时才使用 `<name>`；这是结构化字段组合，不是从名称或日期规律猜版本。不要自行给 `name` 拼 `pro`、`lite` 或任何未返回的版本后缀。
-4. **0 个可用候选**：说明本轮没有查到，并请用户补充用途、模态或关键词；不要猜一个继续。
-5. **1 个可用候选**：复述本轮返回的完整 ID，请用户确认；若用户已要求本轮只查询，则停在这里。
-6. **多个可用候选**：列出精简候选及完整 ID，请用户明确选择；若候选仍过多，按用户用途缩小范围，不能擅自选第一项。
-
-澄清阶段的收敛边界：本回合第一次 `search` 返回后，**禁止再次执行 `models search`，也不要对候选循环执行 `models get`、价格查询或其他详情调用**。只有用户选定单个候选后又明确要求比较某个缺失属性，才在后续回合追加一次针对性查询。模型尚未唯一确定前，禁止执行 `+deploy`、`infer endpoint create` 或 Raw API 创建。
 
 ## 路由判断
 

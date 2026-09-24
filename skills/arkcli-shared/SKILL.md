@@ -82,6 +82,7 @@ arkcli profile use <name>                                    # 切换默认 prof
 | 正式接入 / 稳定调用 | `auth` → `models` → [`infer endpoint list`](../arkcli-infer-endpoint/SKILL.md) → 没有就 [`+deploy`](../arkcli-deploy/SKILL.md) | 核心资源是 Endpoint，不是 +chat/+gen |
 | 排查存量调用 / 看消耗 | `auth` → [`usage`](../arkcli-usage/SKILL.md) | — |
 | 本地 AI Agent 集成 | [`+connect`](../arkcli-connect/SKILL.md) | — |
+| 明确查官方文档 / 读取文档 URL / 业务 Skill 缺少产品知识 | [`docs`](../arkcli-docs/SKILL.md) | 搜索后读取正文；不替代资源操作、鉴权、诊断和 CLI help |
 
 **易混动词路由**（避免选错 skill）：
 

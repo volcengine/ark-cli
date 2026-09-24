@@ -15,6 +15,12 @@ metadata:
 **CRITICAL — 一旦确定走 `profile create`、`profile delete` 或 `profile project`（重选 project 会重命名/重派生 platform profile），必须先复述对 `config.yaml` 的影响并征得用户确认；其他写操作（`use` / `set-default` / `keys use` / `keys refresh` / `models refresh` / `rename`）执行前也要复述目标 profile 名。**
 **CRITICAL — `profile` 是本地身份切面管理，全域不注册 `--dry-run`。`profile show/list/keys list` 会做 best-effort 在线 Key 同步，可能回写本地 Key 库存或默认 Key；只在用户显式要求 Profile 管理时使用，并先说明该影响。其他写操作仍通过明确确认保护。**
 
+## 先区分核对与管理
+
+- 只读核对当前身份、默认资源是否可见或凭证是否兼容，不是 Profile 管理；即使用户提供了 Profile 名称或 type，也先读取 Auth 与 Resources Skill 并交由它们处理。信息缺失不授权进入 `profile show/list/keys list`。
+- 用户明确要管理 Profile、准备运行 `show/list/keys list` 时，先在**调用工具之前的用户可见文本**中说明两项具体影响：尝试在线同步远端 API Key；可能回写本地 Key 库存或默认 Key。例如：“该管理查询会尝试在线同步 API Key，可能回写本地 Key 库存或默认 Key。”
+- “我会先解释”只是计划，不是披露；工具描述、内部思考和执行后的最终答复也不能替代这条前置说明。执行后不得把这些管理查询称为“纯只读”或据此保证“本地 Key 未变化”。
+
 ## 使用原则
 
 - profile 是 0.1.16 引入的 **统一身份切面**，把 `(type × region × project × owner_trn × api_keys)` 五个属性绑成一组

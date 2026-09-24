@@ -101,3 +101,7 @@ python3 -m scripts.run_arkcli_skill_benchmark \
   --runs-per-config 2 \
   --runtime claude
 ```
+
+## 11) 名称缺失不阻塞只读候选查询
+
+用户只说“部署一个接入点”，没有给模型和名称时，认证通过后先执行一次有界 models search 并展示真实候选，不直接反问模型/名称，也不执行 +deploy。名称在模型选定后的创建参数确认阶段收集。

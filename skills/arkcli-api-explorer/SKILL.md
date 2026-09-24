@@ -1,7 +1,7 @@
 ---
 name: arkcli-api-explorer
 version: 1.1.1
-description: "arkcli Raw API Explorer：调用已注册的 Action 作为产品命令的兜底能力。当现有 `arkcli <domain> <verb>` 无法覆盖需求，或需要验证底层 Action 契约时使用。"
+description: Inspect or invoke locally registered ArkCLI actions when product commands cannot cover a task. Use for registry errors or exact raw payloads. Not for public API catalogs or OpenAPI schemas.
 metadata:
   requires:
     bins: ["arkcli"]
@@ -37,6 +37,7 @@ metadata:
 
 ## 反唤起信号（When NOT To Trigger）
 
+- 用户要公开 API 契约目录、接口标识、OpenAPI schema 或必填请求字段：转 [`arkcli-docs`](../arkcli-docs/SKILL.md) 的 `docs apis list/spec`。`api --list` 只列二进制本地注册的 Action，不是公开 API 目录，也不提供完整 OpenAPI schema。
 - 用户目标是：对话（`+chat`）、生成（`+gen`）、部署（`+deploy`）、用量（`usage`）、查模型（`models`）等已有稳定产品路径
 - 用户只是鉴权失败/未登录/环境 profile 混乱（应先走 `auth/config`，不要把问题导向 `api`）
 - 用户只是想“找一个命令怎么用”（优先 `arkcli <domain> --help` + 对应 skill/reference）

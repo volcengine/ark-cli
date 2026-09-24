@@ -24,11 +24,13 @@
 - "我要试用对话/生成图片/生成视频"
 - “我想部署一个 endpoint”
 - “我想看用量统计”
+- “列出公开 API 契约目录和接口标识” / “读取某接口的 OpenAPI schema”
 
 期望行为：
 
 - 明确拒绝把 `api` 当默认入口
 - 将用户路由到对应产品命令与 skill（`models/+chat/+gen/+deploy/usage`）
+- 公开目录与 schema 请求转 `arkcli-docs` 的 `docs apis list/spec`；不执行本机 `api --list` 替代。
 
 ## 3) 认证/配置分流（Guard）
 
