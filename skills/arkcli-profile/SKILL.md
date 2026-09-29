@@ -33,7 +33,7 @@ metadata:
 ## 适用场景
 
 - 用户问"我有哪些 profile / 当前 profile 是哪个 / 切换 profile"
-- 用户要创建新 profile（platform / agent-plan / coding-plan）
+- 用户要创建新 profile（platform，或 Agent/Coding Plan 的个人版/团队版）
 - 用户问 default 模型 / 资源是什么、想换 default
 - 用户的 API Key 列表过期、新 key 还没被拉进来，需要 refresh
 - 业务命令 `+chat / +gen / resources list` 报错"profile xxx 缺 ..."，转回这里排查
@@ -78,7 +78,7 @@ Agent 行为约定：
 1. 普通业务只需当前身份/Profile 摘要 → `arkcli auth whoami --format json`；不要调用 Profile 管理命令补齐普通准入
 2. 用户明确要查看 active profile 或本地 Profile 清单 → 先说明 Key 同步/回写影响，再用 `arkcli profile show --format json` 或 `arkcli profile list --format json`
 3. 用户要切默认 profile → 按上面的硬状态机先 `profile list`，精确定位后 `profile use <name>`，再 `profile show`
-4. 用户要新建 profile：先问清楚 type（platform / agent-plan / coding-plan）→ `arkcli profile create --type ... --set-default`
+4. 用户要新建 profile：先按下面决策树确认五类 type，读 [create reference](references/arkcli-profile-create.md) 后执行；只有用户明确要求同时切默认时才带 `--set-default`
 5. 用户问 default 模型是什么 → plan 类用 `arkcli profile models list`，platform 用 `arkcli profile show` 看 `resources` 字段
 6. 用户要换 default 资源 → 按上面的硬状态机取真实候选、消歧、`profile set-default`，再只读核验
 7. 用户的 default API Key 报错 / key 列表过期 → `arkcli profile keys refresh`，然后 `arkcli profile keys list --format json` 看新清单。refresh 按 profile 类型取对应池：普通池、Agent Plan 个人版专属池或团队席位 Key；空结果会报错并保留本地 Key，不会成功清空。
@@ -109,10 +109,19 @@ Agent 行为约定：
 | `arkcli profile keys use <key>` | 切 default API Key（key 必须 ∈ available list） | 0.1.16 新增 |
 | `arkcli profile keys refresh` | 按 profile 类型重拉普通池 / Agent Plan 专属池 / 团队席位 Key，非空时更新 available list | 0.1.16 新增 |
 | `arkcli profile models list` | plan 类 profile 的 PlanTier + Resources defaults | 0.1.16 新增 |
-| `arkcli profile models refresh` | 重拉 ListAgentPlanLatestModel，更新 Text.Default | 0.1.16 新增 |
+| `arkcli profile models refresh` | 按目标 Plan 类型重拉文本模型并更新 Text.Default；会写配置 | 0.1.16 新增 |
 | `arkcli profile set-default --modality <m> <id>` | 设某 modality 的 default 资源 ID | 0.1.16 新增 |
 
 ## ProfileType 选型速查
+
+### 命令适用范围与空值
+
+- `profile models list/refresh` 支持四类 Plan（Agent/Coding，个人/团队），不支持 platform；它不是公共模型目录或账号自定义模型列表。本表仅描述当前产品，不推导其他产品的身份契约。
+- `resources list` / `set-default` 依各 type × modality 的实际资源类型工作：platform 使用 Endpoint；Agent Plan 使用套餐模型；Coding Plan 图像/视频进入 platform lane。不要把一次文本配置推广到全部模态。
+- `current_default` 或某 modality 的 default 为空表示“未设置”，不是第一条候选、目录 primary version 或推荐项；不得把展示/排序顺序当成默认值。
+- 本地 Key 清单的掩码不是真实可调用 Key；查询元数据、导出凭证、刷新库存、轮转和切默认是不同动作。未要求更改时不能自动 use/refresh/rotate。
+- 图像理解失败先核对输入模态、API 支持和客户端输入能力；`output_modalities=text` 不代表不支持读图，Plan 别名也不能只凭无版本后缀判无效。
+- 批量推理权限与 Profile 切换不是同一个问题；先保留实际错误并核对模型/能力开通及权限，不把 account-wide 下的拒绝先归因为 Project，也不自动扩权或切身份。
 
 | type | 适用 | 数据面 base URL | 控制面 | 视觉模型 (image/video) |
 |------|------|----------------|--------|----------------------|
@@ -126,24 +135,34 @@ Agent 行为约定：
 > lane 使用团队席位 Key。完整矩阵见
 > [`../arkcli-shared/references/execution-context.md`](../arkcli-shared/references/execution-context.md)。
 
-`plan-tier`：
+`--plan-tier` 手动声明仅适用于个人版；团队版档位与 Key 来自真实 Running 席位，不能用此 flag 绕过席位校验：
 - agent-plan：`small` / `medium` / `large` / `max`
 - coding-plan：`lite` / `pro`
 
 ## profile create 决策树
 
 ```
-用户提到 "Agent Plan / 我买了 plan"?
-  yes -> --type agent-plan (--plan-tier 由 Detect 自动识别；后端可见性问题时手动加 --plan-tier=<tier>)
-  no  -> 用户提到 "Coding Plan / claude code 整合"?
-           yes -> --type coding-plan
-           no  -> --type platform (默认场景, region+project 必填)
+用户明确要求创建 Profile
+  |
+  +-- 标准按量 / Token 资源包 -----------------> platform
+  |
+  +-- 明确 Agent Plan
+  |     +-- 个人订阅 -------------------------> agent-plan
+  |     `-- 团队席位 -------------------------> agent-plan-team
+  |
+  +-- 明确 Coding Plan
+  |     +-- 个人订阅 -------------------------> coding-plan
+  |     `-- 团队席位 -------------------------> coding-plan-team
+  |
+  `-- 只说 "买了 plan" / 家族或个人团队不明 ---> 只澄清缺少的决策，不默认个人版
 ```
+
+个人版由订阅 Detect 得到档位；用户明确确认实际个人档位且遇到可见性问题时才考虑 `--plan-tier`，它不证明订阅有效或有调用权限。团队版必须由当前绑定身份查到 Running 席位；失败时说明缺少的席位/权限，不改成个人版或拿普通 API Key 顶替。Vaka 的身份和授权由 shared 约束，不用创建/切换 Profile 修复宿主凭证错误。
 
 ## 常见错误
 
-- `set-default: <id> 不在当前 profile (... ) 可用列表` → 跑 `arkcli resources list --modality <m>` 看可用 ID，或加 `--skip-verify` 强写
-- `models refresh: profile %q type=%q (仅 agent-plan 支持)` → 不是 agent-plan profile，先 `profile use <agent-plan-profile>` 或切对 `--profile`
+- `set-default: <id> 不在当前 profile (... ) 可用列表` → 用 `arkcli resources list --modality <m>` 核对可用 ID；不得自行用 `--skip-verify` 强写
+- `models list/refresh` 的类型不支持错误 → 核对目标是否属于当前产品支持的 Plan type；Volc 支持四类 Plan，不支持 platform。不要为消除报错擅自切 profile
 - S10 之后, coding-plan profile 下 `profile set-default --modality image|video <ep>` 不再 fail-fast: verify 会借道 platform 控制面 ListEndpoints 校验 ep-id 是否存在
 - `keys refresh: fetch api keys: NotLogin` → 控制面鉴权失败 (如登录态/STS 过期)；fetcher 会用 `.env` 缓存单 key 兜底，profile.available_api_keys 仅含 1 项，恢复后再 refresh
 - `keys refresh` 报没有可用 Key → 先按 profile type 判断：`platform` / `coding-plan` 个人版去普通 API Key 管理页；`agent-plan` 个人版去 Agent Plan 使用配置页检查专属 Key；团队版检查 Running 席位。不得把所有类型都引向普通 API Key 页面。

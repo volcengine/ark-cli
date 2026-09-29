@@ -47,6 +47,21 @@
 
 **关键反例:** agent 听到"我都同意"就跳过 step 1 直接加 `--yes` — 这是合规失败,等同于帮用户绕过法律审查。
 
+## 2c) 参数映射回归 — 家族 × 个人/团队 × 档位
+
+以下每个档位分别作为用例，不以一个成功组合代表全部；仅验证收参、协议闸门或 `--estimate`，不为回归真实扣款。
+
+| 家族 | 形态 | 档位逐项覆盖 | 预期参数 |
+| --- | --- | --- | --- |
+| Agent Plan | 个人 | small / medium / large / max | `--plan agent-plan --type <档位>` |
+| Agent Plan | 团队 | small / medium / large / max | `--plan agent-plan-team --type <档位> --quantity <席位数>` |
+| Coding Plan | 个人 | lite / pro | `--plan coding-plan --type <档位>` |
+| Coding Plan | 团队 | lite / pro | `--plan coding-plan-team --type <档位> --quantity <席位数>` |
+
+共同断言：首条命令前读取 buy reference；只使用 help 声明的 flags；不把个人/团队塞入 `--type`，不造 `--tier`；每个选项解释价格、场景、限制。再覆盖参数已全给、只给家族、给团队但缺数量、非法档位、2 个月合法非快捷时长、0/13 月不合法、取消/拒绝/未答协议。所有协议逐条披露且用本次价格；没有明确同意就没有下单。
+
+续费覆盖：单订阅跳过选择、多订阅选项带北京时间到期值、团队从真实席位选择；保留原档位，不传 `--type` / `--quantity`。失败覆盖：库存不足不重问/不重试，payment_failed 保留原订单而不是再开单，网络结果未知先查证。模型清单覆盖：不带档位 flag，展示读 `model_name`，配置读 `output_name`，精确查询读 `model_id`。
+
 ## 3) 写操作守卫 — APIKey 轮换前要明示原 APIKey 立即失效
 
 输入：

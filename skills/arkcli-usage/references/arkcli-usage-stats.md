@@ -78,8 +78,16 @@ arkcli usage stats --start <YYYY-MM-DD> --apikey-suffix d9bcce38dab0
 - **互斥规则**：`--mine --mine-by=endpoint` 与 `--endpoint` 互斥；`--mine --mine-by=apikey` 与 `--apikey` / `--apikey-suffix` 互斥
 - **`--mine-by=endpoint`**：通过 `sys:ark:createdBy` Tag 拉出我创建的全部 Endpoint，单次请求合并查（强制 `--page-all`）
   - 如果返回 `data_count=0`（Endpoint 无调用记录，或用户主要通过 API Key 直接调用）→ **立即重试** `arkcli usage stats <日期参数> --mine --mine-by=apikey`
-  - **⛔ 禁止降级为不带 `--mine` 的全量查询** —— 全账号数据（`data_count` 量级极大）不是"我的用量"
+  - 不自动去掉 `--mine`；全账号结果不是“我的用量”。若用户另行明确允许查整个账号，可进入下述第三层。
 - **`--mine-by=apikey`**：列出我账号下 active APIKey，**为每个 key 串行发一次请求**（ValueLike 是单值），客户端合并 records；`totals` 字段是合并后的合计
+
+### 空结果的完整排查链
+
+1. 先看 exit code、stderr 和完整 JSON；失败不是空，`records` 有行但 `totals` 为 0 也不是空。保留告警，不能吞 stderr 后把解析失败当零行。
+2. endpoint 个人范围成功为空（或 CLI 明确没有本人 Endpoint）时，只改为 `--mine --mine-by=apikey`，保留日期、模型、分组、粒度和原 Profile/Project；已显式用 Key 维度就不重复。
+3. 第二层也为空时，说明两层查到的范围，询问是否另查整个账号。用户明确同意后才移除 `--mine` / `--mine-by`，其余参数不变：`arkcli usage stats --start <原开始日> --end <原结束日> --format json`，并追加原有分组/过滤。结果标“账号全量（可能包含其他用户）”，不再称“个人用量”。拒绝或不答则停在原范围。
+4. 仍空则核对真实调用日/时区、明细延迟、平台或套餐口径、身份、Project 和 Key 掩码归属、小时粒度。移除分组可用于检查 totals，但不能顺便删身份或资源过滤；任何范围变更都先确认。归属判断见 [Key 查询](../../arkcli-auth/references/api-key-query.md)，不需要明文 Key。
+5. 展示已核对项与仍未知项；近期事件建议稍后复查，不下“没有调用”结论。不因空结果自动切账号、登录、换 Key 或查另一个计费桶。
 
 ### --by 说明
 
@@ -109,7 +117,20 @@ JSON 格式：
     { "name": "ReqCnt", "type": "BIGINT" },
     { "name": "ImageCount", "type": "BIGINT" }
   ],
-  "records": [...],
+  "records": [{
+    "Day": "2025-09-01",
+    "ModelName": "<实际模型名>",
+    "ModelEndpoint": "<实际 Endpoint ID>",
+    "AuthToken": "****example",
+    "ProjectName": "<实际 Project>",
+    "BillingStatus": "<实际结算状态>",
+    "InputTokens": "382",
+    "OutputTokens": "5317",
+    "TotalTokens": "5699",
+    "ReqCnt": "11",
+    "CacheTokensHit": "0",
+    "ImageCount": "4"
+  }],
   "totals": {
     "InputTokens":  "382",
     "OutputTokens": "5317",
@@ -118,7 +139,7 @@ JSON 格式：
     "CacheTokensHit": "0",
     "ImageCount":   "4"
   },
-  "data_count": 3
+  "data_count": 1
 }
 ```
 
@@ -128,10 +149,13 @@ JSON 格式：
 
 | 列名 | 出现条件 |
 |------|---------|
-| `ModelEndpoint` | 使用了 `--endpoint` 或 `--by endpoint` |
+| `Day` / `Hour` | 对应查询粒度；以本次 `fields` 和 `records` 为准 |
+| `ModelEndpoint` | 使用了 `--endpoint`、`--by endpoint` 或 endpoint 维度的 `--mine` |
 | `ModelName` | 使用了 `--model` 或 `--by model` |
 | `ModelUnitID` | 使用了 `--model` 或 `--by model` |
-| `AuthToken` | 使用了 `--apikey` 或 `--by apikey` |
+| `AuthToken` | Key 过滤/分组或 apikey 维度的 `--mine`；掩码不是完整凭证 |
+
+上面是带维度的结构示例，不保证每次返回所有列；以 `fields` 声明及实际键为准。指标可能是数字字符串，聚合前验证数值类型，不做字符串拼接；缺失字段不是数值 0。不要把 `AuthToken` 写成旧文案的 `ApiKey`，也不要把 PascalCase 改成 snake_case。动态 JSON 参数使用 [Raw API 的安全拼装方式](../../arkcli-api-explorer/references/arkcli-api.md)，不手写转义拼用户输入。
 
 ## 常见错误
 
@@ -140,7 +164,7 @@ JSON 格式：
 | `not logged in` | 未认证 | 运行 `arkcli auth login volc-sso` 重新建立 Volc 身份 |
 | `AuthFailure` / 401 | AK/SK 或 SSO token 无效 | 重新登录 |
 | 时间范围超过 31 天 | API 限制 | 拆分为多次查询 |
-| 返回空 records | 无匹配数据或过滤条件过严 | 去掉过滤 flag 重试 |
+| 返回空 records | 当前范围未返回匹配数据；不等于权限正常或用量必为零 | 核对时间、身份和过滤条件；保留用户指定范围，扩大范围前先确认，不自动去掉过滤 |
 
 ## 注意事项
 
@@ -149,7 +173,7 @@ JSON 格式：
 - **语音模型不在本命令支持范围**：不要为 TTS / ASR / 语音交互构造 `--model`、`--by model` 或 API Key fallback；当前只说明 arkcli 不支持语音模型用量查询
 - arkcli 自动过滤掉 `free_for_coding_plan` 的用量行，始终保留有 `ModelUnitID` 的行
 - `--interval Hour` 时返回的 `Hour` 字段为 STRING 类型
-- 日期范围不能超过 31 天
+- `stats` 的开始/结束跨度须严格小于 31 天；更长请求按原时间范围分片并核对边界，不能默默只查最近 30 天
 
 ## 参考
 

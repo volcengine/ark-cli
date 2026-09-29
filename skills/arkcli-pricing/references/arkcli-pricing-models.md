@@ -4,7 +4,7 @@
 
 列出 ARK 基础模型(foundation model)的结算单价目录。`Price` 是后端按当前账号合同 / 活动 / 套餐计算后的**最终单价(含折扣)**;`OriginalPrice` 是公示原价。
 
-**语音模型不支持**：TTS / ASR / 配音 / 播客 / 音色 / 实时语音交互，或模型名命中 `doubao-seed-tts-*`、`doubao-seed-asr-*`、`seedasr-*` 时，不要用 `pricing models --model` 或 `--modality Audio` 查询价格。广场可搜不代表 pricing 管道有可查费用；应回到 `arkcli models search <keyword>` 的可发现说明。
+**音频价格查询：** `--modality Audio` 是当前 help 和价格服务支持的枚举。TTS / ASR 询价可查该目录，或按已核实的基础模型名过滤；只引用真实返回的 ChargeItems、单位和币种。目录未覆盖某个语音产品时明确说明未知，不能根据广场可见性编造单价，也不能从查到价格推导 `+chat` / `+gen` 支持语音调用。
 
 ## 命令
 
@@ -23,6 +23,7 @@ arkcli pricing models --model cm-20260611124416-77wrq
 # 按模态(后端 FoundationModelDomain 枚举)过滤
 arkcli pricing models --modality LLM
 arkcli pricing models --modality ComputerVision
+arkcli pricing models --modality Audio
 arkcli pricing models --modality Embedding
 
 # 翻页
@@ -53,7 +54,7 @@ arkcli pricing models --region cn-beijing
 | 文本 / 大语言模型 | `LLM` | |
 | 图像生成 / 图片 | `ComputerVision` | 包含 image / video / 3D |
 | 视频生成 | `ComputerVision` | 同上,需要客户端二次过滤 |
-| 音频 / 语音 | 不查询 | `Audio` 是后端枚举，但当前 arkcli skill 不支持语音模型费用查询 |
+| 音频 / 语音 / TTS / ASR | `Audio` | 是否有目标计价项以实际响应为准 |
 | 向量 | `Embedding` | |
 | 智能路由 | `Router` | |
 

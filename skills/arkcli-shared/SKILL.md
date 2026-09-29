@@ -69,6 +69,7 @@ arkcli profile use <name>                                    # 切换默认 prof
 切换 profile 会联动切换登录身份、API Key、控制面路由等上下文。详细命令树看 [`../arkcli-profile/SKILL.md`](../arkcli-profile/SKILL.md)。不能从 Profile 的名称或 `tenant` 字段推断、切换当前编译产品。
 
 只查当前身份/Profile 时，普通 CLI 使用 `arkcli auth status` / `arkcli auth whoami`；默认模型与路由使用 `arkcli resources list --modality <text|image|video>` 并按 Resources Skill 验证。`profile show/list/keys list` 可能同步远端 Key 并回写本地库存或默认 Key，不能作为常规 Chat/Gen 准入或“不改配置/Key”请求的无副作用查询。显式 Profile 管理任务保留这些命令，但先说明同步影响；不改用 deprecated `config show/list` 绕过限制。此边界同样约束业务 Skill/reference 的旧建议。
+只读核对身份与默认资源时，每次 Bash 调用只执行一条 `arkcli auth status`、`auth whoami` 或 `resources list --modality ... --format json`；直接检查该命令的原始 JSON 与执行状态。不要用 `; echo`、管道截断或重定向包装核对命令，避免宿主拒绝或丢失事实来源。若命令被拒绝，报告未完成的核对，不把拒绝推断为账号或资源状态。
 
 ## 命令路由与执行顺序
 
@@ -140,6 +141,17 @@ arkcli profile use <name>                                    # 切换默认 prof
 3. 按 0 / 1 / N 收敛：0 个时补充一个最关键条件；1 个时复述精确 ID 后继续；N 个且选择会改变远端结果时必须询问用户，并在用户选定前停止，不得进入下游 preview、create、update 或 delete。
 4. N 个候选优先使用当前宿主提供的结构化选择能力，选项直接携带区分目标所需的真实 ID 与关键字段；可以标注推荐及依据，但推荐不能代替用户选择。通用 Skill 不写死任何宿主工具名，也不重复添加宿主自动提供的自由输入项。
 5. 宿主没有结构化选择能力时，退化为精简编号列表并要求用户回复精确 ID。用户选定后只沿原 workflow 继续，不重新查询同一批候选。
+6. 因 N 个候选停机询问时，除让用户选「这次用哪个」，一并给出把它固定下来的方式，让用户还能选
+   「以后都用它」——该候选集有持久化开关时就说明怎么开：生成类模态默认值走
+   `arkcli profile set-default --modality <image|video> <ep-id>` 写当前 profile 的该模态默认值，
+   下次同类请求不再询问。否则同类请求每次都要重新问一遍，无人值守场景会持续卡住。
+   这是**写操作**，只在用户明确同意后执行；询问本身仍按上述规则停机，不要替用户预选。
+
+**任务型选型例外**：用户要求创建 Managed Agent、未指定主模型时，按 owning
+`arkcli-agent` 的模型选择流程，允许根据本轮实时资格、详情与用户意图择优并说明依据，
+不必仅因候选多于一个就提问。择优不等于把多个候选谎称为唯一候选；明确硬约束必须有
+对应版本证据，费用/能力差异实质影响任务且无法安全判断时仍先询问。此例外不允许替换
+用户明确模型、切换身份/计费路径或为更新、删除等操作擅选已有资源，也不替代执行授权。
 
 ## 二次确认错误处理（human-in-the-loop）
 

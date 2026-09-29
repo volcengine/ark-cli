@@ -33,6 +33,19 @@ JSON 格式的模型详情，聚合自多个底层 API，包含模型名、版�
 - 字段缺失或空数组：该版本当前没有可用参数目录，`--transform supported_params` 可能显示 `null`。
 - 上游字段存在但 JSON 损坏：CLI 在 stderr 输出带模型名和版本的 `warn: model supported_params enrichment failed: ...`，stdout 仍返回其余模型详情。
 
+## 参数证据与查询冲突
+
+- `supported_params` 是当前版本的参数目录：已列出且 `support=true` 才能据此说明支持，并继续核对 `type/min/max/enum/required`；明确 `support=false` 要如实报告。**未列出不等于服务端一定拒绝、忽略或采用某个默认值**，也不能证明运行时会怎样处理这个参数。
+- 参数目录、`api_support` 和真实调用是三类证据。回答 Responses/Chat/图像/视频 API 是否支持时，读取目标 API 对应项；不能拿另一 API 的支持、`thinking` 能力或模型名称代替。项缺失/未知就说明未确认。
+- `search` 与 `get` 不一致时先核对已有证据中的模型名、精确版本、查询范围及缓存/告警信息。题设或本轮结果已明确同名、同版本、同范围时，直接报告该条件下仍存在冲突，不再以“先对齐版本”推迟回答，也不为重复确认已知事实再查询。分别列出“search 返回什么 / get 返回什么”，保留来源，不取并集、取较乐观的一项或静默覆盖。主版本的 search 元数据不能反证另一个显式版本的 get。
+- 对“未列出的参数能否传、会被忽略吗、默认值是多少”，应转对应执行 Skill 核对 CLI/SDK 契约或官方文档；确需运行时验证时先说明会产生的调用/费用，并限于用户授权的同模型、同 API、同身份。没有验证就保持未知，不为答一个目录问题擅自发起推理。
+
+## NotFound / 空结果的定位
+
+精确 ID 优先直接 `get`；失败不能立即总结为模型不存在。先分清错误与正常空结果，再核对用户原始 ID、版本和 CLI 已支持的 DisplayName 归一化；不要手工用六位日期正则拆 ID。用户给的是 `cm-*` / `ep-*` / Plan 调用别名时，分别转自定义模型、接入点或套餐资源查询，不在公共目录反复试。
+
+纯目录排查确需搜索时，用规范名称/族名做一次有界 `models search`，每次只调整一个有依据的名称或过滤条件；若用户查询历史/退役模型，核对 `--include-deprecated`，不要把默认隐藏解释成从未存在。候选不唯一时让用户选，不能自动换成名称相似的模型；最终说明查过的范围和仍未知的部分。创建/部署路径服从 owning Skill 的有界查询与完整捕获恢复流程，不能以“只查一次”为由丢弃可恢复的截断结果，也不借此循环 search/get。
+
 ## 价格与权益
 
 价格来自新价格服务，输出为 `pricing.model_name`、`pricing.prices` 和可选 `pricing.dimension_attributes`。旧 `pricing.charge_items` / `pricing.multi_charge_items` 已删除，脚本和 Agent 必须迁移，不能继续按旧 `type` 筛选。

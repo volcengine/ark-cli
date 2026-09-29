@@ -16,6 +16,10 @@ metadata:
 
 ## 使用原则
 
+- `unknown action` 先查本地 `api --list`，使用完整注册名，不凭近似业务名猜 Action；`MissingParameter` 按当前契约里的字段名与大小写补齐，不轮流试 `Id/ID/KeyID`。
+- 查询 API Key 时，先读 [Auth 的 API Key 查询与交付](../arkcli-auth/references/api-key-query.md)：list 只定位元数据，授权导出才用真实 `Id` 调 `apikey.get_raw`，不默认回显明文或轮换。
+- 安装态未必有仓库源码：优先读同版本 Skill/reference 与已注册目录；能访问源码时再查 req/resp JSON tag。没有确定的契约来源就说明缺口并停止，不能虚构本地 `internal/apis` 文件已被检查。
+
 - 先产品命令：`arkcli <domain> <verb>` 或 `arkcli +<shortcut>`
 - 再 skill / reference：确认是否已有稳定入口与正确参数
 - 最后才 `arkcli api`：仅用于低频、专业或高风险的底层 Action 验证与兜底
@@ -52,7 +56,7 @@ metadata:
    - `arkcli api --list`
    - `arkcli api`
 4. 定位契约与必填字段（禁止猜 JSON）：
-   - 在代码中查 `internal/apis/<domain>/` 对应的 req/resp 结构体
+   - 查同版本 reference/官方契约；仓库可用时再查 `internal/apis/<domain>/` 对应 req/resp 结构体，安装态没有源码时不得声称已检查
    - 同一 Action 因 `MissingParameter` / `InvalidParameter` 连续失败两次，且错误没有给出确定值时，停止更换相近字段名试错；回到注册 operation、req/resp tag 或官方契约确认。禁止循环枚举 `Scene` / `Type` / `BizType` 等猜测字段。
 5. 先用叶子命令的 Client Preview 核对最终 descriptor 和 payload：
    - `arkcli api <registered-action> --params '{...}' --dry-run`
@@ -70,7 +74,7 @@ metadata:
 |--------|------|------|
 | 产品命令覆盖判断 | 防止误用 `api` | 先 `arkcli <domain> --help` 并对照对应 skill |
 | 认证闸门 | 防止把鉴权问题误判为缺能力 | 先 `arkcli auth status`；失败转 `arkcli-auth` |
-| 契约事实源 | 防止猜参数 | 必须从 `internal/apis/<domain>/` 的 req/resp tag 生成 `--params` |
+| 契约事实源 | 防止猜参数 | 从同版本 reference、官方契约或可访问的 req/resp JSON tag 生成 `--params`；缺确定契约就停止 |
 | Client Preview | 防止 raw Action 直接执行 | invoke 模式先加本地 `--dry-run`，核对 `steps[0].protocol/target/payload` |
 | 风险确认 | 防止写操作误触发 | 涉及创建/删除/修改/影响费用前，要求用户明确确认 |
 | 噪声控制 | 防止整坨输出污染上下游 | 默认引导 `--transform` 提取关键字段；`--debug` 仅排障打开 |

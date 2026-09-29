@@ -81,6 +81,12 @@ description: 使用 ArkCLI 创建、查询和管理模型精调训练任务，�
 
 ## 关键客户端校验
 
+- 提交前以精确模型/版本查询 `train finetune capability get --model <name> --version <version>`，或复用同版本 `models finetune-config ... --type <type>` 的权威校验。支持类型为空/未知时停下核对模型与版本，不暴力枚举 SFT/LoRA/DPO 直到碰巧成功。
+- 价格查询的 `--model` 使用权威基础模型名，不把带版本的拼接 ID 当名称；需要精确版本时用当前 help 支持的独立版本参数。能力、超参、价格与 create 必须对应同一训练方法。
+- DPO / DPO-LoRA 不机械继承 SFT 的数据容错与 shuffle 参数；只有该模型/类型的当前配置明确支持时才传。超参名和值按实时 schema，不能照抄历史 `dpo_beta`，也不能把当前已注册的 `--beta` 误说成不存在。
+- 数据必须是用户提供或明确授权的真实文件、TOS URI、Dataset/preset 引用；占位 bucket/path 只用于说明，不发真实提交。缺数据就请求补充。
+- 本地 `create --dry-run` 不需要以 `--yes` 绕过，也不校验远端 TOS 存在性；在线数据校验、费用 estimate 和真实提交分别报告，不把任一步成功当成训练已创建。
+
 - 用户给出模型名和训练类型询问“精调/SFT/LoRA 价格”时，首选且必须执行 `arkcli train finetune pricing --model <model> --type <type>`。不要改走通用 `arkcli pricing models`：通用账单目录不会按目标模型交叉校验训练方法能力。
 - 显式选择训练方法时，必须用精确的模型版本调用 `models finetune-config <model> <version> --type <type>`。该命令会先按同版本 `FinetuneTypes` 校验能力；不支持时停止，不继续询价、estimate 或创建任务。
 - 手动分页时，`train finetune list --page-number` 必须 `>=1`，`--page-size` 必须在 `1-100`；第 2 页及以后超出当前过滤条件对应的 `total_count` 时是参数错误，不要把空页当成有效结果。

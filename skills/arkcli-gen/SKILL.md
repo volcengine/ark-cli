@@ -98,7 +98,7 @@ explicit --modality > output_modalities > task types > unknown
   │
   ▼ Step 2【强制】查可用参数  ──► models get（EP 用 resolve 得到的绑定模型查能力）
   │     模型名 + 有 sp → **只能**用列出的参数，取值落 min/max/enum 内
-  │     模型名 + sp 空(未配置或当前不可解析) → +gen 自动套 modality 兜底默认(video 720p/5s, image 2048)
+  │     模型名 + sp 空(未配置或当前不可解析) → +gen 自动套 modality 兜底默认(video 720p/5s; image 不填 size)
   │     EP(ep-xxx)            → 可解析绑定则查精确版本；不可解析则说明未知，不猜支持
   │
   ▼ Step 2.5【批量/多阶段】额度预检 ──► plan/free-quota 快照；记录完整 create 数
@@ -106,7 +106,7 @@ explicit --modality > output_modalities > task types > unknown
   ▼ Step 3 据可用参数生成  ──► arkcli +gen --model $MODEL [Step2 允许的参数] "prompt"
   │
   ▼ Step 4【结果处理】
-        视频 = 异步：返回 task_id + status=queued(**不是失败!**) → arkcli gen get <task_id> 轮询;轮到 succeeded 自动下载到本地(local_path);要同步阻塞加 --wait
+        视频 = 异步：返回 task_id + status=queued(**不是失败!**) → arkcli gen get <task_id> 轮询;轮到 succeeded 自动下载到本地(local_path);要同步阻塞加 --wait(有上限,默认 10m,长视频配 --timeout 30m)
         图片 = 同步：直接返回 output_url + local_path
 ```
 
@@ -152,10 +152,22 @@ arkcli resources list --modality video   # 或 image
 arkcli models get "$MODEL" --transform supported_params
 ```
 
-- **`$MODEL` 是模型名**：拿到该模型的 `supported_params` 清单（每项含 `name / type / support / min / max / enum / required`）。
+- **`$MODEL` 是模型名**：拿到该模型的 `supported_params` 清单（每项含 `name / type / support / min / max / enum / required / default / description`）。
   - > **MUST：Step 3 只能使用这里 `support=true` 的参数，且取值必须落在 `min/max/enum` 范围内。** 不在清单里的参数（或 `support=false`）传了会被 `+gen` 拒绝。
-  - **可直接使用 Step 1 选出的模型 id**（点号 / display 形态如 `doubao-seedance-2.0-fast` 都行）：`models get` 会自动按 DisplayName 归一化到规范连字符 name，无需手动转。极个别仍报 `not found` 才用 `arkcli models search <族名>` 核对名字。
-  - 查到模型但 `supported_params` 为空 / `null` → 该版本未配置参数目录，或上游目录当前不可解析；若 stderr 有 `warn: model supported_params enrichment failed: ...`，保留该告警用于排障。**不要手动猜参数**：`+gen` 会自动用内置 modality 兜底默认（video: `resolution=720p` / `duration=5` / `ratio=adaptive`；image: `size=2048x2048`）填充你没指定的参数。直接进 Step 3。
+  - > **MUST：`description` 必须逐条读，不能当注释跳过。** 实测 74 个参数条目里 `description` 填充率 **100%**，而 `min/max` 只有 9%、`enum` 只有 19% —— 结构化字段看着「有」的多数是空的，唯一填满的那个才是条件约束的载体。出现「仅允许 / 仅支持 / 必须 / 不支持 / 建议 / 否则」时，**它是硬约束，不是提示**。四类典型：
+  - > - **值域** —— `duration` 的 `min=4 max=30` 只给了区间，`description` 才补上「取值为 4-30 **或 -1**」。`-1` 落在区间外却合法，`default=-1` 印证了它：**`default` 是目录自己声明的合法值，与 `min/max` 冲突时以 `default` 为准**（`+gen` 本地校验同样按此放行，无需 `--force`）。
+  - > - **条件子集** —— `ratio` 的 `enum` 列了 7 个值，但「视频编辑、视频延长…**仅允许** adaptive」，即某条件下 `enum` 只剩一个合法值。
+  - > - **跨参数依赖** —— `omni_reference_task_type` 的 `description` 给出 `auto/reference/edit/extend` 四种取值**各自**的 `ratio`/`duration` 约束；`background=transparent` 依赖参考图的格式与数量。
+  - > - **替代方案** —— `frames` 的 `description` 写「请使用 duration」，即该参数不可用时该换成什么。
+  - 取值与 `description` 冲突、或本地校验拒绝了目录声明合法的值时，**保留冲突证据**（模型名、`name`、目录原文、CLI 报错）再决定下一步，不要静默换值或换模型。
+  - **可直接使用 Step 1 选出的模型 id**：`models get` 会按 DisplayName 归一化到规范连字符 name。但归一化**只认「点号形态 == 小写 DisplayName」这一种**，不是「点号一律可用」——越界就会 `not found`：
+    - ✅ `doubao-seedance-2.0-fast`（DisplayName 就是 `Doubao-Seedance-2.0-fast`）→ `doubao-seedance-2-0-fast`
+    - ✅ `doubao-seedream-4.5` → `doubao-seedream-4-5`
+    - ❌ `doubao-seedream-5.0` —— 该族 DisplayName 实为 `Doubao-Seedream-5.0-lite`，裸族名对不上
+    - ❌ `doubao-seedream-5.0-pro-260628` —— **点号 + 日期快照**：DisplayName 不带日期，对不上
+
+    **规则**：带日期快照的名字一律用连字符形态（`doubao-seedream-5-0-pro-260628`）；点号形态只用在无日期的族名 / 变体名上。仍报 `not found` 时用 `arkcli models search <族名>` 核对规范 name，不要靠猜点号位置试。
+  - 查到模型但 `supported_params` 为空 / `null` → 该版本未配置参数目录，或上游目录当前不可解析；若 stderr 有 `warn: model supported_params enrichment failed: ...`，保留该告警用于排障。**不要手动猜参数**：`+gen` 会自动用内置 modality 兜底默认（video: `resolution=720p` / `duration=5` / `ratio=adaptive`）填充你没指定的参数；**图片任务不填 `size`** —— 画布由 prompt 描述的宽高比与服务端默认值共同决定，硬填一个 1:1 常量会覆盖 prompt 已说清的比例，需要固定画布时显式传 `--size`。控制面查询失败（区别于「模型本来没配目录」）时 stderr 还会有一条 `warn: ...` 提示本次未做参数校验 —— 走 stderr 而非 JSON，生成失败时同样会出现。直接进 Step 3。
 - **`$MODEL` 是 EP（`ep-xxx`）**：不把 EP 本身交给 `models get`。使用 Step 1 的权威绑定：FoundationModel 查 `model_name` + `--version <model_version>`；CustomModel 只可用 `base_model_*` 查 lineage 能力，不能改写真实 `model_id` 或调用 EP。warning/歧义时说明能力未知，不根据名称猜测支持。
   - 能力查询所得模型 ID 仅用于查询；Step 3 仍传原 EP。CLI 当前不对 EP 强填模态兜底参数，也不替代服务端最终校验。
 
@@ -196,7 +208,7 @@ arkcli +gen --model "$MODEL" --resolution 1080p --priority 9 "<prompt>"
 arkcli +gen --model "$MODEL" --input @ref.jpg "<prompt>"
 ```
 
-- 参数全集、多模态 `--input` 规则、新增 `--n/--priority/--wait` 见 [`references/arkcli-gen.md`](references/arkcli-gen.md)
+- 参数全集、多模态 `--input` 规则、新增 `--n/--priority/--wait/--timeout` 见 [`references/arkcli-gen.md`](references/arkcli-gen.md)
 - Endpoint 的模态由 Step 1 权威元数据自动解析；仅在元数据为 `unknown` /
   `image_or_video` 且用户意图仍不足时要求显式 `--modality`。
 - **产物默认自动下载到 CWD**（或 `--save-to <dir>`）；JSON 里的 `local_path` 是持久产物，预签名 `output_url` 24h 失效，优先引用 `local_path`。`--save-to=""` 关闭
@@ -208,10 +220,12 @@ arkcli +gen --model "$MODEL" --input @ref.jpg "<prompt>"
 | 模态 | 默认行为 | 你该怎么读结果 |
 |------|---------|---------------|
 | **视频** | **异步**：立即返回 `task_id` + `status: queued` | `queued` **不是失败**。用 `arkcli gen get <task_id> --open` 轮询到 `succeeded`——**这次 `gen get` 会顺手把产物下载到本地并回带 `local_path`**（默认 CWD，`<task-id>.mp4`），`--open` 让成品直接在用户桌面弹出（你是 agent，非 TTY，不加就只有路径）；不必再手动 curl `output_url`；**不要**因为没拿到视频就重提 `+gen`（会建新任务） |
-| 视频 + `--wait` | 同步：阻塞到完成再返回 | `arkcli +gen ... --wait --open`，直接拿 `output_url` / `local_path` 并弹出成品 |
+| 视频 + `--wait` | 同步：阻塞到完成再返回，**但超过 `--timeout`（默认 10m）就放弃** | `arkcli +gen ... --wait --open`，直接拿 `output_url` / `local_path` 并弹出成品。**长视频先调大 `--timeout`**（如 `--timeout 30m`）：实测 seedance-2.0 近半数请求 10m 内渲不完；撞上限时返回的是「任务仍在跑 + task id」而**不是失败**，继续 `gen get <task-id>` 轮询即可，**别重跑 `+gen`** |
 | **图片** | **同步**：直接返回 `output_url` + `local_path` | `arkcli +gen ... --open` 让图片直接弹给用户看 |
 
 > **⚠️ 行为变更（2.0）**：视频任务默认已从"自动等待完成"改为"提交即返回 task_id"。需要旧的同步阻塞行为，显式加 `--wait`。
+>
+> **⚠️ `--wait` 有上限**：它最多阻塞 `--timeout`（默认 10m），到点即返回。视频渲染常常更久（实测 seedance-2.0 近半数超过 10m），所以**长视频请显式 `--timeout 30m`**。到点返回的 JSON 是 `type: timeout` + **带 task id** 的错误——这**不是生成失败**，任务仍在服务端渲染；按 hint 里的 `gen get <task-id>` 继续轮询，**绝不重跑 `+gen`**（会另建一个计费任务）。
 
 ### 已有 task 的脚本轮询契约
 
@@ -230,7 +244,7 @@ arkcli +gen --model "$MODEL" --input @ref.jpg "<prompt>"
 - 图生图 / 参考素材 → Step 3 加 `--input @<file>`（可重复）
 - 视频生成后"没看到视频" → 多半是异步 `queued`，用 `arkcli gen get <task_id> --open` 轮询；轮到 `succeeded` 那次会自动下载到本地（看返回的 `local_path`）并弹出成品，别重提
 - **给真人出图/视频默认加 `--open`** → 你是 agent（非 TTY），不加用户只能看到路径、看不到成品；只有"别打开/脚本里/批量 >4 张"才省略或 `--no-open`
-- 视频续写 → 先确认 `reference_video` 是服务端可访问 URL；本地 MP4 不能直接作为该 role 提交。ratio 逐值服从精确模型/EP 的 `supported_params`，不无条件强制 `adaptive`
+- 视频续写 → `reference_video` 接受本地 `@<path>`（CLI 自动上传 TOS 后以预签名 URL 提交）或 `https://...`；本地素材上传要求账号已开通 TOS，未开通会在提交前失败并给出开通入口。ratio 逐值服从精确模型/EP 的 `supported_params`，不无条件强制 `adaptive`
 
 ## 进阶 flag 自然语言触发词表
 
@@ -263,8 +277,10 @@ arkcli +gen --model "$MODEL" --input @ref.jpg "<prompt>"
 
 ## 常见降级
 
-- 模型名报 `not found` → `models get` 已自动归一化点号/display 形态，仍报多半是名字真写错了，用 `arkcli models search <族名>` 核对
+- 模型名报 `not found` → `models get` 的归一化只覆盖「点号形态 == 小写 DisplayName」，不是点号一律可用；带日期快照的名字使用连字符形态（如 `doubao-seedream-5-0-pro-260628`）。保留原始错误，在同一身份和范围用 `arkcli models search <族名>` 核对规范名称、版本与可见性；不能仅凭此错误认定模型已下线。
+- 明确报 `has not activated the model` / 模型未激活 → 读取 [`arkcli-models-activate.md`](../arkcli-models/references/arkcli-models-activate.md)，保留原模型、用户素材与生成意图，按宿主授权流程开通；成功后回到本次生成任务，不换身份、Key 或模型。已有任务 ID 时先查原任务状态，不能重复提交。若开通报 `BalanceNotEnough`，报告实际返回的余额/资格门槛并停止循环，不硬编码充值金额，也不把所有未激活错误解释成欠费。
 - 参数被拒（`param_not_supported`）→ 对照 Step 2 的精确版本目录与实际参数；目录显示支持但 CLI 拒绝时保留冲突证据，不擅自换调用 ID、删用户硬要求或用 `--force` 绕过。只有用户明确要求跳过校验时才用 `--force`。
+  - **例外：目录自己声明该取值合法时，先判是不是 CLI 的校验 bug，而不是用户的参数错。** 判据看 `default`：取值等于该参数的 `default` 却被 `min/max` 拒绝，就是本地校验与上游目录冲突（`default` 落在自己 `min/max` 之外时必然发生）。这类冲突**不要用 `--force` 掩盖**——先向用户报告冲突原文（模型名 / 参数名 / 目录 `min`·`max`·`default` / CLI 报错），由用户决定是修 CLI 还是显式要求 `--force`。用 `--force` 绕过会把「CLI 有 bug」永久伪装成「参数已提交」，下一个用户会再撞一次。
 - **内容被审核拦截**（`ContentRiskBlocked` / `*SensitiveContentDetected` / 命中敏感 / 版权）→ 不是参数问题、`--force` 也绕不过；调整 prompt / 输入素材里的敏感内容后重试。要结构化的拦截原因 + 修复指引，转 [`../arkcli-doctor/SKILL.md`](../arkcli-doctor/SKILL.md) 的 `arkcli doctor error <code>`（生视频拦截 5 个 subtype 全覆盖）
 - 鉴权错误 → 转 [`../arkcli-auth/SKILL.md`](../arkcli-auth/SKILL.md)
 

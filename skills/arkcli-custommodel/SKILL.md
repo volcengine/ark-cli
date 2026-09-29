@@ -74,8 +74,8 @@ metadata:
 
 仅当用户的最终目标是“把我的自定义模型部署成 Endpoint”、但没有给出唯一 `cm-*` 时执行本节；用户已明确给出 `cm-*` 时跳过。
 
-1. 只执行一条只读查询：`arkcli models custommodel list --mine --statuses ready --page-all --page-delay 500 --format json`。这条候选查询一轮最多执行一次；即使返回认证、配置或网络错误，也不得换一种写法重试或扫描本地配置。
-2. 候选只能来自本轮结构化结果。查询失败、结果字段不完整或无法确认已取全时，停止并原样说明原因；禁止凭记忆补 `cm-*`，也禁止先执行部署。
+1. 先执行同范围只读查询：`arkcli models custommodel list --mine --statuses ready --page-all --page-delay 500 --format json`。保留退出码与 stderr，不能把认证、权限或网络失败当作空清单；认证/权限错误按 shared 处理，不扫描凭证或自动切身份。
+2. 候选只能来自本轮完整结构化结果。输出被宿主截断时，先读取工具保存的完整文件；确实没有完整捕获时，允许把同一只读查询的 stdout 重新落盘，stderr 单独保留，再用 `jq` / `sed` 检查 `result.items` 与分页信息。该同范围补查一轮最多执行一次，不循环重试。`jq` 空结果或字段缺失时先核对当前 reference 与原始 JSON，不盲猜字段、不凭记忆补 `cm-*`。分页未取全、补查仍失败或关键字段仍缺失时，说明具体边界并停止；拿全候选前不出选择题，更不执行部署。
 3. 按 0 / 1 / N 收敛：
    - 0 个：停止，提示用户先 upload、量化或完成精调产物导出。
    - 1 个：复述该模型的 `id / name / foundation_model / create_time`，将它作为唯一目标转交 `arkcli-deploy`。

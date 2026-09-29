@@ -5,10 +5,10 @@
 用户说“创建一个 XXX agent / 智能体”时按下面链路执行，不要只拼一个 `agent create`。
 
 1. `arkcli auth status --format json`，确认登录、profile、project、API key。
-2. 如果用户没有给精确模型，先完整查询候选：`arkcli agent model list --format json`。用户明确提出上下文/模态/能力要求时，才按[具体版本 metadata](#按具体版本筛选)补查并筛选；无此要求不额外逐模型查询。把返回的 `items[].model` 原样作为 `--model`。随后必须先完成 0/1/N 分支：0 个候选时报告无候选并停下；1 个候选时复述其 ID 后才进入步骤 3；多个候选时展示真实候选并**立即结束当前回合**，用户选定前禁止执行步骤 3 及后续步骤。
-3. 模型已经唯一确定后，才把用户意图扩展成 skill 选择上下文。例：数据分析 -> `数据分析 Excel CSV 表格 BI SQL`；代码助手 -> `代码 编程 repo bash`；文档写作 -> `文档 写作 总结 Markdown`。
+2. 用户未给精确模型时，按创建意图执行 `arkcli agent model list --query "<用户意图>" --format json` 并完整读取；仅列白名单用不带 query 的 list。明确上下文/模态/能力硬指标时，才按[具体版本 metadata](#按具体版本筛选)补查并筛选。0 个合适候选时报告缺口并停下；否则按下节实时证据择优，复述 `items[].model` 和依据。只有实质差异无法安全判断时展示真实候选并**立即结束当前回合**，用户选定前禁止步骤 3 及后续步骤。
+3. 模型已由用户指定或按有据意图择优规则确定后，才把用户意图扩展成 skill 选择上下文。例：数据分析 -> `数据分析 Excel CSV 表格 BI SQL`；代码助手 -> `代码 编程 repo bash`；文档写作 -> `文档 写作 总结 Markdown`。
 4. 创建 Agent 默认优先从本账号已有 custom skill 中选择，即使用户没有显式说“使用 custom skill”：按需执行 `arkcli agent skill list --source custom --limit 100 --format json`。由 AI agent 读取这一页全部 `Items`，按名称、描述、能力和版本判断；没有合适候选时，将响应中的 `NextPage` 原样传给 `--page` 继续拉下一页，直到命中或没有下一页。不要只调用 `search --source custom "<query>"` 后选第一条；用户明确要求完整清单或需要离线分析时才使用 `--page-all`。
-5. custom skill 分页查完仍没有合适候选，或用户明确要求 market/SkillHub skill 时，再搜索：`arkcli agent skill search "<query>" --limit 10 --format json`。根据名称、描述、能力标签、版本选择 skill。不要臆造 `SkillId`；搜不到时可创建基础 agent，并说明未找到匹配 skill。
+5. custom skill 分页查完仍没有合适候选，或用户明确要求 market/SkillHub skill 时，再搜索：`arkcli agent skill search "<query>" --limit 10 --format json`。根据名称、描述、能力标签、版本选择 skill。不要臆造 `SkillId`；custom + market 都没有合适候选时，不用选择问答反复追问同一件事：用户要通用 Agent 可按已授权创建基础 Agent，并明确未挂匹配 Skill；若指定 Skill 是用户硬条件，则报告缺口，不假装基础 Agent 满足该能力。
 6. 组装参数：补领域化 system prompt，按服务端 `ModelMeta` 和用户需求选择 `--thinking`、`--reasoning-effort`、`--service-tier`；不要默认注入旧版 `speed=standard`，也不要把 `speed` 映射成新字段。线上测试资源名使用 `arkcli` 前缀；用户没给名字时生成 `arkcli-<domain>-agent-<YYYYMMDDHHMMSS>`，如 `arkcli-data-agent-20260707153000`。
 7. 先执行同一条 `agent agent create ... --dry-run --format json`，读取零网络 `preview.v1`，向用户复述 `DisplayName`、`Model`、`Skills`、默认 `Tools`、`McpServers` 和 `unresolved`。裸 custom Skill 省略 `Version` 表示始终使用服务端最新版本，不需要在线补版本；`--skill-zip` 上传结果仍是实际执行时才能解析的占位符。用户确认后去掉 `--dry-run` 再真实创建。
 8. 真实创建时，CLI 会先检查 Managed Agent 能力和模型开通状态：模型未开通会走共享模型开通确认链路；非交互环境不会自动开通，返回 `model_activation_required`。Managed Agent 产品/能力未开通时，TTY 下会提示用户确认并调用前端同款 `OpenChargeItems(ResourceType=DataManagedAgentSum, ResourceNames=[sandbox, web_search])`，非交互环境返回 `managed_agent_activation_required`，不会自动开通。
@@ -16,7 +16,7 @@
 9. 真实创建后立刻 `agent agent get <agent-id> --format json` 确认落库。对用户回显时必须展示服务端最终配置，不要只展示“已创建”或单独摘要某个字段。
 10. 用户要求端到端验证时，再创建 env/session，发送一条最小消息，拉 events/thread/resources。除非用户明确要求清理，不要删除创建出的资源。
 
-只有模型已经由用户明确给出，或白名单过滤后唯一确定时，skill 与 MCP provider 候选才可以并行查。模型仍有多个候选时不得运行下面的 Skill/MCP 查询，也不得用 `agent agent create --help`、preview 或参数准备来提前推进创建流程：
+模型已由用户指定或按本节有据择优确定后，skill 与 MCP provider 候选可以并行查。已进入模型提问停点时，不得用下列 Skill/MCP 查询、写命令 help、preview 或参数准备提前推进：
 
 ```bash
 arkcli agent model list --format json
@@ -31,7 +31,7 @@ arkcli agent vault oauth-provider list --limit 100 --format json
 
 `agent agent create --model` 必须传精确可用的模型 ID。不要凭印象写裸模型名或展示名。
 
-默认完整列出可用候选：
+仅查询可用白名单时完整列出：
 
 ```bash
 arkcli agent model list --format json
@@ -39,7 +39,7 @@ arkcli agent model list --format json
 
 `--query` 模式仍以 ArkModels 白名单为主表，不从模型目录反向生成候选。它会调用 `models search` 拿详细信息并增强白名单模型：命中的白名单模型会带 `detail` 字段并排在前面；未命中的白名单模型仍保留，只是没有 `detail`。`detail` 字段包含用于判断适配度的信号，例如 `display_name`、`description`、`context_window`、`input_modalities`、`output_modalities`、`capabilities`、`lifecycle_status`。
 
-需要额外详情和相关度排序时，可选用（不是默认步骤）：
+创建任务默认用用户意图获取额外详情与相关度信号，再由 AI 判断，不把返回顺序直接当选择：
 
 ```bash
 arkcli agent model list --query "数据分析 Excel CSV SQL agent" --format json
@@ -49,9 +49,10 @@ arkcli agent model list --query "数据分析 Excel CSV SQL agent" --format json
 
 - 默认只从 `agent_support=true` 的结果里选；`agent model list` 默认已经过滤非 Agent 模型。
 - 主模型和工具模型查询都不默认加 `--primary-only`，也不在本地默认排除 `primary_version=false` 的候选；只有用户明确要求只看主版本时才启用。主版本不等于最新版本，同名多版本时不要跨条目混拼。
-- 创建时传用户最终选中条目的 `model` 字段，不要传返回里的 `id`，也不要把列表第一项当成默认选择。
+- 创建时传用户指定或按下述规则择优条目的 `model` 字段，不要传内部 `id`，也不要把列表第一项直接当作默认选择。
 - 先只按用户明确给出的模型族、模态、上下文长度、能力等硬约束，以及所选用途的 `agent_support` / `tool_model_support` 过滤；`primary_version` 仅在用户明确要求主版本时作为过滤条件。查询排序、展示顺序、`router_baseline_support` 或 Agent 对“性能更强 / 更合适”的主观判断都不能把多个候选变成唯一候选。
-- 过滤后只有 1 个候选时复述其 `model` 后继续；只要硬约束过滤后仍有多个候选，就必须使用宿主结构化选择能力展示本轮结果中实际存在的 `model`、`name/display_name`、`version`、`context_window`、`capabilities`、`lifecycle_status/status` 等区分字段，并停在模型选择阶段。候选输出就是当前回合的最终输出，之后不再调用任何工具。可以标注推荐项和依据，但用户选定前不得继续查询 Agent Skill/MCP，不得查看创建命令的 `--help`，也不得执行 `agent create/update`、`+new-agent`、`+iterate` 或它们的 `--dry-run`。不要从模型记忆补选项；宿主没有结构化选择能力时退化为精简编号列表。
+- 默认按本轮 `--query` 详情、实时资格与用户意图择优并说明依据，不因候选数量本身提问；保留未选候选，不谎称择优等于唯一可用。硬指标必须有对应版本证据，未知不能当满足。不得自行改变身份、计费路径、预算或用户已指定模型。
+- 只要硬约束过滤后仍有多个候选，且能力、费用或版本差异会实质影响任务并无法从用户意图安全判断，就使用宿主结构化选择能力展示真实 `model`、`name/display_name`、`version`、已知能力与差异。此时选项是当前回合最终输出，之后不再调用工具；用户选定前不得查询 Agent Skill/MCP、探测写命令 help 或执行 preview/create/update。宿主无结构化选择能力时用精简编号列表，不从模型记忆补选项。
 - 用户明确要求某个模型族时，用 `--name <keyword>` 缩小 Agent 白名单范围：
 
 ```bash
@@ -84,7 +85,7 @@ arkcli api model.list_model_meta_datas \
 | 思考 / function calling / MCP | `thinking.support` / `functioncall.support` / `mcp.support`：读取实际支持值，不从名称推断 |
 
 3. 从实际响应的 `ModelMetaDatas` 或 `Result.ModelMetaDatas` 读取，核对返回的模型名/版本；顶层分页信息如显示未读完，再增加 `PageNum`，不要依赖 `--page-all`。metadata 行的 `Version` 是编辑版本，不是 `FoundationModelVersion`。
-4. 只用对应版本的数据筛选；缺失、空值、无法解析或查询失败表示“未知”，不是 0/不支持，也不能声称满足硬指标。明确区分已满足、不满足、待确认；若用户要求严格满足，只推荐已验证项，并说明未知项未被验证。多个满足项仍交由用户选择。
+4. 只用对应版本的数据筛选；缺失、空值、无法解析或查询失败表示“未知”，不是 0/不支持，也不能声称满足硬指标。明确区分已满足、不满足、待确认；若用户要求严格满足，只在已验证项中择优，并说明未知项未被验证。多个满足项按上节意图择优；实质差异无法安全判断才交用户选择。
 
 `--query` 的 `detail` 按名称关联，可能来自同名主版本，不能当作其他版本的硬指标证据。此处 `ListModelMetaDatas` 也不是 `agent model config` 使用的 `ListManagedAgentModelMetaDatas`；后者查询运行参数可选值。工具资格仍仅从 ArkModels 的版本级 `epa_tool_model.support` 判断。不要为无额外约束的列表/创建自动补查 metadata，也不要把这套选型流程变成对用户明确模型 ID 的写入拦截。
 
@@ -145,7 +146,8 @@ arkcli +new-agent --fork agent-xxx --format json
   - 扩展配置：`Multiagent`、`Metadata`、`Tags`
   - 服务端返回的时间字段：`CreateTime`/`CreatedAt`、`UpdateTime`/`UpdatedAt`
 - 结构化输出使用 `agent agent get <agent-id> --format json` 或 `--format yaml` 保留服务端返回的全部非空字段；调用方不得丢弃、截断或用摘要替换配置字段。人类可读摘要可以压缩时间、ID 等展示格式，但不能隐藏上述配置内容。
-- 如果提交的 `request.System` 非空但创建响应或 `GetAgent.Result.System` 为空，优先报告“服务端未回显/未落库”，不要假设 prompt 已生效，并保留请求值与服务端值供排查。
+- 先按当前命令的输出 envelope 取值：`agent agent create/get --format json` 读取 `Result`；`+new-agent` 读取 `data.agent`（兼容 `Result`）。先检查对象是否存在，不能把从错误路径取到的 null 当作服务端字段为空。
+- 创建响应未回显 System 时，用返回的真实 ID 只读 `agent agent get` 核对；`+new-agent` 默认已回读，优先复用该结果。回读失败、对象/字段缺失时报告“未能确认持久化值”，不能直接断言“未落库”。明确回读值与请求不一致时展示差异，不自动重建或更新来掩盖问题。
 - `+new-agent` 当前不做 LLM 起草和 template；自然语言理解、参数选择、用户确认由调用 arkcli 的 AI agent 完成。
 - `+new-agent` 与 `agent agent create` 共用创建链路：真实创建前会做 Managed Agent / 模型开通预检。遇到 `managed_agent_activation_required` 或 `model_activation_required` 时，不要通过自动加 `--yes`、自动购买套餐或自动调用开通接口绕过确认；需要真人在 TTY 确认，或用户显式要求无人值守并设置 `ARKCLI_ALLOW_HEADLESS_ACTIVATION=1`。
 
@@ -210,6 +212,10 @@ arkcli agent agent list --page <NextPage> --limit 50 --format json
 ```
 
 - 用户给明确 Agent ID 时，直接用 `arkcli agent agent get <agent-id> --format json`。
+- `ListAgents` 成功但列表为空，只能说明本次列表没有返回候选，不能据此断言已知 Session 的 Agent 不存在。先检查筛选和分页；已有用户提供的 Agent ID 时直接 get。只有 Session ID 时，读取该 Session 的 Agent 引用/快照，区分会话保存的配置与当前 Agent 资源；引用中有真实 ID 才继续 get，不从名称或 Session ID 推造 Agent ID。
+- Session 快照不能证明 Agent 当前仍存在或用户仍有修改权限；get 的不存在/无权限与列表为空分别报告。不要为恢复列表自动新建 Agent、切换账号/Profile 或重复获取 API Key。
+- 列表成功为空且用户要找已有 Agent、又未给 Session ID 时，可在**同一已授权项目/身份**用 `arkcli agent session list --format json` 查关联 Agent 引用；只读取定位所需的 ID/名称/快照元数据，不扩大到其他项目或读会话正文。按真实分页继续到所需候选，不把历史“list 可能为空”写成所有账号恒空。引用 ID 已明确就直接 get，不能猜 ID。
+- 模型不在 Managed Agent 可用清单、目标不可修改或访问被拒绝时，保留首次错误和范围说明，不反复换维度碰撞。如用户仍需实现变更，可解释“新建/复制”的替代路径及配置差异；必须由用户选择并按写入授权执行，不自动创建替代资源。
 - 用户只给名字或模糊描述时，先用过滤缩小范围：
 
 ```bash

@@ -40,16 +40,45 @@
 | 视频续写 | `reference_video` 明确源视频，人物图只作 `reference_image`；ratio 逐值服从精确模型/EP 能力，不固定替换成 `adaptive` |
 | 只要 URL | 显式 `--save-to=""`；不能用省略代替空串，不能声称已保存本地 |
 
-对实际会发出的每个模型参数，检查 support、type、enum、min/max、required、fixed/default 及组合依赖。
+对实际会发出的每个模型参数，检查 support、type、enum、min/max、required、fixed/default、description 及组合依赖。
+**`description` 不是注释，是条件约束的唯一载体。** 实测 74 个参数条目中 `description` 填充率 100%，而 `min/max` 仅 9%、`enum` 仅 19% —— 结构化字段看着「有」的多数是空的。四类只在 `description` 里的信息：
+值域补充（`duration` 的「4-30 **或 -1**」）、条件子集（`ratio` 的「编辑任务**仅允许** adaptive」）、跨参数依赖（`omni_reference_task_type` 四种取值各自的 `ratio`/`duration` 约束）、替代方案（`frames` 的「请使用 duration」）。
+**`default` 是目录自己声明的合法值，与 `min/max` 冲突时以 `default` 为准** —— `duration` 的 `default=-1` 就落在它自己的 `min=4 / max=30` 之外，只看 `min/max` 会判 `-1` 非法，而 `-1` 恰恰是 auto 模式下唯一安全的取值。
 `--wait`、`--save-to`、`--open` 等客户端编排 flag 不属于模型参数目录。
 明确不支持的键/值不能靠 `--extra-body`、`--force` 或改拼写偷偷绕过。
+取值等于目录 `default` 却被 CLI 拒绝时，**这是 CLI 与上游目录的冲突，不是用户的参数错**：保留冲突证据（模型名 / 参数名 / 目录 `min`·`max`·`default` / CLI 报错）并报告，不要用 `--force` 把它伪装成「参数已提交」。
+
+seedance 类视频模型还会按 **prompt 语义**自行判定任务类型（`multimodal_to_video` / `video_editing` /
+`video_extension`），不只看参数。prompt 读起来像“参考这个视频的画面/镜头顺序”时会被判成
+`video_editing`，此时 `ratio` 必须为 `adaptive`、`duration` 必须为 `-1`，且输入视频本身须落在 4~30 秒；
+否则**提交会成功拿到 `task_id`，但任务在执行阶段失败**（`InvalidParameter.TaskTypeConstraint`）。
+所以“提交返回 200”不是参数合法的证据，必须轮询到终态才能判定。
 
 目录为空/查询失败是“能力未知”，不是“全部支持”或“模型不支持”。保留告警，勿宣传
 CLI 的保守兜底值是模型推荐值。目录支持而本地拒绝时记录调用 ID、查询 Name/Version、
 拒绝参数与错误，不替换套餐调用身份。用户未授权放宽硬要求时不能静默删参数。
 
+尺寸/时长不合法时，从该版本的真实 enum/min/max 找到就近合法档位并解释差异；不能照搬别的模型的
+固定“至少 5 秒/某分辨率”。改变时长、画幅、数量或费用前让用户确认，不把不合法值原样提交反复试错。
+若要求必须精确满足而当前模型不支持，明确冲突，不以自动放大后的成品宣称满足原要求。
+
+首次真实生成前一次核对已知的身份/lane、模型权限、模态、参数和所需素材缺口；已有本轮证据直接复用，
+不要逐个报错才逐个换身份。免费额度或套餐快照不是现金余额/代金券，不能用它推断账户“足够扣款”。
+`--dry-run` 不访问余额或在线资格，不能以预览成功承诺能生成；收到资格/余额错误时报告原始条件，
+不凭历史经验要求统一充值固定金额。HTTP 200、请求受理、任务成功、下载成功是不同证据层。
+
 “只看请求”用 dry-run；“真实草稿”只有模型支持 draft 才能使用。
 不支持 draft 时如用户接受，可另选已确认兼容的低成本配置，但必须说明不是原生草稿模式。
+
+## 2.1 CLI 参数与 HTTP / SDK 请求不是同一层
+
+用户要修 HTTP/SDK 代码时，先看其实际请求，而不是把一条 `+gen` 命令改写成 JSON：CLI flag、模型参数目录、HTTP payload 各有自己的字段名、层级和默认处理。
+
+- `--input` 是 CLI 输入语法，`@本地文件`、`first:` / `ref:` 等需要 CLI 转换；不能把这些字符串原样塞进 HTTP 请求当服务端可读素材。
+- `--wait`、`--save-to`、`--open` / `--no-open` 是客户端轮询/下载/打开行为，不是 HTTP 模型参数。图片的 image union 与视频的 `content[]` 结构也不能互抄。
+- 逐项核对真实 API 路径、精确模型/Endpoint、脱敏鉴权上下文、request body、素材可访问性及 response/error/request_id。字段映射以目标 API/SDK 契约为准，不凭 CLI flag 的连字符机械改下划线。
+- `+gen` 成功只能证明那次 CLI 工作流成功；CLI 可能补了默认值、转了素材、选了调用上下文，**不能据此声称用户原 HTTP/SDK 代码已经正确**。应指出两份请求的实际差异；未检查用户请求就明确尚未定位，不额外生成一个收费任务代替代码诊断。
+- Client Preview 只能辅助核对已知请求字段与客户端步骤，`partial/unresolved` 仍是未知，不能把预览当服务端接受证明。真实验证需用户授权，保持同模型/API/身份；不改水印策略、切 Key 或删用户硬要求。
 
 ## 3. 视频续写的意图、条件依赖与批量提交
 
@@ -60,11 +89,18 @@ CLI 的保守兜底值是模型推荐值。目录支持而本地拒绝时记录�
 续写分支的硬约束：
 
 - 源视频必须显式使用 `reference_video:`；辅助人物/服装图必须使用 `reference_image:`，不能因其排在视频后面
-  就把它当首帧。裸视频或 `ref:` 可以表达普通 R2V，但不要把它们宣称为已明确进入续写语义。
-- 本地 `reference_video` 当前不能由 CLI 自动上传成服务端可访问的视频地址；
-  `reference_video:@/local/source.mp4` 会被数据面拒绝。提交续写必须使用 `https://...` 等服务端可访问 URL。
-  只有先前任务明确返回、且能证明对应同一源视频的有效 `output_url` 才可复用；不得按文件名、画面相似或
-  历史目录猜一个 URL。用户只有本地 MP4 且没有已授权上传路径时，停止并说明当前 Skill-only 边界。
+  就把它当首帧。`ref:` 可以表达普通 R2V（CLI 按素材类型补成 `reference_video`）；**不带任何前缀的裸视频
+  不行**——空 role 会被数据面 400 拒绝（`reference media mode requires video role to be reference_video`），
+  必须显式给 role。不要把 `ref:` 宣称为已明确进入续写语义。
+- 本地 `reference_video` 由 CLI 自动上传到 TOS，再以预签名 https URL 提交；用户不需要自备公网地址。
+  `reference_video:@/local/source.mp4` 与 `reference_video:https://...` 都可直接提交。
+  上传要求当前账号已开通 TOS：未开通时命令会在上传前失败并给出 `tos_not_activated` 与开通入口，
+  此时如实报告并停止，不要改模型、改 role 或反复重试。
+  `--inline-local` 是逃生舱，把本地文件退回 base64 内联，但**只对图片有效**：数据面**直接拒绝**视频/音频的
+  data URL（HTTP 400，`reference_video must be provided as a web url`，任务不会创建），所以续写分支不要使用。
+- 复用历史素材仍有限制：只有先前任务明确返回、且能证明对应同一源视频的有效 `output_url` 才可复用；
+  不得按文件名、画面相似或历史目录猜一个 URL。用户只有本地 MP4 时直接提交本地路径即可，不要因为
+  “没有公网 URL”而停止。
 - `adaptive` 不是续写的无条件规则。`ratio` 应按用户要求及精确模型/Endpoint 的 `supported_params` 检查
   `support/type/enum/fixed/default`：用户要求固定比例且该值受支持时保留；用户要求继承源画幅且
   `adaptive` 受支持时才选它；用户没要求时优先省略，交给该资源的有效默认。目录不清楚时不要强制替换。

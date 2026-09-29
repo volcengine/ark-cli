@@ -7,11 +7,11 @@ CI 卡控在 arkcli-eval-kit 维护。记录宿主/模型、CLI ref、实际 Ski
 | 维度 | 场景与验收 |
 | --- | --- |
 | 触发/反触发 | 真实生成与编辑进入 Gen；现有媒体理解走 Chat/Understand；只查资源不得提交生成 |
-| 默认与数量 | 无模型、一个候选、多个候选、显式 EP；一张/多文件/一张多格；不偷改 default 或计费主体 |
+| 默认与数量 | 无模型、一个候选、多个候选、显式 EP；一张/多文件/一张多格；不偷改 default 或计费主体；因多候选停机询问时须一并说明固定默认的方式（支持该能力的产品），且不得自行写入或替用户预选 |
 | Profile/Key | Agent Plan/Team 预设与 Coding Plan/Team 后付费 EP 分流；失效/撤销/权限/用量分别处理，禁止自动轮转或跨身份兜底 |
 | 模型能力 | alias、精确版本、EP Foundation/Custom 绑定；unknown/error/空目录与 support=false 区分；能力查询 ID 不替换实际调用 ID |
 | 参数组合 | 每项公开参数及实际值/type/enum/range；显式 false、seed=0、数量/sequential、时长/frames、audio、首尾/参考素材角色、空 save-to |
-| 续写输入 | 本地 reference_video 必须在创建前被识别为当前不可直接提交；已有可信远程 URL 可复用，不能用真实创建反复探错 |
+| 续写输入 | 本地 reference_video 走 TOS 上传后以预签名 URL 提交，不得再判为“不可直接提交”；账号未开通 TOS 时上传前失败并报告，不得改用 `--inline-local` 提交视频（会被数据面 400 拒绝），也不得用真实创建反复探错；已有可信远程 URL 可复用 |
 | 续写参数 | 固定比例与 adaptive 都按精确模型/EP 的值级能力和用户要求处理；不因“续写”静默改 ratio；优先验证原生目标时长，再决定是否分段 |
 | 素材边界 | 只使用用户提供或明确授权复用的素材；目录中存在旧参考图时也不得引入未授权历史素材 |
 | Preview | 仅本地零业务请求/写入；不把 dry-run 成功或事后补做 dry-run 洗成真实调用已验证 |

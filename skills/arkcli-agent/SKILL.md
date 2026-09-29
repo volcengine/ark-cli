@@ -18,9 +18,14 @@ metadata:
 
 ## 创建 Agent 的最小决策表
 
+仅咨询参数含义、命令用法或解读已有完整 stdout 时，能从文档与当前证据回答就直接回答，
+不为概念解释发起 live 查询。只有账号当前配置、资源状态或模型实时可用性等问题才查服务端。
+已拿到完整结果时复用它；名称搜索/grep 无命中不等于资源不存在，先确认目标是 Agent、
+Environment 还是 Session。用户提供明确 ID 时直接查对应资源，不先列全量清单。
+
 | 用户输入 | AI Agent 的处理 |
 | ---- | ---- |
-| 未指定 Agent 主模型 | 先执行一次 `arkcli agent model list --format json`，完整读取候选；不默认加 query、不截断数量、不凭印象拼模型 ID。用户明确要求上下文/模态/能力时，再按具体版本查询 metadata 并筛选 |
+| 未指定 Agent 主模型 | 创建任务有自然语言意图时，用 `arkcli agent model list --query "<用户意图>" --format json` 完整取候选并有据择优；仅列白名单时用 `arkcli agent model list --format json`。明确硬指标再按具体版本查 metadata，不凭记忆拼 ID |
 | 需要为工具选择绑定模型 | 用 `agent model list --usage tool --format json`；不默认加 `--primary-only`，选中的 `items[].model` 填入 `Tools[].Configs[].Models[].ID`，不修改 Agent 主模型 |
 | 未指定 Skill | 先查本账号 custom skill；没有合适候选再查 market/SkillHub skill |
 | 给出本地 Skill zip | 先调用 `agent skill create --zip`，拿到返回的 `skill-...` ID 和版本后再创建 Agent |
@@ -38,13 +43,15 @@ metadata:
 时使用宿主结构化选择能力；唯一候选直接继续。选择目标只完成消歧，不等于授权后续创建、
 更新或删除。
 
-模型选择是创建 Agent 的强制停点：只能用用户明确给出的硬约束和产品 eligibility 字段
-过滤上述查询结果；相关度、返回顺序、推荐或 Agent 自己的“更适合”判断都不能把多个候选
-变成唯一候选。过滤后为 N 个（N > 1）时必须把真实 `items[].model` 交给用户选择；
-用户选定前不得查询 Agent Skill，也不得执行任何 preview、`agent agent create/update`、
-`+new-agent` 或 `+iterate`。这也是当前回合的硬返回点：展示候选后立即结束回合，不再探测
-上述写命令的 `--help`，不准备后续参数，也不查询 Skill/MCP 候选。推荐项可以标注理由，
-但不能代替用户作出选择。
+**创建任务的主模型选型例外**：默认由 AI 按本轮 `--query` 详情、实时资格与用户意图
+择优，复述真实 `items[].model` 和依据；不能只因有多个候选就停下来问，也不能把排序第一
+当作证据或把择优说成“只有一个模型可用”。用户明确的硬指标须用对应版本 metadata
+验证；不能自动换身份、计费路径、超出预算或替换用户明确给出的模型。
+只有多个候选的能力、版本或费用会实质影响结果且无法从用户意图安全判断时，才进入
+模型选择停点：展示真实候选，用户选定前不得查询 Agent Skill，也不得执行 preview、
+`agent agent create/update`、`+new-agent`、`+iterate` 或准备后续参数。此时选项是当前
+回合的最终输出，之后不再探测写命令 `--help` 或调用其他工具。择优不替代执行授权，
+也不适用于复制、更新、删除时对已有 Agent 的目标消歧。
 
 ## 先选路径
 

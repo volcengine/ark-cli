@@ -1,7 +1,7 @@
 # models 场景化推荐表（策展层 / 意图排序最高权重）
 
 > **前置条件：** 先阅读 [`../arkcli-shared/SKILL.md`](../../arkcli-shared/SKILL.md) 了解认证、全局参数和安全规则。
-> **快照对齐：** 2026-06。表里的"版本"列是**策展快照**，不是事实源。**任何完整模型 ID 都以 `arkcli models search` 实时返回为准**——见下方 JOIN 协议。
+> **快照对齐：** Volc 2026-09。表里的"版本"列是**策展快照**，不是事实源。**任何完整模型 ID 都以 `arkcli models search` 实时返回为准**——见下方 JOIN 协议。
 
 ## 这张表解决什么
 
@@ -15,6 +15,7 @@
 - 推荐模型描述包含版本差异、常见需求词、旧模型别名和升级引导，用于提升检索命中率。
 - 用户明确指定第三方、开源或历史模型时，回到 `arkcli models search` 检索，**不强行替换**。
 - 本表只服务"按意图找模型"（search 线）。**枚举 / 盘点 / 统计走 `arkcli models list`，不挂本表重排。**
+- Volc 的推荐还须服从[平台模型下线公告](https://ark.volcengine.com/region:cn-beijing/docs/model-deprecation-notice)的 EOM/EOS：已过 EOM 的旧版本不能推荐作新接入，即使公共目录暂显示 `Published`；已有接入点的可用性另按 EOS 与实时状态判断。2026-09-22 第十批公告列出 `doubao-seed-2-0-pro-260215`、`doubao-seed-2-0-code-preview-260215` 已于 2026-09-24 停止新购，分别建议迁移至 `doubao-seed-2-1-pro-260915`、`doubao-seed-evolving`。本表只把它们作为选型候选，不能用公告代替实际能力/账号可用性验证。
 
 ## 模型推荐表
 
@@ -25,12 +26,12 @@
 | 信息抽取 | Doubao-Seed-2.0-mini | doubao-seed-2-0-mini-260428 | 面向高吞吐、轻量调用优化。适合字段提取、分类归纳、标签生成、格式转换和批量结构化处理。用户强调调用量大、任务明确、批处理或成本敏感时优先推荐。 |
 | 长文本理解 | Doubao-Seed-2.0-lite | doubao-seed-2-0-lite-260428 | 适合分析长文章、报告、网页内容和多轮上下文，完成总结、问答、归纳和关键信息提取。用户询问长文阅读、长上下文、报告总结时推荐。 |
 | 文档理解 | Doubao-Seed-2.0-lite | doubao-seed-2-0-lite-260428 | 适合阅读文档、分析材料、总结报告和回答基于文件内容的问题，可用于办公、研究和知识整理。用户询问 PDF、文件解析、文档问答时推荐。 |
-| 复杂推理 | Doubao-Seed-2.0-pro | doubao-seed-2-0-pro-260215 | 面向复杂工作流和长链路推理优化。适合多步骤分析、复杂指令、多约束任务、方案比较、数学逻辑和科研辅助。用户强调效果优先、复杂度高、推理能力强时优先推荐。 |
-| Agent 任务 | Doubao-Seed-2.0-pro | doubao-seed-2-0-pro-260215 | 适合智能体、自动化任务和复杂工作流，可处理任务拆解、多轮规划、持续决策和长链路执行。用户询问 Agent、智能体、复杂任务编排、自动执行时优先推荐。 |
-| 工具调用 | Doubao-Seed-2.0-pro | doubao-seed-2-0-pro-260215 | 适合通过 Function Calling、MCP 或外部 API 完成信息查询、业务操作、流程自动化和复杂工具编排。用户明确要求调用工具、MCP、函数调用或 API 编排时推荐。 |
+| 复杂推理 | Doubao-Seed-2.1-pro | doubao-seed-2-1-pro-260915 | 面向复杂工作流和长链路推理的候选。适合多步骤分析、复杂指令、多约束任务、方案比较、数学逻辑和科研辅助；实际版本与能力以本轮搜索为准。 |
+| Agent 任务 | Doubao-Seed-2.1-pro | doubao-seed-2-1-pro-260915 | 智能体、自动化任务和复杂工作流的候选。用户询问任务拆解、多轮规划、持续决策和长链路执行时，先查实时支持能力。 |
+| 工具调用 | Doubao-Seed-2.1-pro | doubao-seed-2-1-pro-260915 | Function Calling、MCP 或外部 API 编排的候选；推荐前须从本轮模型结果验证 `functioncall`，不能仅凭表内描述推断。 |
 | 低成本调用 | Doubao-Seed-2.0-mini | doubao-seed-2-0-mini-260428 | 面向推理吞吐和部署密度优化，适合预算敏感的轻量任务，如分类、抽取、改写、格式转换、标签生成和批量内容处理。用户询问便宜、省钱、低成本时推荐。 |
 | 高并发调用 | Doubao-Seed-2.0-mini | doubao-seed-2-0-mini-260428 | 面向高并发和批量生成优化。适合快速回复、实时分类、短文本处理、大规模离线任务和高频调用。用户询问高吞吐、低等待、批处理时推荐。 |
-| 代码生成 | Doubao-Seed-2.0-Code | doubao-seed-2-0-code-preview-260215 | 面向企业级编程任务优化。适合代码生成、补全、解释、调试、Bug 修复、前端开发、多文件修改和项目级开发。用户询问 Coding、代码能力、研发 Agent、仓库级修改时优先推荐。 |
+| 代码生成 | Doubao-Seed-Evolving | doubao-seed-evolving（以实时结果确认调用名） | 代码生成、补全、解释、调试、Bug 修复、多文件修改和项目级开发的候选；先确认当前版本和代码能力，不把公告迁移目标直接当作本账号可调用证明。 |
 | 角色扮演 | Doubao-Seed-Character | doubao-seed-character-251128 | 面向角色扮演和故事叙事定向优化。适合虚拟角色、人设对话、情感陪伴、多人剧情互动和长旁白故事。用户询问角色模型、陪伴模型、剧情互动时推荐。 |
 | 视觉理解 | Doubao-Seed-2.0-lite | doubao-seed-2-0-lite-260428 | Seed2.0 Lite 原生支持文本、图片、音频、视频统一理解，适合图片问答、截图分析、图表解读、视觉信息提取和图文混合输入。用户询问看图、识图、图表分析或通用多模态模型时优先推荐。 |
 | 复杂视觉推理 | Doubao-Seed-2.0-lite | doubao-seed-2-0-lite-260428 | Seed2.0 Lite 支持跨模态推理，可结合图片、视频、音频和文本信息完成复杂分析。适合多图理解、复杂图表、视觉逻辑推理、图文整合和跨模态问答。 |
@@ -67,7 +68,7 @@
    ├─ exact   族名命中、版本一致        → 拼 <name>-<primary_version> 置顶推荐
    ├─ drift   族名命中、版本不同        → 用 search 返回的真实版本（它已按 gen/time 排好序，取 top）
    │                                     并提示"推荐表快照 X，当前 Y"
-   ├─ bare    命中但 primary_version=None（语音/音频类）→ 停在广场发现层：只说明可搜到，不拼版本，不交给下游能力
+   ├─ bare    命中但 primary_version=None（语音/音频类）→ 保留裸名，不拼版本；实际接入查该能力官方 API
    └─ miss    词干完全无命中            → 表 id 可能陈旧；改用场景中文词或更短词干再 search
 ④ 用 search 同 modality 结果补 2–3 个备选候选
 ⑤ 用户点名第三方/开源/历史模型（Seedream 4.5、qwen、glm…）→ 跳过本表，直接 search，不强替
@@ -77,6 +78,6 @@
 
 - **不要把表里的 full-id 直接拼给 `+chat` / `+gen`，也不要凭记忆给模型名加后缀**。图片生成的真实模型就是 `doubao-seedream-5-0`（**没有 `-lite` 后缀，缓存里不存在带 `-lite` 的变体，硬查会返回 no items**）。这类命名漂移会反复发生——**用族名词干 search，永远以返回结果为准，不要自行补 `-lite` / `-pro` 等后缀**。
 - **search 容错 DisplayName**：`Doubao-Seed-2.0-lite`（带点号大小写）也能命中 `doubao-seed-2-0-lite`，但**族名词干（小写连字符）最稳**，优先用它当 search keyword。
-- **语音 / 音频 6 项是 bare 路径，且在 arkcli 当前只支持广场发现**：它们在 models 目录里但 `primary_version=None`、无 enrich（ctx/lifecycle 为空）。命中后直接说明裸名（如 `doubao-seed-tts-2-0`、`seedasr-streaming`、`doubao-seed-asr-2-0`、`doubao-seed-podcast`、`doubao-seed-voice-design`）能在广场搜到，但不要尝试拼版本号，也不要继续交给 `+chat` / `+gen` / `+deploy` / `+code-example` / `usage` / `pricing` / `onboard`。对 arkcli 来说，广场可搜不代表可调用、可开 Endpoint、可生成示例、可查费用或可查用量。
+- **语音 / 音频 bare 路径**：目标记录的 `primary_version` 为空、ctx/lifecycle 未 enrich 时，保留本轮真实裸名（例如目录中的 `doubao-seed-tts-2-0`、`seedasr-streaming`），不猜版本和能力。TTS/ASR 等通常使用各自独立 API，不能直接套 Responses；用户要接入时引导核对该产品官方 API/SDK 的协议、模型标识与认证，未核实前不编 endpoint/请求体。arkcli 目录可搜不证明 `+chat` / `+gen` / 部署或用量支持；询价可转 `pricing models --modality Audio`，仅引用实际计价项，查不到就标未覆盖。
 - **避开 `-internal` 变体**：search 可能返回 `doubao-seed-2-0-lite-internal` 等内部变体，不要推荐给用户。
 - **lifecycle**：命中 `Retiring` 的候选要主动提示用户它在下线，并在同族找更新版本（与主 SKILL 一致）。

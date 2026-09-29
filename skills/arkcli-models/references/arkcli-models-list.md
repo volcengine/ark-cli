@@ -2,7 +2,7 @@
 
 > **前置条件：** 先阅读 [`../arkcli-shared/SKILL.md`](../../arkcli-shared/SKILL.md) 了解认证、全局参数和安全规则。
 
-分页列出火山引擎 ARK 平台的模型清单，支持按模态筛选和排序。它适合做全量枚举、统计和资产盘点；如果用户是在找"哪个模型适合某任务"，仍优先使用 `arkcli models search`。
+分页列出火山引擎 ARK 平台的公共基础模型清单，支持按模态筛选和排序。它适合做公共目录的全量枚举和统计；如果用户是在找"哪个模型适合某任务"，仍优先使用 `arkcli models search`。
 
 ## 命令
 
@@ -13,7 +13,7 @@ arkcli models list
 # 按模态筛选
 arkcli models list --modality text
 
-# 按名称精确筛选
+# 按名称做不区分大小写的子字符串筛选
 arkcli models list --name doubao
 
 # 分页控制
@@ -31,73 +31,26 @@ arkcli models list --page-all --sort-by CreateTime --sort-order Desc --format js
 | 参数 | 必填 | 类型 | 说明 |
 |------|------|------|------|
 | `--modality` | 否 | string | 按模态筛选：`text` / `image` / `video` / `audio` / `embed` |
-| `--name` | 否 | string | 按模型名精确筛选 |
+| `--name` | 否 | string | 按模型名做不区分大小写的子字符串筛选 |
 | `--page-number` | 否 | int | 页码（>=1） |
 | `--page-size` | 否 | int | 每页数量 |
 | `--sort-by` | 否 | string | 排序字段，如 `UpdateTime`、`CreateTime` |
 | `--sort-order` | 否 | string | 排序方向，合法值：`Asc` / `Desc`（首字母大写） |
 
-## 自定义模型 / 最近创建统计
+## 公共目录与账号资产边界
 
-当用户问"我的自定义模型"、"最近 7 天建了多少个自定义模型"、"列出来"时，这属于资产盘点，应使用 `models list`，不要切到 `arkcli api --list` 探 Raw API。
+`models list` 枚举公共基础模型目录，不是账号自定义模型或已部署 Endpoint 清单。
 
-推荐流程：
+- “我的自定义模型 / 最近 7 天创建了多少自定义模型”转 [arkcli-custommodel](../../arkcli-custommodel/SKILL.md)，使用 `arkcli models custommodel list --mine --page-all --format json`；用户明确要求账号全部资产时才去掉本人范围。统计所有创建记录时不额外加 `--ready` 丢掉未就绪项。
+- 最近创建统计基于该资产清单实际返回的创建时间，在完整、未截断结果上按用户时区/时间窗口过滤；字段缺失、无法解析或分页不完整就披露未知/部分统计。不得从公共目录的 `model_type`、名称、tags 或 `CreateTime` 猜账号资产归属。
+- 已部署接入点用 `infer endpoint list`；当前 Profile 可调用资源用 `resources list`。它们和公共目录不是同一集合。
+- Plan 支持哪些模型转 `plans model-list --plan <plan>`；目录中找不到套餐路由别名，不证明套餐不能使用该别名。
+- `models list` 缺少某能力字段，不证明支持或不支持；能力问题用 `models search/get` 的精确模型/版本元数据。公共目录零条不证明账号没有自定义模型或 Endpoint。
 
-1. 先确认认证状态：`arkcli auth status`
-2. 拉完整清单：`arkcli models list --page-all --sort-by CreateTime --sort-order Desc --format json`
-3. 如果当前版本提供自定义模型类型 flag，优先使用该 flag；如果没有，就在本地 JSON 中按可用字段过滤，例如 `model_type`、`type`、`customization_type`、`source_type`、`customized_tags`、`create_time`
-4. 时间窗口没有服务端 flag 时，在本地按 `create_time` 做日期比较
-
-示例：
-
-```bash
-arkcli models list --page-all --sort-by CreateTime --sort-order Desc --format json > /tmp/ark-models.json
-python3 - <<'PY'
-import json
-from datetime import datetime, timedelta, timezone
-
-data = json.load(open("/tmp/ark-models.json"))
-items = data.get("items") or []
-cutoff = datetime.now(timezone.utc) - timedelta(days=7)
-
-def parse_time(value):
-    if not value:
-        return None
-    value = value.replace("Z", "+00:00")
-    try:
-        return datetime.fromisoformat(value)
-    except ValueError:
-        return None
-
-def is_custom(item):
-    haystack = " ".join(str(item.get(k, "")) for k in (
-        "model_type",
-        "type",
-        "customization_type",
-        "source_type",
-    ))
-    tags = item.get("customized_tags") or []
-    haystack += " " + " ".join(str(tag) for tag in tags)
-    return "custom" in haystack.lower() or "customization" in haystack.lower()
-
-matched = []
-for item in items:
-    created = parse_time(item.get("create_time") or item.get("CreateTime"))
-    if created and created.tzinfo is None:
-        created = created.replace(tzinfo=timezone.utc)
-    if created and created >= cutoff and is_custom(item):
-        matched.append(item)
-
-print(json.dumps({
-    "count": len(matched),
-    "items": matched,
-}, ensure_ascii=False, indent=2))
-PY
-```
-
-`--transform` 只适合轻量提取和计数，例如 `--transform 'items.#'`、`--transform 'items.#.name'`。当前 transform 不是完整 jq，不支持日期运算或 `?(@.create_time)` 这类谓词；涉及时间窗口时用 `--format json` 后接 `python3` / `jq` 做客户端过滤。
+`--transform` 只适合字段提取（如 `items.#`、`items.#.name`），不是完整 jq，不支持日期运算。公共目录统计也应先保留完整 JSON，再本地投影/过滤，不用截断后的样本冒充总量。
 
 ## 返回值
+
 
 JSON 格式的分页结果，顶层字段包括 `page_number`、`page_size`、`total_count`、`items`；每个 item 通常包含 `name`、`display_name`、`primary_version`、`access_type`、`foundation_model_tag` 等字段。
 
@@ -105,14 +58,14 @@ JSON 格式的分页结果，顶层字段包括 `page_number`、`page_size`、`t
 
 | 错误 | 原因 | 处理方式 |
 |------|------|---------|
-| 空结果 | `--name` 精确匹配无命中 | 改用 `arkcli models search` 做模糊搜索 |
+| 空结果 | `--name` 子字符串筛选无命中 | 核对名称片段与查询范围，必要时用 `models search` |
 | 认证失败 | 未登录或凭证过期 | 运行 `arkcli auth login volc-sso` 重新建立 Volc 身份 |
 
 ## 注意事项
 
-- `--name` 是精确匹配，如需模糊搜索请用 `arkcli models search`
+- `--name` 是不区分大小写的子字符串筛选；精确详情使用 `models get <id>`
 - 结合 `--transform` 可提取特定字段，如 `--transform 'items.0.name'`
-- 统计/盘点需求不要因为缺少某个服务端 filter 就退到 Raw API Explorer；优先 `--page-all --format json` 后本地过滤
+- 先选对公共目录/自定义资产/Endpoint/Plan 的产品命令，再考虑分页和本地过滤；不要因缺少 filter 就探 Raw API 或改查另一类资源
 
 ## 参考
 

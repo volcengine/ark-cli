@@ -26,7 +26,7 @@ description: arkcli gen get / list / delete 三个标准 CRUD 命令的 referenc
 ## 命令速查
 
 ```bash
-# 1. 用 +gen 提交一个视频任务（默认异步，立即返回 task_id；要同步阻塞加 --wait）
+# 1. 用 +gen 提交一个视频任务（默认异步，立即返回 task_id；要同步阻塞加 --wait --timeout 30m）
 arkcli +gen "落日下的赛博朋克城市" --model <versioned-video-model-or-endpoint> --duration 5
 
 # 2. 拿到 task_id 后单独按 ID 查询（不轮询，单次拉一下）
@@ -157,7 +157,7 @@ CLI 子命令是 raw API 的人类友好包装；命令更短、flag 更直观�
 ## 与 `+gen` 的协作
 
 - `+gen` 自身轮询超时时会回带 `task_id` 和提示 —— 用 `gen get <task-id>` 接着追，比重新跑 `+gen` 划算（重新跑会再创建一个新任务并扣一次配额）。轮询到 `succeeded` 的那次 `gen get` 会顺手把产物下载到本地，不必再手动 curl `output_url`。
-- 异步提交（不带 `--wait`）+ `gen get` 轮询是视频的主流用法：`arkcli +gen ... --modality video` 拿到 `task_id` → 反复 `gen get <id>` 直到 `succeeded` → 产物自动落地。带 `--wait` 则是同步阻塞版，两条路径的落地行为一致。
+- 异步提交（不带 `--wait`）+ `gen get` 轮询是视频的主流用法：`arkcli +gen ... --modality video` 拿到 `task_id` → 反复 `gen get <id>` 直到 `succeeded` → 产物自动落地。带 `--wait` 则是同步阻塞版，两条路径的落地行为一致——**但 `--wait` 有上限**：最多阻塞 `--timeout`（默认 10m），长视频请显式调大（如 `--timeout 30m`）；撞上限时任务仍在跑，用 `gen get <task-id>` 接着轮询，**不要重跑 `+gen`**。
 - `gen list` 可排查账号下有哪些历史任务，但当前列表项不保证返回可用于关联本轮请求的
   name/prompt/content。提交后没有 `task_id` 时，把结果记为 `UNKNOWN` 并停止自动创建；可以查看
   `gen list` 辅助人工调查，但“相同 model + 最近 status”不能据此唯一认领任务，也不能证明任务未创建。

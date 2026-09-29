@@ -60,7 +60,7 @@ arkcli api <registered-action> --params '{...}' --dry-run
 - invoke 模式：返回该 Action 的原始响应对象（按契约定义）。
 - invoke + `--dry-run`：返回 `mode=client_preview` 和 `steps[0]` 中的
   `protocol`、`target`、脱敏后的 `payload`；不创建 transport，不验证服务端。
-- 输出遵循全局 `--format`（当前仅 `json`）与 `--transform`（GJSON path 表达式）。
+- 输出遵循当前二进制帮助中的全局 `--format` 与 `--transform`（GJSON path 表达式）；机器处理优先用完整 JSON，不把历史“仅 json”当成输出能力限制。
 
 `arkcli api --list --dry-run` 会报错，因为 list 本身已经是纯本地枚举，
 没有远端请求可供 Preview。
@@ -70,13 +70,27 @@ arkcli api <registered-action> --params '{...}' --dry-run
 禁止猜参数。推荐按下面顺序定位契约：
 
 1. `arkcli api --list` 找到 action 名（例如 `model.list_foundation_models`）
-2. 在代码中搜索 action 名，定位到对应的 operation 定义与 req/resp：
-   - `internal/apis/<domain>/...`
-3. 以 req 结构体的 `json:"..."` tag 为准构造 `--params` JSON。
+2. 使用当前版本的 reference/契约；有匹配版本的源码时，可在 `internal/apis/<domain>/...` 搜索 operation 定义与 req/resp。已安装 CLI 的宿主不一定有源码，不要求用户下载整个仓库才能调用。
+3. 以已核实的请求字段（源码中为 `json:"..."` tag）构造 `--params` JSON；拿不到 schema 时先补证据，不靠字段大小写轮番试错。registry 枚举只证明 Action 已注册，不证明猜测的 payload 有效。
 
 例如 `model.list_foundation_models` 的请求体来自 `ListFoundationModelsRequest`，包含 `PageSize`、`PageNumber`、`SortBy`、`SortOrder`、`Filter` 等字段。
 
 ## 风险与守卫
+
+### JSON 与 shell 变量
+
+静态 JSON 用外层单引号、内部双引号：`--params '{"PageSize":100}'`。动态值用 JSON 编码器构造，不把用户文本拼进转义字符串；字符串用 `--arg`，已校验的数字/布尔/数组才用 `--argjson`：
+
+```bash
+# 只构造参数，不执行远端请求；字段仍必须按目标 Action 的真实 schema 选择
+page_size=100
+params=$(jq -cn --argjson size "$page_size" '{PageSize:$size}')
+# 字符串示例：引号、反斜杠和换行由 jq 编码，不使用 eval
+name_params=$(jq -cn --arg name "$resource_name" '{Name:$name}')
+# 调用时整体引用变量：arkcli api <已核实Action> --params "$params"
+```
+
+`jq` 失败就停止，不发送空串或部分 JSON。构造成功只证明 JSON 语法正确，不证明请求字段或资源权限正确。响应先完整捕获，再按实际 envelope 与字段大小写解析；不得用 `head` 截断后拼回“合法 JSON”。
 
 - 默认只读优先：能用查询验证就先查询验证。
 - 写/删/可能产生费用的 Action：执行前必须让用户明确确认意图。

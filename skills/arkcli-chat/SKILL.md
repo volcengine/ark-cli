@@ -36,10 +36,14 @@ metadata:
 
 ## 快速决策
 
-**走 `+chat` 的判据（三条全满足）：**
-1. 用户带图/视频/音频但意图是**开放对话/问答/推理/感想/评论**（非固定产出形态）
-2. 不能映射到 `arkcli-understand` 12 个子技能之一
-3. 或用户需要 `--store` / `--previous-response-id` 多轮接续
+**走 `+chat` 的场景：**
+- 纯文本问答、推理，或带图/视频/音频的开放式对话；不要求一定有附件。
+- 接续已有 Responses 对话，使用 `--store` / `--previous-response-id`；单轮不要求开启存储。
+- 若目标是下面列出的专项理解产出，优先转 `arkcli-understand`，不能仅因带附件就选择 chat。
+
+用户要求关闭思考、比较延迟/缓存或交付 SDK 调用代码时，先读
+[`references/caching-thinking.md`](references/caching-thinking.md)；`minimal` 不等于关闭思考，
+参数回显不等于缓存命中，也不能据此承诺固定的速度排序。
 
 **转 `arkcli-understand` 的判据（任一满足即转）：**
 - 用户要「转写/语音转文字/语音识别/ASR」→ understand

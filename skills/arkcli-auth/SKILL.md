@@ -82,6 +82,8 @@ metadata:
 
 ## 与其他 skill 的串联
 
+查询 Key 列表、辨别掩码与明文、向下游注入凭证前，先读 [API Key 查询与交付](references/api-key-query.md)。保留“查元数据 → 定位真实 ID → 必要时授权导出”的业务流程；不要默认回显全部明文。
+
 - `arkcli-models`、`arkcli-chat`、`arkcli-gen`、`arkcli-deploy`、`arkcli-usage` 被鉴权错误阻塞时，先回到这里
 - 如果用户其实是在排查 profile / base-url / region 覆盖问题，应转 [`../arkcli-config/SKILL.md`](../arkcli-config/SKILL.md)
 
@@ -93,7 +95,8 @@ metadata:
 | "查同事 zhangsan 的 IAM 用户 ID/查别人的 IAM 用户 ID" | **转 `arkcli-profile`**（查看当前 profile 并列出可用 API Key）+ 提示用户使用 `arkcli iam` 命令（如有） |
 | "API Key 泄露/废弃旧 Key/换新 Key/rotate/轮换 API Key" | **转 `arkcli-plans`**：`plans personal rotate-apikey` 或 `plans team rotate-apikey` |
 | "命令突然报 key 失效/401/InvalidApiKey 但我没换过 key"（疑似后端轮换） | **转 `arkcli-profile`**：先 `arkcli profile keys refresh` 同步后端 key 再重试（**遇失败才触发的反应式自愈，非预防性**）；refresh 救不了再看 [`references/auth-modes.md`](references/auth-modes.md) |
-| "看我有哪些 Key/Key 列表/可用 Key" | **转 `arkcli-profile`**：`arkcli profile keys list` |
+| "看账号有哪些 Key/Key 列表/只查不切" | `arkcli api apikey.list`，按上述 reference 分页查看元数据，不改变当前 Key |
+| "看当前 Profile 的 Key 库存" | **转 `arkcli-profile`**：说明同步影响后用 `profile keys list` |
 | "切换默认 Key/用另一个 Key" | **转 `arkcli-profile`**：`arkcli profile keys use <key>` |
 | "创建一把普通 API Key" | `arkcli auth apikey create`；非交互环境按 `requires_confirmation` 走宿主确认流程 |
 | "AK/SK 登录/access key/secret key" | **告知通道暂关**：当前版本 AK/SK 登录通道暂时关闭，请使用 SSO 登录，运行 `arkcli auth login`

@@ -6,9 +6,11 @@
 
 图片/视频生成的执行层文档（`+gen` 全参数）。**这是三步工作流的第 3 步**；完整工作流（① `resources list` 查 profile 资源或 `resources resolve` 解析显式 Endpoint → ② 模型名用 `models get` 查 supported_params → ③ `+gen` 生成）见 [`../SKILL.md`](../SKILL.md)。
 
-> **⚠️ 视频任务默认异步**：提交即返回 `task_id`（`status: queued`），用 `arkcli gen get <task_id>` 轮询；要同步阻塞加 `--wait`。图片任务同步返回。
+> **⚠️ 视频任务默认异步**：提交即返回 `task_id`（`status: queued`），用 `arkcli gen get <task_id>` 轮询；要同步阻塞加 `--wait`（**有上限**，最多 `--timeout`，默认 10m）。图片任务同步返回。
 
 ## 命令
+
+`+gen` **没有 `--no-progress` flag**；不要把 `+chat` 的心跳开关复制过来。需要脚本消费时分开捕获完整 stdout/stderr，不吞错误，也不把日志混成 JSON。用户在调 HTTP/SDK 请求时先读 [CLI 与 HTTP 参数边界](intent-and-validation.md#21-cli-参数与-http--sdk-请求不是同一层)，CLI 成功不能证明其原请求正确。
 
 `--model` 使用本次资源解析确认的调用 ID。套餐别名、版本化 ID 和 Endpoint 不是可任意互换的名称。
 Agent Plan / Team 的默认视觉别名保持原样，例如 `doubao-seedream-5.0-lite`；
@@ -53,10 +55,17 @@ arkcli +gen --model doubao-seedance-2-0-r2v-260128 \
   --input ref:@reference.mp4 \
   "保持参考视频的运动轨迹，替换主角为机器人"
 
-# 5b) 视频续写 — reference_video 当前必须是服务端可访问 URL
+# 5b) 视频续写 — reference_video 本地/远程都可；本地会先上传 TOS 换成预签名 URL
 # ratio 按精确模型/EP 能力与用户要求选择；不要把所有续写固定成 adaptive
 arkcli +gen --model "$MODEL" --modality video \
   --input reference_video:https://example.com/selected.mp4 \
+  --input reference_image:@character.jpg \
+  --ratio 16:9 --format json --no-open \
+  "从参考视频结尾后的下一瞬开始继续，不重演已有内容；保持人物身份、服装、场景、光线、镜头轴线和运动方向连续"
+
+# 同一段续写，源视频只有本地文件时直接给路径（CLI 上传 TOS 后替换成预签名 URL）
+arkcli +gen --model "$MODEL" --modality video \
+  --input reference_video:@/work/selected.mp4 \
   --input reference_image:@character.jpg \
   --ratio 16:9 --format json --no-open \
   "从参考视频结尾后的下一瞬开始继续，不重演已有内容；保持人物身份、服装、场景、光线、镜头轴线和运动方向连续"
@@ -99,9 +108,12 @@ arkcli +gen --model ep-... --api-key '<temporary-key>' "一只柴犬奔跑"
 续写提交必须同时满足：
 
 1. 先确认源视频存在、可解码并读取时长/画幅；这只是结构检查，不等于 Agent 看过内容。
-2. 当前 CLI 会把本地视频编码成 data URL，但数据面的 `reference_video` 要求 web URL。因此源视频应使用
-   `--input reference_video:https://...`；不要提交 `reference_video:@<local.mp4>` 后用真实创建反复探错。
-   先前任务返回的 `output_url` 仅在能证明它对应同一源视频且仍有效时复用；没有 URL/上传路径就如实停止。
+2. 源视频用 `--input reference_video:@<local.mp4>` 或 `--input reference_video:https://...` 都可提交：
+   CLI 会把本地文件上传到 TOS，再把引用替换成服务端可访问的预签名 URL。上传要求当前账号已开通 TOS，
+   未开通时命令在上传前失败并给出 `tos_not_activated` + 开通入口——此时如实报告并停止，不要改 role、
+   换模型或用真实创建反复探错。`--inline-local` 会让本地文件退回 base64 内联，**续写不要用**：数据面
+   直接拒绝视频 data URL（HTTP 400，`reference_video must be provided as a web url`，任务不会创建）。
+   先前任务返回的 `output_url` 仅在能证明它对应同一源视频且仍有效时复用；不得按文件名或画面相似猜。
 3. 可选人物/服装/风格图使用 `--input reference_image:@<path>`；不要把它标成 `first_frame`，也不要因为示例
    包含人物图就从历史目录自动补图。只使用用户本轮给出或明确授权复用的素材。
 4. `ratio` 不存在续写通用固定值。逐值读取精确模型/Endpoint 的 `supported_params`：用户要求 `16:9` 且
@@ -149,7 +161,8 @@ arkcli +gen --model ep-... --api-key '<temporary-key>' "一只柴犬奔跑"
 | `<prompt>` | 是 | positional | 生成提示词（位置参数，放在命令最后） |
 | `--model` | 否：可 fallback 到 active profile 的 `Resources.<modality>.Default` | string | 本次 Profile/凭证兼容的调用 ID：套餐合法别名、当前数据面允许的模型 ID 或 `ep-*`。能力查询规范名不能替换收费路径中的调用 ID。默认为空时先 `resources list`；一次生成不自动设置 default。 |
 | `--modality` | 见说明 | string | 生成模态：`image` 或 `video`。真实调用按 `显式值 > ArkModels output_modalities > FoundationModel task types > unknown` 解析；Client Preview 不联网，按 `显式值 > 已知 seedream/seedance 名称 > unknown` 本地判断，未知模型或 Endpoint 必须显式指定 |
-| `--input` | 否 | string（可重复） | 参考素材引用，按出现顺序进入 content[]。本地文件用 `@<path>`，远程使用 `https://...` / `tos://...`。可选 role 前缀 — 简写：`first:` `last:` `ref:` `none:`；SDK 显式：`first_frame:` `last_frame:` `reference_image:` `reference_video:` `reference_audio:`。**重要**：本地图片可被内联；本地视频虽会被编码为 data URL，但当前数据面的 `reference_video` 只接受 web URL，续写时必须提供服务端可访问 URL。**图片任务**折叠为 image union；**视频任务**第 1 张图默认首帧，其它图为参考图，视频→ref_video，音频→ref_audio |
+| `--input` | 否 | string（可重复） | 参考素材引用，按出现顺序进入 content[]。本地文件用 `@<path>`，远程使用 `https://...` / `tos://...`。可选 role 前缀 — 简写：`first:` `last:` `ref:` `none:`；SDK 显式：`first_frame:` `last_frame:` `reference_image:` `reference_video:` `reference_audio:`。`first:`/`last:`/`ref:` 都会补出对应 wire role（`ref:` 与素材类型无关，按类型落成 `reference_image`/`reference_video`/`reference_audio`）；只有**完全不带前缀**才留空 role、由服务端按位置推断。带视频的请求里，视频必须显式 `reference_video`，同请求内的图片也必须带 role，否则整条请求被数据面 400 拒绝。**重要**：本地文件（图/视频/音频）统一上传到 TOS 后以预签名 https URL 提交，后端在提交时抓取；`tos://<bucket>/<key>` 会被原地签名。上传要求账号已开通 TOS，未开通时提交前失败并提示 `tos_not_activated`。**图片任务**折叠为 image union；**视频任务**第 1 张图默认首帧，其它图为参考图 |
+| `--inline-local` | 否 | bool | 把本地 `--input` 文件退回 base64 data URL 内联，不走 TOS 上传。**只对图片有效**：内联图片参考实测生效；视频/音频则被数据面**直接拒绝**（HTTP 400，`reference_video must be provided as a web url`，任务不会创建）。用于 TOS 不可用或刻意避免上传的场景，不要作为默认 |
 | `--name` | 否 | string | 可读任务名覆盖；不能作为服务端幂等键，也不能依赖 `gen list` 按名称恢复 task ID |
 | `--version` | 否 | string | 模型版本覆盖 |
 | `--size` | 否 | string | 图片输出尺寸，如 `1920x1920`；像素数过小时会被后端拒绝 |
@@ -178,7 +191,8 @@ arkcli +gen --model ep-... --api-key '<temporary-key>' "一只柴犬奔跑"
 | `--safety-id` | 否 | string | 视频任务：调用方传入的安全标识 |
 | `--execution-expires-after` | 否 | int | 视频任务服务端 TTL（秒） |
 | `--callback-url` | 否 | string | 视频任务：服务端在生命周期事件（created/running/succeeded/failed）上 POST 通知到此 URL |
-| `--wait` | 否 | bool | **视频任务**：阻塞到任务完成再返回。**默认 false**——提交即返回 `task_id` 异步轮询（2.0 起默认行为，旧版默认同步等待） |
+| `--wait` | 否 | bool | **视频任务**：阻塞等待任务完成，**但不是无限等**——超过 `--timeout`（默认 10m）就放弃并返回仍在运行的任务 id。**默认 false**——提交即返回 `task_id` 异步轮询（2.0 起默认行为，旧版默认同步等待）。放弃 ≠ 失败：任务在服务端继续渲染，用 `gen get <task-id>` 继续轮询，**不要重跑 `+gen`**（会另建一个计费任务） |
+| `--timeout` | 否 | duration | 视频任务：`--wait` 最多阻塞多久，接受 Go duration（如 `20m` / `1h`）。默认 `10m`，不传 `--wait` 时忽略。**长视频务必调大**：实测 seedance-2.0 有近半数请求在 10m 内渲不完，撞上限后 CLI 返回的是「任务仍在跑」而不是成品 |
 | `--extra-body` | 否 | string（JSON 对象） | 视频任务 forward-compat 通道：传 JSON 对象字符串，里面的 key 会 merge 到 top-level 请求 body，让你不升级 arkcli 也能透传服务端新增字段。例：`--extra-body '{"new_field":"value"}'` |
 | `--tools` | 否 | string（可重复） | 工具开关，目前支持 `web_search` |
 | `--save-to` | 否 | string | 保存生成产物的本地目录，默认 `.`（当前目录）；传 `--save-to=""` 显式关闭自动下载。下载失败不阻塞主流程 |

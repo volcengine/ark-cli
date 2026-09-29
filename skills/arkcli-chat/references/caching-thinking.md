@@ -37,7 +37,7 @@ arkcli +chat "苹果呢?" --model ep-xxx \
   --caching enabled --store \
   --previous-response-id "$RID"
 
-# 校验缓存命中: chat get 拿回响应, .caching.type 应为 enabled
+# 核对缓存配置（不是命中证明）: chat get 拿回响应
 arkcli chat get "$RID" --format json | jq .caching
 # → {"type":"enabled"}
 ```
@@ -85,7 +85,9 @@ arkcli chat get "$RID" --format json | jq '{store, expire_at}'
 }
 ```
 
-⚠️ 流式 (`--stream`) 时这些回显字段在 PR-2 阶段还**取不到** —— 需要等 PR-4 补 `response.completed` 事件解析。流式过程中 stdout 仍是 `Thinking: ... Response: ...` 的纯文本。
+流式需要机读证据时使用 `--stream --include-events`，核对成功终态中实际返回的
+response 字段；普通 `--stream` 是人类可读文本，不是上面的扁平 JSON。
+未回显的字段保持未知，不为补字段再次发起推理。详见 [stream-events.md](stream-events.md)。
 
 ## 验证清单 (autotest 对应)
 
@@ -97,8 +99,8 @@ arkcli chat get "$RID" --format json | jq '{store, expire_at}'
 | `cache/cache_test.go` 8 个用例 | ✅ |
 | `cache/prefix_cache_test.go` | ✅ (用 --cache-prefix) |
 | `partial/partial_mode_test.go` | ✅ (Thinking + Caching 组合) |
-| `Test_Stream_ExpireAtAndCaching` | ⚠️ 入参可传, 出参回显需 PR-4 |
-| `cache/cache_stream_test.go` 5 个用例 | ⚠️ 同上 |
+| `Test_Stream_ExpireAtAndCaching` | 使用 --include-events 检查实际终态 |
+| `cache/cache_stream_test.go` 5 个用例 | 检查实际终态，配置本身不证明命中 |
 
 ## 常见错误
 
@@ -112,8 +114,10 @@ arkcli chat get "$RID" --format json | jq '{store, expire_at}'
 
 ## 与 reasoning-effort 联动
 
-`--reasoning-effort` (PR-1 之前已有) 与 `--thinking` 是两个独立维度:
+`--reasoning-effort` 与 `--thinking` 是两个独立维度：
 
-- `--thinking disabled` 直接关掉思考阶段, `--reasoning-effort` 不再生效
-- `--thinking enabled` + `--reasoning-effort high` 才会真触发深度推理
-- autotest `Test_07_ThinkingReasoningCompatible` / `Test_08_ThinkingReasoningConflict` 验证这套组合
+- 明确要求关闭思考时使用 `--thinking disabled`；`--reasoning-effort minimal` 只是强度参数，不能替代关闭开关。
+- CLI 将两者分别传为 Responses 请求的 `thinking.type` 和 `reasoning.effort`。交付 SDK/HTTP 示例时保留用户明确的值，不把 effort 写进 thinking，也不凭经验自动补 high。
+- 参数组合是否支持、最终是否采用由目标模型和服务端决定；保留实际错误与回显，不保证所有模型都接受相同组合。
+- `caching.type=enabled` 只说明配置；只有实际 usage 中的缓存命中统计才能证明命中。缺少统计时标为未知，不能声称已省下具体 token 或费用。
+- 比较延迟时记录模型版本、输入、参数、缓存状态和实际耗时；未实测时不宣称 disabled/minimal/high 有跨模型固定排序，也不为验证猜测擅自增加付费请求。

@@ -48,6 +48,13 @@ arkcli agent vault credentials create <vault-id> \
 
 ## OAuth MCP 登录
 
+凭证必须与目标 provider 的服务语义匹配；不能为了让创建通过，把某服务的 Key 绑定到
+无关 provider，也不能写入 metadata/tags。不要逐个 curl/web_fetch 探测 provider URL，
+连接与授权结果以对应创建/登录命令的真实返回为准。OAuth 是外部授权流，不用聊天选择
+代替；metadata discovery 或授权失败时保留错误并停止，不擅自改用 token 绕过。
+多个符合用户目标的 provider 按共享协议消歧，使用本轮名称、URL、CredentialType；
+不能从记忆补出未注册的 provider。
+
 不要凭空猜 MCP OAuth URL。正确顺序：
 
 1. 查后端 provider：

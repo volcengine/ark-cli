@@ -32,30 +32,26 @@ metadata:
 >
 > 用户问「我的套餐还剩多少额度」→ `plan` 或 `balance --type plan`(后者输出更精简);「我哪个模型用得最多」→ Agent Plan 用 `plan-details`，Coding Plan 只能用 `plan` 给 quota 快照并说明不支持按模型拆分;「我今天用了多少 token」→ `stats`;「我还剩多少免费额度 / 媒资库容量」→ `balance`;「**每个 seat 用了多少 / 团队席位用量分布**」→ `seats --with-usage`(纯管理类:谁绑了哪个 seat / 列出席位 / 分配席位 / 轮换 key → `arkcli-plans`)。
 
-## Step 0(MUST):查"我的用量"先按 profile 路由
+## Step 0：先选用量口径，再确认身份
 
-**所有"我的用量 / 我用了多少 token / 我的消耗"类问题,跑任何 `usage` 命令前必须先走这三步。** 否则会把"我的用量"等同于"我的 endpoint 用量",漏掉套餐 quota 桶 —— agent-plan 用户的主消耗就在套餐里,直接 `usage stats --mine` 经常 `data_count=0` 或严重不全。
+用户已明确套餐名称时，直接用 `usage plan --product <plan>`；Agent Plan 按模型明细用 `usage plan-details --product <agent-plan|agent-plan-team> --start <日期>`。订阅属于账号/子用户，**不是由 active profile.type 决定**；platform profile 不等于没有套餐，也不需要为查询先切成 plan profile。
 
-**核心原则:先查"自己这档 profile 的套餐桶",再查 endpoint 桶。** `profile.type` 决定"自己这档"是什么,模态决定"该模态在不在套餐覆盖内"。
+- 平台 Token / 请求数 → `usage stats --start <日期>`；用户说“我的”时首条就带 `--mine`，追加 `--by model|endpoint|apikey` 不能删掉范围限制。
+- 套餐额度 → `usage plan` / `usage balance --type plan`；Agent Plan 明细 → `plan-details`；Coding Plan 只有 quota 快照，解释限制后停止，不补查平台桶冒充套餐明细。
+- “我的用量”未指明口径时，结合本轮上下文确认是平台 Token 还是套餐额度；仍有歧义就问这一项。只有用户明确要合并查看时才查多个桶，并分开报告，不能把百分比、AFP、Token 直接相加。
+- `subscribed:false` 只表示当前身份下该 SKU 没查到订阅，不证明其他身份无订阅，不触发自动切身份或平台查询。
 
-1. **探 profile.type**：`arkcli auth whoami --format json`，读取持久 Profile 摘要里的 `profile.type`（`platform` / `agent-plan` / `agent-plan-team` / `coding-plan` / `coding-plan-team`）。`profile show/list/keys list` 可能在线同步并回写 Key 库存或默认 Key，不得作为普通 Usage 准入；摘要缺字段时如实说明未知，不自动切 Profile、Key、default 或收费路径。
-2. **定模态**:用户点名模型/模态 → 只查该模态;没点名 → 全模态都覆盖(text / image / video 各按表走一遍)
-3. **按 (type × modality) 路由**(`①→②` = 先套餐桶、再 endpoint 桶;单格 = 只查 endpoint 桶):
+身份核对遵守当前宿主的共享协议；已有执行上下文可复用，缺少摘要且确需核实时用 `arkcli auth whoami --format json`。普通查询不调用可能同步/回写 Key 的 `profile show/list/keys list`。确需另一身份时先确认目标，不能静默切 Profile、Key、Project 或账号范围。
 
-| profile.type | text 模型 | image 模型 | video 模型 |
-|---|---|---|---|
-| `agent-plan` / `agent-plan-team` | ① `arkcli usage plan`(+`arkcli usage plan-details --start <YYYY-MM-DD>`)<br>② `arkcli usage stats --start <YYYY-MM-DD> --mine` | ① `arkcli usage plan`<br>② `arkcli usage stats --start <YYYY-MM-DD> --mine` | ① `arkcli usage plan`<br>② `arkcli usage stats --start <YYYY-MM-DD> --mine` |
-| `coding-plan` / `coding-plan-team` | ① `arkcli usage plan`<br>② `arkcli usage stats --start <YYYY-MM-DD> --mine` | `arkcli usage stats --start <YYYY-MM-DD> --mine`<br>(套餐不覆盖) | `arkcli usage stats --start <YYYY-MM-DD> --mine`<br>(套餐不覆盖) |
-| `platform` | `arkcli usage stats --start <YYYY-MM-DD> --mine`<br>(无套餐) | `arkcli usage stats --start <YYYY-MM-DD> --mine` | `arkcli usage stats --start <YYYY-MM-DD> --mine` |
+**时间与交付：** `stats` / `plan-details` 必带 `--start`，没有 CLI 默认“近 7 天”；按用户时间词补齐 `--start/--end`，无日期时说明按今天查。长窗口按当前 reference 的限制分片，边界不重叠，保留用户原请求范围；无法覆盖的日期明确标注，不静默改成最近 30 天。回答同时标明口径、身份/范围、时间窗和数据延迟。
 
-> **日期参数(必读)**:表中 `<YYYY-MM-DD>` 换成实际日期 —— `usage stats` / `usage plan-details` **必带 `--start`**(缺失 CLI 报 `required flag(s) "start" not set`,**不会**默认今天);`usage stats` 的 `--end` 缺省=今天。**从自然语言推导 `--start`**:"今天"→ `--start`=今天;"昨天"→ 昨天;"近 N 天 / 最近一周"→ 今天-(N-1);"本月/上月"→ 填月初到月末区间;**用户未指明任何时间词 → 默认 `--start`=今天、`--end` 缺省同今天**。`usage plan` / `usage balance` 无需日期。本 skill 其它处把命令简写(不带 `arkcli` 前缀、或省略 `--start`)时,执行前一并补全。
+### 空结果与归属排查
 
-**为什么这么分:** Agent Plan 套餐自带生文 + 生图 + 生视频预置模型 → 三模态主消耗都在套餐;Coding Plan 套餐只自带生文 → 文本看套餐、图/视频借道 platform endpoint 池只能看 endpoint;Platform 无套餐 → 全走 endpoint 按量。
-
-**Step 0 边界:**
-- 套餐未订阅(`usage plan` 返 `subscribed:false`)→ 套餐桶为空,自然落到 `usage stats --mine`,不报错
-- CodingPlan 的 `usage plan-details`(按模型时序)后端不支持(见 [`references/arkcli-usage-plan-details.md`](references/arkcli-usage-plan-details.md));coding-plan 文本桶只能 `usage plan` 看 quota 百分比,不能按模型拆
-- endpoint 桶查法、撞空 fallback(endpoint→apikey)见下方「快速决策」与 [`references/arkcli-usage-stats.md`](references/arkcli-usage-stats.md)
+1. 区分命令失败、成功但空、存在 records 但合计为零；三者不能互相代替。
+2. 核对日期/时区、聚合延迟、所选口径、身份以及实际生效的 Project/过滤条件。近期记录未进入聚合不代表调用未发生；账号全范围不等于有所有资源权限，也不能先断言是 Project 隔离。
+3. Volc 个人平台统计仅在成功为空，或 CLI 明确报告本人没有 Endpoint 时，保留原日期/过滤条件改查 `--mine --mine-by=apikey`；已显式选 API Key 维度就不重复。鉴权、权限、网络错误不是空结果。两次均空也不自动删 `--mine`；扩大账号范围须用户另行明确要求。
+4. 平台 `records` 的 `ModelEndpoint` 可交给 `infer endpoint get <id>`；`AuthToken` 是 Key 掩码标识，可用 `apikey.list` 的元数据核对归属，后缀有冲突时报告歧义，不取明文、不轮换 Key。
+5. Agent Plan `plan-details` 不提供 Endpoint / API Key 级归属，查到模型/Harness 消耗即到边界；Coding Plan 无模型/Harness 明细。不能跨口径拼出不存在的调用归属，也不因 CLI 报错改用记忆/检索结果充当账号数据。
 
 ## 适用场景
 
@@ -84,16 +80,16 @@ metadata:
   - `arkcli usage plan --product=X`:跳过探测,单查
   - **跟 `balance --type plan` 是同一份数据**;`usage plan` 输出完整(带 `subscribed` / `updated_at`),`balance --type plan` 精简(去掉元字段)。一般默认走 `usage plan`,只有用户明确把套餐余额跟"免费额度 / 媒资库容量"一起对账时,才走 `balance --type plan`(三 type 一起跑节省心智)
 - 用户问"我哪个模型用得最多 / 套餐内套餐外各占多少 / 团队某个子用户用得多":
-  - `arkcli usage plan-details`(默认近 7 天 Day 粒度,AgentPlan personal)
+  - `arkcli usage plan-details --start <YYYY-MM-DD>`（Day 粒度，Agent Plan personal；显式补日期）
   - `arkcli usage plan-details --product=agent-plan-team`(团队版,自动找 caller seat 或显式 `--seat <id>`)
   - **Coding Plan 例外**：不执行 `plan-details` 或 `stats`；只执行 `arkcli usage plan --product coding-plan`(团队版用 `coding-plan-team`)，并明确该结果只是 quota 快照、不是本周按模型明细，然后停止。用户未另行要求 platform / Endpoint 用量时，不主动补跑 `usage stats`。
 - 用户问"我的用量 / 我今天用了多少 token / 我的 endpoint 消耗":
-  - **先过 Step 0(本文档顶部)定 profile.type + 模态**:agent-plan / coding-plan(text 模态)要**先**查套餐桶(`usage plan`;agent-plan 再加 `usage plan-details`),再做下面的 endpoint 桶;platform、或 coding-plan 的 image/video 模态直接进 endpoint 桶 —— 别把"我的用量"等同于"我的 endpoint 用量"
+  - 先按 Step 0 确定口径；明确的平台 Token / Endpoint 问题直接查下述平台桶，不因 profile.type 自动追加套餐查询。
   - 如果用户点名的是语音模型或 TTS / ASR 场景 → **不要继续查 usage**；当前 arkcli 只承认语音模型广场发现，不支持语音模型用量查询
   - **火山:** 先 `arkcli usage stats --start <YYYY-MM-DD> --mine`（默认 endpoint 维度）
     - 返回 `data_count > 0` → 直接从 `totals` 取合计
     - 返回 `data_count=0`（用户没有 Endpoint 或近期未通过 Endpoint 调用）→ 立即重试 `arkcli usage stats --start <YYYY-MM-DD> --mine --mine-by=apikey`
-    - **⛔ 禁止退化为不带 `--mine` 的全量查询** —— 全账号数据（data_count 极大）≠ "我的用量"；必须始终保持 `--mine` 范围
+    - 不自动退化为账号全量；第二层也成功为空时，可询问用户是否另查整个账号。明确同意后按 [stats 的第三层流程](references/arkcli-usage-stats.md#空结果的完整排查链) 保留其他参数、只移除 mine 限定，并标明“账号全量，可能包含其他用户”。这不是个人用量，也不授权切身份。
 - 用户问"我每个 APIKey 用了多少":
   - **火山:** `arkcli usage stats --start <YYYY-MM-DD> --mine --mine-by=apikey`,从 `records[].AuthToken` 拆分
 - 用户问"我账上还有多少免费 token / 模型免费额度 / 媒资库还能存多少":
@@ -127,7 +123,7 @@ metadata:
 |------|------|
 | [`usage stats`](references/arkcli-usage-stats.md) | 查询推理用量(Token / 请求数,按日 / 小时聚合,按 token 计费的 inference 视角) |
 | [`usage plan`](references/arkcli-usage-plan.md) | 查询订阅套餐的额度快照(AgentPlan / CodingPlan,5h / weekly / monthly / session 周期的"用了多少 / 还剩多少 / 几号刷新")。默认探所有 4 个 SKU |
-| [`usage plan-details`](references/arkcli-usage-plan-details.md) | 查询 AgentPlan **个人版 + 团队版** 按模型 / Harness 的时间序列调用明细(套餐内 vs 套餐外拆分)。默认近 7 天,`--product=agent-plan-team` 切团队版 |
+| [`usage plan-details`](references/arkcli-usage-plan-details.md) | 查询 AgentPlan **个人版 + 团队版** 按模型 / Harness 的时间序列调用明细(套餐内 vs 套餐外拆分)。必传 `--start`，`--product=agent-plan-team` 切团队版 |
 | [`usage balance`](references/arkcli-usage-balance.md) | 余额视角统一入口 `--type free-quota / media-asset / plan`(模型免费推理额度 / 素材库容量 / 套餐余额) |
 | [`usage seats`](references/arkcli-usage-seats.md) | **Admin 视角** 列举企业版套餐下所有席位(SeatID / 绑定子用户 / billing 状态)。子用户调通常 AccessDenied |
 

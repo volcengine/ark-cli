@@ -4,6 +4,37 @@
 
 **Agent 优先**的模型搜索：召回 = 全量目录；enrich = ArkModels（context window / 模态 / capability）；filter = 结构化条件；rank = 4 桶 + context_window 加权 + 时序。**没有分页概念**，默认返回全部命中。
 
+只查询公共基础模型目录；Plan 支持清单用 `plans model-list --plan <plan>`，账号自定义资产用 `custommodel list/get`，当前身份可调用资源用 `resources list`。无命中先判资源类型，不跨 Profile 穷举，也不把当前公共目录未找到说成账号内不存在。
+
+## 空结果、规范化与证据冲突
+
+1. 用户给精确模型 ID/显式版本时先 `models get` 原值；不要把完整版本串当搜索关键词。模型名中的空格、点号或展示形式可作为检索线索规范化为连字符，但真正用于代码/部署的 ID 必须来自本轮 `name` 与版本字段，不凭字符串替换制造新 ID。
+2. 模糊查询用带引号的家族/名称关键词；先校验 `--capability` 的真实枚举，缓存条件使用 `--cache-type`。成功的 `items: []` 仅代表当前组合无命中；非零退出、缺 `.items`、JSON 损坏和截断都不是空结果。
+3. 在同一身份、资源范围内，先修正关键词；仍为空时可逐次只放宽一个**偏好**条件并说明变化，保留用户硬约束。放宽硬条件、身份、Project 或费用范围必须先询问。规范化后同一关键词加一次 `--include-deprecated` 可判断是否被下线过滤；不能在多个家族间盲猜。
+4. `--modality text` 表示文本**输出**，不是文本输入。图像/视频任务用对应输出模态或 `--input-modality text`；放宽后只剩 embedding/router/非目标任务的模型时，报告没有合适候选，不能把它们包装成任务推荐。
+5. 仅命中其他规格/变体时，分别报告“原请求未命中”和“当前候选”，不得静默替代。精确 get 报 NotFound 后，可按这一流程查候选，再用真实候选校正一次 get；仍失败则列尝试值与范围，保留未知，不循环。
+6. 只用本次输出陈述上下文、模态、生命周期和能力。缺失/null 是未知，不是 false。特定 API、参数支持或精确版本需读 [get](arkcli-models-get.md)；search 与 get 不一致且版本/范围未对齐时先核对，已明确同一 Name/Version/范围则直接保留冲突，不重复要求对齐或重查。分别标明来源，不取并集拼成新结论。`supported_params` 是正向证据，未列字段的运行时行为须查对应数据面契约或在授权后验证。
+7. 工具预览截断时先读其保存的完整文件；没有完整产物才把**同一只读查询**重新保存到私有临时目录。stdout/stderr 分开、检查退出码，再由 jq 提取字段；不吞 stderr，不逐行截断 JSON，也不因捕获失败直接终止可恢复的查询。
+
+## 未定模型时的实时候选模板
+
+开通/部署前的候选只来自本轮结果。已有完整结果就本地投影，不重查；初次可取 10 项留出退役过滤余量。下面命令按共享协议补全调用归因环境：
+
+```bash
+candidate_dir=$(mktemp -d)
+arkcli models search --size 10 --format json > "$candidate_dir/models.json" 2> "$candidate_dir/models.stderr"
+# 先检查上条退出码和 stderr；仅成功且 JSON 完整时继续
+jq -e '.items | type == "array"' "$candidate_dir/models.json"
+jq '[.items[]
+  | select(.lifecycle_status != "Shutdown" and .lifecycle_status != "Retiring")
+  | {display_name,name,primary_version,lifecycle_status,input_modalities,output_modalities,task_types,create_time,update_time}]
+  | sort_by([(.create_time != null), (.create_time // "")]) | reverse' "$candidate_dir/models.json"
+```
+
+模糊家族场景在 `search` 中加用户关键词。候选已知状态/关键字段缺失时标未知，不能把模板的过滤结果说成全都 Published 或可调用；需要新接入时仅推荐已证实未退役且满足目标任务者。
+
+无具体偏好时展示 5–8 个有证据的代表，优先保留不同文本、多模态输入、图像、视频任务选项；不是强凑名额：不足就如实列实际数，指定任务时不混入无关模态。`label` 保留真实 `display_name`，重复名在说明中附 `name/version` 区分，不改版本、不额外造“其他”选项。开通/部署候选默认按真实 `create_time` 倒序；用户明确要求最近更新时才用 `update_time`，缺时间标未知，不猜时间或用 context 排序冒充创建时间排序。候选选择回到 owning Skill；选模型不等于批准开通或创建。
+
 ## 命令
 
 ```bash
@@ -168,7 +199,7 @@ search [keyword] [filters]
 | 找最新发布的模型（time-sensitive） | **`search`**（结果按 update_time DESC）|
 | 按 modality / context / capability / cache type 找 | **`search`** + 对应 flag |
 | 全量枚举所有模型 | `search` 无 keyword（152 条全量）|
-| 按 name 精确匹配 | `list --name foo`（精确）或 `search foo`（含 fuzzy）|
+| 按 name 收窄 | `list --name foo`（子串）或 `search "foo"`；精确身份验证用 `get` |
 | 拿单个模型的完整详情（计费、限流、能力位详细描述）| `get <name>` |
 
 ## 参考

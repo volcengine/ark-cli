@@ -38,6 +38,7 @@ metadata:
 - 只搜索基础模型、查询用量或价格时分别转 `arkcli-models`、`arkcli-usage`、`arkcli-pricing`。
 - 把 arkcli 内嵌 Skills 安装到 Agent 时转 `arkcli-connect`；不要把“安装 arkcli skill”误判为配置 Harness。
 - 仅排查登录、401 或 profile 覆盖问题时转 `arkcli-auth` / `arkcli-config`，不要反复重写 Agent 配置。
+- 用户问 **CC Switch / cc-switch 图形界面里如何选豆包、添加供应商或填写模型槽位**，而非要求 ArkCLI 修改本机 Agent 配置时，不走 `helper configure`；转 [`arkcli-docs`](../arkcli-docs/SKILL.md) 查官方 Claude Code/CC Switch 接入正文。按用户实际套餐区分 Key、Base URL 与 Model Name；套餐当前可用模型要以实时查询为准，认证失败时只给标明来源的文档示例，不能冒充实时清单。
 
 ## TTY Harness 能力矩阵（Agent Plan / Agent Plan Team）
 

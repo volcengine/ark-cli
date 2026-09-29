@@ -8,6 +8,36 @@
 
 ## 命令
 
+### 常见参数误写
+
+| 意图 | 正确参数 | 不存在或不适用的写法 |
+| --- | --- | --- |
+| 调用 Endpoint | `--model ep-...` | `--endpoint` |
+| 关闭思考 | `--thinking disabled` | `--thinking type=disabled` |
+| 系统指令 | `--instructions "..."` | `--system` |
+| 输出 token 上限 | `--max-output-tokens N` | `--max-tokens` |
+| 推理投入 | `--reasoning-effort minimal\|low\|medium\|high` | `--reasoning N`、`--effort` |
+| 控制工具调用 | 按 help 使用 `--tools` / `--tool-choice` / `--max-tool-calls` | 当前 `+chat` 不提供 `--parallel-tool-calls` |
+
+遇到 unknown flag/subcommand，先核对当前叶子命令 help，不换拼写反复调用。
+CLI 未提供并行工具调用开关，不等于能保证工具串行；不要把“默认并发”推广为所有模型/API 的承诺。用户明确要求控制 `parallel_tool_calls` 时，先核对目标 Responses API/SDK 是否支持，再说明当前 CLI 的暴露边界，不能发明 flag 或把 `--max-tool-calls` 当串行开关。
+不要把 Chat/文本 Endpoint 用于图片或视频生成；生成任务交给 gen。
+
+### 长文与性能交付
+
+- 长文先按用户预算和目标模型支持值设置输出上限；不要盲目拉满或靠多次重发拼结果。
+- `status=incomplete` 且原因表示长度上限时，说明是截断，保留部分正文和真实 ID，
+  不能当作完整成功交付。用户要求继续时，才使用已存储的响应 ID 有状态接续；
+  保持同一身份/Key、模型和调用上下文，对齐上一段结尾，避免重复或漏段。
+- 拼接正文只取 `.content`，不混入 `reasoning_content`；未存储、过期或取不到上轮
+  响应时说明不能保证接续，不把无状态重发“继续”伪装成成功续写。
+- 用户要求性能实测时固定模型版本、prompt、输出上限等条件，一次只改变一个待比较变量。
+  首字延迟需在 `--stream --include-events` 中记录首个正式正文 delta 的到达时刻，
+  不能拿首个推理事件、head/tail 截断或总耗时冒充 TTFT。兼容点号/下划线事件名，
+  见 [stream-events.md](stream-events.md)。轻量样本只标为同环境粗测参考，不是生产 SLA。
+- stdout 与 stderr 分开保留；不得把 `2>&1` 混合输出再当 JSON 解析。
+  抓取环境会合流时可用 `--no-progress` 关闭心跳，但仍需保留错误。
+
 `--model` 使用本次 Profile/临时上下文兼容的调用 ID；模型族名、合法套餐别名、版本化 ID 与 EP 不可任意互换。
 用户要用默认模型时，可以省略 `--model` 让 CLI 使用 text default；已确认合法的套餐别名
 （如 `ark-code-latest`）保持原样，不因为 `models get` 返回了规范 Name/Version 就替换。
@@ -63,6 +93,7 @@ arkcli +chat --model ep-... --api-key '<temporary-key>' --dry-run "hello"
 ```
 
 ## 临时执行上下文与 dry-run
+
 
 用户给出 Profile / API Key / Base URL / Endpoint 的任意组合时，先读
 [`../../arkcli-shared/references/execution-context.md`](../../arkcli-shared/references/execution-context.md)。

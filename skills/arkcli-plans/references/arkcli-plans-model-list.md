@@ -23,6 +23,10 @@ arkcli plans model-list --plan coding-plan-team
 |------|------|------|------|
 | `--plan` | 否 | string | `agent-plan` / `coding-plan` / `agent-plan-team` / `coding-plan-team`，默认 `agent-plan-team` |
 
+只有 `--plan` 一个业务筛选参数，不接受 `--type` / `--tier` / `--product` / `--edition`。套餐模型目录按 plan 查询，不按购买档位查询；同一家族的档位共享模型目录，价格、配额与其他权益另查 [buy](arkcli-plans-buy.md) 和 [pricing](../../arkcli-pricing/SKILL.md)，不能把“模型列出来了”推导为某个档位已获全部权益。
+
+例如 `arkcli plans model-list --plan coding-plan --type pro` 会报未知 flag；应使用 `arkcli plans model-list --plan coding-plan`。需要 vendor、模态或基础模型版本元信息时，把返回的 `model_id`（不是友好展示名 `model_name`）交给 [models get](../../arkcli-models/references/arkcli-models-get.md)，不要从名字推断。
+
 ## 返回值
 
 ```json

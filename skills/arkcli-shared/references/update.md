@@ -52,6 +52,8 @@ arkcli update --yes
 
 显式 `arkcli update` 和 `arkcli update --check` 在所有更新模式下都可用；`disabled` 只关闭静默安装。`disabled` 仍允许隐式检查和版本提示。
 
+后台 automatic patch 更新成功提交并释放更新锁后，会用新版二进制静默执行一次裸 `+connect`。Volc 的新版 Skills 已随同一版本的 CDN 产物进入安装目录；这里读取该版本的本地快照，不加 `--refresh`。同步输出写入 `update-apply.log`；若 Agent Skill 同步失败，CLI 更新仍保持成功，可查看日志后手工重试 `arkcli +connect`。
+
 用户要求长期锁定版本时，不要只执行 npm 降级。先引导用户持久设置 `arkcli config set update.mode disabled`，再安装精确版本。重装不得沿用旧 exact receipt：安装版本等于 registry 当前 `latest` 时不改 mode，已有 automatic 会换发 receipt；非 latest 持久化 disabled。安装 `@latest` 不会把 disabled 改回 automatic，恢复时先安装 latest，再显式设置 automatic。
 
 `update` 会启动外部 npm，属于 `opaque_external_execution`，不支持 `--dry-run`。不要伪造 Client Preview，也不要用 raw API 代替；用版本差异说明和明确确认完成安全闭环。

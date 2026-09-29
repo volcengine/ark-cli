@@ -125,21 +125,17 @@ seedance 视频生成场景下的内容安全 / 版权 / 隐私拦截。**错误
 
 ##### 诊断步骤
 
-- 直接看用户提供的素材里有没有清晰的真实人脸（多模态可直接判断）
-- 确认这张人脸是不是用户**有意保留**的人物身份——决定能不能直接换图
+- 用户提供素材时检查是否有清晰的真实人脸；没给素材或请求体时不能断言本次命中的唯一原因。
+- 确认用户是否要保留特定真人身份、是否已完成本人认证与授权、素材是否已入库并获 Asset ID，以及本次请求传的是原图 URL 还是 `asset://<Asset ID>`。授权、入库和正确引用是不同步骤，错误码查表不能证明后三者已完成。
 
 ##### 修复方案
 
-```bash
-arkcli +gen --model <原模型> --input @<合规图> "<原 prompt>"
-```
-
-- 用户只是要"某种长相"而非特定真人 → 用 seedream 生成虚拟人像替换（走 [`arkcli-gen`](../../arkcli-gen/SKILL.md)）
-- 用户坚持要还原这张真人脸 → 见能力缺口
+- 只需相似外貌、不需保留特定真人身份 → 换合规/虚拟人像；可用 seedream 生成虚拟图后走 [`arkcli-gen`](../../arkcli-gen/SKILL.md)：`arkcli +gen --model <原模型> --input @<合规图> "<原 prompt>"`。
+- 要使用已授权真人 → 按[官方肖像素材指南](https://ark.volcengine.com/region:cn-beijing/docs/seedance-portrait-asset-guide)完成本人认证、授权和素材入库，确认素材已被接收且可用，取得 Asset ID；视频生成 API 在 `content.<模态>_url.url` 使用 `asset://<Asset ID>`，而不是直接传本地文件、TOS URL 或图片 URL。先读取该指南与[真人素材录入说明](https://ark.volcengine.com/region:cn-beijing/docs/upload-real-person-portrait-assets)的本轮正文，再给具体字段和条件；`arkcli +gen --input` 未核实支持 `asset://` 时不要把 API 写法冒充 CLI 参数。
 
 ##### 能力缺口（deface 待上线）
 
-对真人脸做去身份化（deface）后再喂进去，可以在保留相似长相的同时通过隐私拦截。该能力**尚未上线**（`needs_backend: ["deface"]`）。当前只能换合规 / 虚拟人像，**不要**承诺一键 deface。
+对真人脸做去身份化（deface）的能力**尚未上线**（`needs_backend: ["deface"]`），不要承诺一键 deface。这个能力缺口不等于“已授权真人素材也不能用”：可用的 `asset://` 入库素材走上述正式路径；无法满足入库条件时才考虑合规/虚拟人像替代。
 
 ##### 闭环验证
 

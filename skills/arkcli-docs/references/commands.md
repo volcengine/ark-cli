@@ -22,28 +22,25 @@ CLI 现有身份要求，未登录时会先被认证闸门拦下。
 | 只列 API 标识 | `arkcli docs apis list --transform 'apis.#.id'` | 缩小输出，从真实返回值选择目标标识 |
 | 读 API 契约 | `arkcli docs apis spec --id "<list 返回的 id>"` | 优先 `--id`；或 `--api-path` / 唯一时的 `--service`；`content` 是 OpenAPI JSON |
 
-## 从保存结果续页
+## 翻页与大输出
 
-首条命令只保存本次完整 JSON，确认成功后再读取文件；不要用 `echo exit=0` 或文件
-大小代替结果。临时文件使用本次任务独有路径，以下路径仅为示例。添加调用归因前缀：
-
-```bash
-arkcli docs list --query "Responses" --limit 2 > /tmp/ark-docs-page.json
-```
-
-后续单独执行解析，复制原 query、snapshot 和 next_offset，无须把长 snapshot 重写进命令：
+每页只有少量条目时，先单独执行第一页并读取原始 JSON：
 
 ```bash
-python3 -c '
-import json, subprocess
-with open("/tmp/ark-docs-page.json") as source:
-    page = json.load(source)
-if page.get("has_more"):
-    subprocess.run(["arkcli", "docs", "list", "--query", "Responses",
-                    "--limit", "2", "--snapshot", page["snapshot"],
-                    "--offset", str(page["next_offset"])], check=True)
-'
+arkcli docs list --query "Responses" --limit 2
 ```
+
+收到第一页后，只有 `has_more=true` 才单独执行第二页；把**实际返回**的 snapshot
+和 next_offset 放入命令，并保留原 query 与 limit。第二页 `items` 到手之前不列第二页：
+
+```bash
+arkcli docs list --query "Responses" --limit 2 --snapshot "<第一页实际返回的 snapshot>" --offset <第一页实际返回的 next_offset>
+```
+
+仅在输出过大时把首个 JSON 保存到本次任务独有路径，再**读取其完整内容**并提取
+`snapshot` / `next_offset`；文件大小、`echo exit=0` 和首响应的分页元数据都
+不能替代第二页的 `items`。续页仍作为下一次独立的 `arkcli docs list` 命令执行，
+不要藏在 Python 子进程中。上述命令示例均需添加调用归因前缀。
 
 正文续读同理：从首个 get JSON 提取 `url`、`snapshot`、`next_chunk_start`，
 传给 `docs get` 的 `--snapshot`、`--chunk-start`，保留原 chunk-count。
@@ -213,6 +210,8 @@ MCP 不支持 `--snapshot`、`--section`、`--query`、`--outline`、search `--o
 
 ## 引用纪律
 
+- 面向用户使用正文读取返回的文档站 `url`，以文档标题为链接文字；章节读取返回的锚点原样保留。`source_url` 记录实际读取的 CDN Markdown 来源，用于核对正文，只有用户需要原始 Markdown 或版本取证时才另行展示并标注。CLI 续读仍用 `url` 与 `snapshot`；MCP 使用返回的 `url`，大纲不充当正文依据。
+- `apis spec` 不返回文档站地址。需要参数文档链接时，用接口名或标题经 `docs search` / `docs list` 定位，再 `docs get` 核对同一接口及对应参数内容，引用返回的 `url`。例如查询 `CreateModelCustomizationJob` 后仍需定位其请求参数页，不能把 `api_path` 或 schema 资源路径当作页面地址；未找到页面时说明缺口，参数结论仍以实际读取的 schema 为依据。
 - 只使用命令返回的 URL 和 snapshot 原值。不要编造文档 ID、MCP 地址、snapshot、
   API 路径或 schema。
 - 已发布的别名与重定向会自动解析。老的纯数字文档站 URL 若没有对应别名则不保证
@@ -222,7 +221,3 @@ MCP 不支持 `--snapshot`、`--section`、`--query`、`--outline`、search `--o
   `has_more`。
 - 只读回答问题所必需的块，但必须读全前提、限制与完整代码示例。一次小体量读取是
   上下文预算，不是「答案已完整」的证据。
-
-## Citation source
-
-公共 CDN 正文读取返回 `source_url`，引用使用该实际 Markdown 资源地址；CLI 续读仍使用 `url` 与 `snapshot`。大纲不返回 `source_url`，MCP 沿用返回的 `url`。

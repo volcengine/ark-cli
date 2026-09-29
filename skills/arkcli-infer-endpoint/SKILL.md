@@ -12,7 +12,7 @@ metadata:
 
 **CRITICAL — 显式脚本化 / CI / 无护栏 / 原始 raw CRUD 创建是本 skill 的正向触发，不得因为出现“创建 Endpoint”就转到 `arkcli-deploy`。**
 
-**CRITICAL — 模型候选查询本轮最多执行一次。无论成功、空结果还是失败，都禁止重试、改跑 `models list/get/* --help`、修改配置或把凭证写进命令行；失败时原样说明并停止。**
+**CRITICAL — 模型候选复用本轮完整结果；截断、空结果的有界恢复统一复用 Deploy 规则。认证/权限失败不重试、不切身份、不修改配置或把凭证写进命令行；其他失败保留原始错误，不盲换命令。**
 
 **CRITICAL — 开始前 MUST 先读取 [`../arkcli-shared/SKILL.md`](../arkcli-shared/SKILL.md)。**
 
@@ -36,10 +36,19 @@ arkcli infer endpoint list --mine --page-all --page-size 100 --format json
 ```
 
 服务端按 `sys:ark:createdBy` tag 过滤，只返回当前 SSO sub-user 创建的 endpoint。
-需要 SSO 子账号登录；root 账号 / AK-SK 直接报错（引导重登）。
+需要 SSO 子账号身份；root 账号 / AK-SK 报错不算空结果，认证处理服从当前 shared 宿主协议，不自动重登。
 详细行为见 [`references/arkcli-infer-endpoint-list.md`](references/arkcli-infer-endpoint-list.md)。
 
+### 本人查询为空的三级恢复
+
+1. `--mine` 查询成功、完整且 `.TotalCount == 0` / `.Items == []` 才进入下一层；鉴权、权限、网络、参数错误及分页不完整均不能当空。
+2. 向用户说明接下来查“当前用户 API Key 用过的 EP”，不冒充“本人创建”。按 [usage stats](../arkcli-usage/references/arkcli-usage-stats.md) 使用 `arkcli usage stats --start <29天前日期> --end <今天日期> --mine --mine-by=apikey --by endpoint --format json`；原请求有时间范围就保留。对完整结果里的非空 `ModelEndpoint` 去重，逐个 `infer endpoint get <真实ID>`，保留原 `--status` / `--model` 条件（get 结果本地核对）。不能给 endpoint list 发明 `--mine-by`。历史 ID 当前 NotFound 时单列“历史调用过、当前不可见”，不称已删除；其他失败原样报告。
+3. 第二层也成功但没有非空历史 ID 时，询问用户是否查看账号全量；已明确授权该范围时可继续。执行 `arkcli infer endpoint list --page-all --page-size 100 --format json` 并保留原筛选条件，结果明确标“账号全量 fallback（已取消 --mine，不能保证本人创建）”。拒绝扩大范围则交付本人查询为空，不自动全账号。
+
+
 ## Endpoint NotFound 的只读排障
+
+任何调用异常先读 [get reference 的排障分支](references/arkcli-infer-endpoint-get.md)，区分控制面状态、历史用量与真实调用证据；盘点/导出先读 [list reference](references/arkcli-infer-endpoint-list.md) 的分页、限流、时区与交付要求。已知精确 ID 时先直接 get，不为所有问题先列全账号。
 
 用户已经观察到 `InvalidEndpointOrModel.NotFound`，或 `get` 查不到某个 Endpoint 时，不要直接宣称「已删除」，也不要猜测尾部字符。按两个独立事实源收敛：
 
@@ -79,7 +88,7 @@ arkcli infer endpoint list --mine --page-all --page-size 100 --format json
 
 本节只在用户已经明确选择脚本化 / CI / 无护栏 raw CRUD 路径、但 `--model` 仍缺失或只有品牌、系列、家族名时生效。普通创建意图仍按上一节路由到 [`arkcli-deploy`](../arkcli-deploy/SKILL.md)，不能因为模型未定就改走 raw create。
 
-候选生成必须复用 [`arkcli-deploy` 的「创建意图中的模型澄清」](../arkcli-deploy/SKILL.md#创建意图中的模型澄清)契约：只执行一次有界的实时 `arkcli models search [<keyword>] --size 10 --format json`，只从本轮结构化结果读取 `name`、`primary_version`、`lifecycle_status` 和模态等已有字段，过滤、完整模型 ID 组合及 0/1/N 候选处理均与 `+deploy` 一致。禁止改成全量 `models list`、逐候选循环 `models get`，也禁止凭记忆补版本。
+候选生成必须复用 [`arkcli-deploy` 的「创建意图中的模型澄清」](../arkcli-deploy/SKILL.md#创建意图中的模型澄清)契约：初次执行有界的实时 `arkcli models search [<keyword>] --size 10 --format json`，只从本轮结构化结果读取真实字段。过滤、完整模型 ID、创建时间排序、模态覆盖、0/1/N 处理及截断/空结果恢复均与 `+deploy` 一致，不能另立更严格的一次查询即停止策略。只有恢复仍不完整时才停止；禁止全量盲查、逐候选循环 get 或凭记忆补版本。
 
 - **0 个候选**：如实说明本轮没有查到，请用户补充用途、模态或关键词。
 - **1 个候选**：复述本轮返回的完整模型 ID，请用户确认。

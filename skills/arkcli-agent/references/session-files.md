@@ -11,6 +11,8 @@ arkcli agent session get <session-id> --format json
 Session 标准 CRUD 走 OpenTOP；Session resources / events / threads 走数据面直联。
 线上创建 cloud env 时需要显式带 `Networking: {Type: unrestricted}`；只传 `{Type: cloud}` 会被后端校验为缺少 `config.networking`。
 
+读取 Session 时保留 stdout、stderr 和退出码，先检查业务错误，再按实际 envelope 取字段：OpenTOP 通常为 `Result.Id` / `Result.AgentId`，其他入口可能包在 `data`；以完整 JSON 为准，不能把顶层 `.Id == null` 当作 Session 不存在。字段未回显、成功空结果、权限失败、鉴权失败和解析错误分别报告；已有完整响应只修正本地取值路径，不为取错层级重新查询，也不合并 stderr 后当 JSON 解析。
+
 ### Session TOS 资源
 
 创建 Session 时可以直接绑定一个 TOS 目录。CLI 会把它编排为 `Resources` 数组中的一项，字段与前端及 OpenTOP 契约一致：`Type=tos`、`TosBucket=<bucket>`、`TosKey=<prefix>/`。
@@ -28,6 +30,17 @@ arkcli agent session create \
 `--tos-path` 也接受不带协议的 `my-bucket/analysis/`。它表示目录而不是单个对象，因此 prefix 必须非空并以 `/` 结尾；`tos://bucket/`、`bucket`、`bucket/path` 会在 CLI 层校验失败。已有的 `--resource '[...]'` 仍可使用；同时传两者时 TOS 资源会追加到原始资源数组中。
 
 `arkcli +new session` 和 `arkcli +iterate` 创建 Session 时同样支持 `--tos-path`。该参数只绑定已有 TOS 目录，不负责创建 Bucket、上传对象或申请 TOS 权限；调用前需确保账号已开通 TOS，并对 Bucket/Prefix 有读取权限。
+
+### 其他创建时资源
+
+复杂资源在 `session create --resource` 中声明，不等同于仅支持 file 的 `session resources add`。例如绑定用户已选定的 memory store：
+
+```bash
+arkcli agent session create --agent-id <agent-id> --environment-id <env-id> \
+  --resource '[{Type: memory_store, MemoryStoreId: ms-xxx, Name: user-memory}]' --format json
+```
+
+规范字段使用 PascalCase，类型值仍是 `memory_store` 等 snake_case。当前 CLI 也会把 `memory_store_id` 等已注册别名归一化为 `MemoryStoreId`，不能断言 snake_case 必然失败。遇到 required 错误，先检查资源对象层级、真实 ID 和本地 Preview 的最终 payload；不要反复猜字段、虚构 ID 或擅自创建替代资源。
 
 ### Environment 自定义脚本
 
@@ -109,6 +122,12 @@ arkcli agent session resources add <session-id> --path ./data.csv --mount-path d
 - 线上数据面当前没有原生 resources update/delete，CLI 保持 fail-fast unsupported。
 - `session resources add` 后端会复制源文件到 session 受管 uploads 路径，因此 resources list 看到的 file_id 可能不同于 add 时传入的源 file_id。
 - 不要调用 ArkBFF/NodeBFF 获取文件；CLI 只直连 `/api/v3/files` 数据面。
+
+## 调试与导出
+
+- 已知 Session ID 的异常定位用 `arkcli +debug <session-id> --format json`，结合 Session、近期 events、resources 和 threads 分清失败、等待确认与仍在运行；聚合结果中的 warnings 表示部分查询失败，不等于对应数据为空。
+- 用户需要诊断包时用 `arkcli +export <session-id> --output ./session-diagnostics.tar.gz`。它导出 CLI 可见的诊断数据，不是完整工作区、memory store 或环境快照；以 archive 的 manifest/notes、事件数量和 warnings 说明范围与限制。
+- 导出文件位于当前 CLI 宿主；交付前检查可能含有的消息、代码或业务数据。远端沙箱路径不能当成用户电脑路径，不自动上传或公开诊断包。
 
 ## 示例
 

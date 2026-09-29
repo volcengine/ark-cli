@@ -8,6 +8,13 @@
 
 续费已有套餐。个人版自动从 `ListSubscribeTrade` 反查 InstanceID；团队版按 `--seat-ids` 拼 `Items` 一次走 `RenewAgentPlanEnterpriseTrade`。
 
+## 选择续费对象
+
+- 复用本轮持有列表；只有一个与用户目标相符的套餐时直接复述并沿用，不再要求用户选同一个对象。多个套餐/席位仍可能匹配时，让用户选目标，不默认第一条。
+- 选项应带套餐家族、个人/团队、当前档位、真实席位 ID（团队版）与已确认的到期时间；到期时间按 [get 的有效期规则](arkcli-plans-get.md#到期时间--还剩多少天) 转北京时间，未查到就标“到期时间未知”，不伪造。
+- 只补缺少的续费月数或目标席位，每轮一个决策。1 / 3 / 6 / 12 个月可作快捷选项，但 CLI 合法范围是 1–12，不能拒绝用户明确给出的 2、4 等合法月份。
+- 保持原档位；不询问新购档位，不传 `--type` / `--quantity`。参数完整也不能跳过下述本轮协议与价格披露。
+
 ## 三种调用形态
 
 跟 `plans buy` 一致:
@@ -78,15 +85,28 @@ arkcli plans renew --plan coding-plan-team --seat-ids seat-aaa --yes
 
 加 `--yes` 后:
 
+```json
+{
+  "status": "success",
+  "plan": "agent-plan-team",
+  "tier": "",
+  "duration": 3,
+  "quantity": 2,
+  "order_number": "<本次真实订单号>",
+  "seat_ids": ["<已确认席位1>", "<已确认席位2>"]
+}
+```
 
-
-团队版 `seat_ids` 字段会列出本次续费的席位。
+这是结构示例，不是成功回执。个人版可含 `instance_id` 与反查得到的 `tier`；团队版列出本次 `seat_ids`，`tier` 可能为空，不自行补值。订单相关可选字段以实际返回为准；不能把 `agreement_required`、询价结果或存在订单号当成支付成功。
 
 ## 失败语义
 
 跟 [`plans buy`](arkcli-plans-buy.md#失败语义) 完全一致：
-- transport error → 普通 error，没扣钱
+- transport error → 普通 error；超时/断连后的订单与扣款状态可能未知，先核对，不自动重放续费
 - `payment_failed` envelope → 订单已落库但 auto-pay 没完成；hint 带 `Order ID: ORD-...`，**用户去 console 补单**，CLI 不要重试
+- `ProductStockNotEnough` → 库存不足；不重试、不重问已确认参数，按 buy 的控制台兜底规则处理，不改成新购
+
+这些失败均保留本轮已经确认的 `--plan` / `--duration` / `--seat-ids`，不重新启动参数 question。用户明确改变目标时才重新收集变化项并重新披露价格和协议。
 
 ## 常见错误
 

@@ -117,6 +117,12 @@ arkcli agent session events send <session-id> --type user.message --text "帮我
   - `user.tool_result` 只允许用于 `self_hosted` environment。实际发送时 CLI 会通过 `GetSession -> GetEnvironment` 预检 `Config.Type`；`--dry-run` 不发起该读取，也不证明环境满足约束，最终仍由真实执行与服务端校验。
   - raw payload 可使用数据面 snake_case；兼容的 PascalCase 别名会在发送前归一化成 snake_case。
 
+### 远端工具确认
+
+远端 Agent 因 `always_ask` 等策略请求工具确认时，`requires_action` 表示等待用户，不是执行成功。先展示本轮待确认工具的名称、脱敏参数、目标与副作用；通过宿主确认能力取得明确的 allow/deny，再向同一 Session 发送 `user.tool_confirmation`，携带事件给出的真实 `tool_use_id` 与 `result`。非 TTY 场景不能把 REPL 的 `/allow` 当 shell 命令，也不能因无人交互而默认 allow。
+
+仅确认本次工具调用，不自动放宽 Agent 长期策略。确认后继续监听/查询本轮终态；发送确认成功不等于工具成功。这与调用方 CLI 写操作的确认是两层独立授权，不能用其中一层替代另一层。
+
 ### Custom tool result
 
 `user.custom_tool_result` 用于回传某次 custom tool 调用的结果，必须提供对应的 `custom_tool_use_id`：

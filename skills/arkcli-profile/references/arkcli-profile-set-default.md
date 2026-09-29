@@ -30,10 +30,12 @@ arkcli profile set-default --modality text --skip-verify doubao-seed-2-0-pro-260
 | profile.Type | 校验来源 |
 |--------------|---------|
 | `platform` | `ListEndpoints` (PageAll) + modality filter — endpoint 自带 modality 必须跟 `--modality` 匹配, text endpoint 不能写到 image/video default. unknown modality (custom endpoint) 放行避免错杀 |
-| `agent-plan` | text: `ListAgentPlanLatestModel`<br>image: `AgentPlanImageModels` 硬编<br>video: `AgentPlanVideoModels` 硬编 |
-| `coding-plan` | text: `ListArkCodeLatestModel` (要 SSO AccountID)<br>image/video: 借道 platform `ListEndpoints` + modality filter (S10, commit f69be53), 校验跟 platform 同款 |
+| `agent-plan` / `agent-plan-team` | text: `ListAgentPlanLatestModel`<br>image: `AgentPlanImageModels`<br>video: `AgentPlanVideoModels`；个人/团队使用各自匹配的凭证，不混用 |
+| `coding-plan` / `coding-plan-team` | text: `ListArkCodeLatestModel`（需要当前 AccountID）<br>image/video: 借道 platform `ListEndpoints` + modality filter；团队席位 Key 不能据此当作视觉后付费 Key |
 
 **校验用 target profile 的身份**（codex P0-A 修正）：`--profile X` 时通过 `rt.RebuildFactoryForProfile(X)` 重建 invoker，避免 active=A 的 ListEndpoints 结果被当成 B 的可选范围。
+
+校验通过只证明目标 ID 在该 Profile/模态的候选中，不证明实际 Key、权益或余额可用；`--skip-verify` 仅跳过候选校验，不是权限兜底，不能自动添加。Plan 的合法调用别名保持原样，不把能力查询得到的基础模型 Name/Version 强制覆盖为默认调用 ID。
 
 ## 跟 `+chat / +gen` 的衔接
 
@@ -57,7 +59,7 @@ arkcli profile set-default --modality text --skip-verify doubao-seed-2-0-pro-260
     arkcli profile set-default --modality text <id>    # 设默认
 ```
 
-Agent 看到此 hint 时，按 hint 跑两条命令即可，不要自己猜默认值。
+Agent 看到此 hint 时，先只读列候选；用户明确要持久设置并选定目标后才运行写命令，不因 hint 自动把第一条设为默认。用户仅要本次调用时，使用明确的 `--model`，不修改 default。
 
 ## 输出形态
 

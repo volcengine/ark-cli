@@ -66,7 +66,7 @@ arkcli plans team seat-list --plan agent-plan-team --page-number 2 --page-size 5
       "project_name": "default",
       "instance_id": "ins-...",
       "order_time": 1700000000000,
-      "expired_time": 1800000000000,
+      "expired_time": 1790351999,
       "create_time": 1690000000000,
       "update_time": 1700000000000
     }
@@ -81,7 +81,19 @@ arkcli plans team seat-list --plan agent-plan-team --page-number 2 --page-size 5
 | `seat_status` | "Idle" / "Active" / "Unknown"（已经把数字枚举翻译成可读字符串） |
 | `billing_status` | "Pending" / "Running" / "Expired" / "Reclaimed" / "Unknown" |
 | `user_id` / `user_name` | 绑定的子用户标识（IAM `IdentityId` / `IdentityDetail`） |
-| `*_time` | epoch ms |
+| `expired_time` | Unix 秒；`0`、缺失或不可解析时表示没有可靠到期时间，不能判定永不过期 |
+| `order_time` / `create_time` / `update_time` | 上游原始时间值；按各字段契约确认单位，不能由其中一项推导所有 `*_time` 都是毫秒 |
+
+交付到期时间必须程序化换算为北京时间（UTC+8），保留原始秒值作为核对依据，不能心算日期或用额度刷新时间代替。比如 `1790351999` 对应 `2026-09-25 23:59:59 +08:00`。JavaScript 的 `Date` 接收毫秒，必须先乘 1000：
+
+```javascript
+const expiredSeconds = 1790351999; // 替换为当前席位真实 expired_time
+const beijing = new Intl.DateTimeFormat('sv-SE', {
+  timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit',
+  hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23'
+}).format(new Date(expiredSeconds * 1000));
+console.log(`${beijing} +08:00`);
+```
 
 `coding-plan-team` 时输出里 `scene` 是空字符串 —— 这是预期行为，服务端按空 Scene 默认到 coding_plan。
 

@@ -63,6 +63,7 @@ metadata:
 
 1. 用户给了 `ep-...` → `arkcli resources resolve <ep-id> --format json`，先读 `endpoint_model_type` 与 `model_id`，再读 `supported_workflows` / `generation_modality` / `requires_user_intent`
 2. 不确定当前 profile → `arkcli auth whoami --format json`，读取当前身份及可用的 `profile.name` / `profile.type`；字段缺失时按当前编译产品诊断，不猜 type。`profile show/list` 可能同步并回写本地 Key 库存，不作为普通生成前的只读准入。
+只读核对时，`auth status` / `auth whoami` / `resources list` 每次只执行一条完整的 ArkCLI 命令并读取原始 JSON 与退出状态；不要拼接 `; echo`、`head` 或重定向后只查看退出码。命令被宿主拒绝时说明缺口，不把拒绝当作账号或资源事实。
 3. text 资源 → `arkcli resources list --modality text --format json`
 4. image / video 资源 → `arkcli resources list --modality image --format json` / `--modality video`
 5. 多 profile 对比 → 分别跑 `--profile A --modality text` 和 `--profile B --modality text`

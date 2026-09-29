@@ -1,7 +1,7 @@
 ---
 name: arkcli-doctor
 version: 1.0.1
-description: "arkcli doctor 统一入口，覆盖 CLI 健康、account、error、infer-endpoint、model、metrics、report 与 Ark 图片/视频来源特征验证。用户给 1-20 个媒体 URL 并问是否由 Ark/Seedance/Seedream 生成时，走 doctor +verify-origin：整批只披露并确认一次费用，确认前不发 Create/Get 业务请求，最终完整转交服务端 JSON，禁止解释 IsOfficial。其余错误码、模型名、ep-xxx、失败/慢/超时/限流、健康度、P99/Cache、内容审核、DNS/TCP/TLS/时钟等按正文诊断路由。来源验证不判断内容真假、版权归属、法律认证或内容安全。安装/登录/profile/API Key 归 arkcli-shared/auth；纯用量明细归 arkcli-usage；部署、Endpoint CRUD、模型元信息归对应 skill。"
+description: "arkcli doctor 统一入口，覆盖 CLI 健康、account、error、infer-endpoint、model、metrics、report 与 Ark 图片/视频来源特征验证。用户给 1-20 个媒体 URL 并问是否由 Ark/Seedance/Seedream 生成时，走 doctor +verify-origin：整批只披露并确认一次费用，确认前不发 Create/Get 业务请求，最终完整转交服务端 JSON，禁止解释 IsOfficial。其余错误码（包括 ServerOverloaded、ModelNotOpen）、模型名、ep-xxx、失败/慢/超时/限流、健康度、P99/Cache、内容审核、DNS/TCP/TLS/时钟等按正文诊断路由。来源验证不判断内容真假、版权归属、法律认证或内容安全。安装/登录/profile/API Key 归 arkcli-shared/auth；纯用量明细归 arkcli-usage；部署、Endpoint CRUD、模型元信息归对应 skill。"
 metadata:
   requires:
     bins: ["arkcli"]
@@ -64,6 +64,10 @@ arkcli doctor +verify-origin <url> [url...]     # 1-20 个媒体来源特征验�
 
 ## 核心范式：从用户消息到答案
 
+用户给了具体 Ark 错误码、但没有模型名或 `ep-xxx` 时，**先执行一次只读** `arkcli doctor error <code> --format json`，再按返回的 `category`、`subtype`、`root_cause` 和对应 reference 解释；不能仅凭报错文案或记忆直接给确定性根因。`ModelNotOpen` 的查表含义是当前账号未开通该模型，不能无证据扩写成 Key 失效、模型名拼错或网络故障。`ServerOverloaded` 是服务资源紧张，不能改写成账号配额耗尽；流量突增/冷启动是通用可能原因，不是对该 Request ID 的取证。用户没给具体资源 ID、单次 Trace 时，保留未知并请求所需证据，不编造该资源的健康度或本次请求原因。
+
+聚合 `doctor model` / `doctor infer-endpoint` / `doctor metrics` 只能描述指定时间窗的总体分布，**不能证明用户某一次请求采用了非流式、未限制输出、默认高思考档或重试**，也不能从 TPOT/Token 均值反推出那次端到端时延的唯一原因。需要单次根因时核对对应请求配置和 Trace，或在相同输入上分别实测档位；没有这些证据就把配置方案写成待验证建议，而不是“已定位的根因”。
+
 > [!IMPORTANT]
 > **诊断意图优先于上报意图**：先检查用户是否要求“检查 / 诊断 / 排查 / 分析原因 / 为什么 / 看健康 / 看指标”等诊断动作。只要存在任一诊断意图，即使同时说“并上报”，也必须先走 `doctor model` 或 `doctor infer-endpoint`；诊断返回 `report_suggestion` 且确认是效果类后，再询问用户，用户同意才进入 report（Path A）。只有用户明确要求“直接上报 / 提交 badcase / 反馈到方舟”，**且没有任何诊断诉求**，上下文又确认是 **Seedance 2.x + 效果类问题**，才可跳过诊断进入 [`scope-report.md`](references/scope-report.md) 的 Path B。用户只是描述“字幕错 / 角色漂移 / 闪烁”等效果问题、但没有说要上报时，同样不得直接跑 report。
 
@@ -106,6 +110,16 @@ arkcli doctor +verify-origin <url> [url...]     # 1-20 个媒体来源特征验�
 > 暂不支持 request_id 反查能力（涉及鉴权与平台内部数据）。Path 4/5 不要瞎猜，直接追问。
 
 ## 回答证据分级
+
+只有 `request_id` / `x-request-id` / `LogID` 时，明确说明当前 doctor 不能反查单条
+日志或 trace；请求用户补充错误码/完整错误 JSON、资源 ID，或发生时间与症状。
+不要把 Request ID 传给 `doctor error` 当错误码，也不要把资源聚合诊断称为该请求的
+调用链。只有 ID 且无法补充时，保留它供工单/支持排查，不承诺控制台必有跨服务日志权限。
+
+先区分证据来源：`doctor error` 是本地错误码目录，返回的 `root_cause` 是通用解释，
+不是对该账号或某个 Request ID 的日志取证。资源诊断和 metrics 的聚合值必须带上实际
+资源、时间窗口与可用状态；空数组、缺失字段、查询失败不能改写成“零错误”或“健康”。
+建议修复不等于已经修复；没有执行并验证的动作只能列为下一步。
 
 最终回答必须把内容分为以下三类，不能把相关性或建议写成已证实根因：
 

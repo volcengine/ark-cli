@@ -29,27 +29,22 @@ metadata:
 
 想看"用了多少 token"→ [`arkcli-usage`](../arkcli-usage/SKILL.md);想看"花了多少钱"→ 本 skill。
 
-## Step 0(MUST):查"我的账单"先按 profile 路由
+## Step 0：确认账单口径与范围
 
-跟 [`arkcli-usage` 的 Step 0](../arkcli-usage/SKILL.md)(canonical 原则)同一套 —— **先查"自己这档 profile 的套餐账单",再查 endpoint 账单**。查任何"**我**…花了多少"前必走:
+先分清“已结算金额”与“Token / 套餐额度消耗”，后者交给 Usage，不用单价乘估算 Token 冒充账单。用户只查某个 Endpoint、Key 或订阅时，仅查其明确范围；`profile.type=platform` 不能证明没有套餐。
 
-1. **探 profile.type**：`arkcli auth whoami --format json`，读取持久 Profile 摘要里的 `profile.type`。`profile show/list/keys list` 可能在线同步并回写 Key，不能作为普通 Billing 准入；字段缺失时如实说明未知，不自动切 Profile、Key、default 或收费路径
-2. **定模态**:用户点名模型/模态 → 只查该模态;没点名 → 全模态都覆盖
-3. **按 (type × modality) 路由**(`①→②` = 先套餐账单、再 endpoint 账单;单格 = 只查 endpoint 账单):
+身份上下文已知则复用，确需核实时按共享宿主协议使用 `arkcli auth whoami --format json`；托管宿主的注入协议优先。普通账单查询不调用可能同步/回写 Key 的 `profile show/list/keys list`，不为了补全账单切换身份。
 
-| profile.type | text | image / video |
-|---|---|---|
-| `agent-plan` / `agent-plan-team` | ① `arkcli billing list --start <YYYY-MM> --product ark_subscription`<br>② `arkcli billing list --start <YYYY-MM> --mine` | 同 text(全模态都先套餐、再 endpoint) |
-| `coding-plan` / `coding-plan-team` | ① `arkcli billing list --start <YYYY-MM> --product ark_subscription`<br>② `arkcli billing list --start <YYYY-MM> --mine` | `arkcli billing list --start <YYYY-MM> --mine`(套餐不覆盖) |
-| `platform` | `arkcli billing list --start <YYYY-MM> --mine`(无套餐) | `arkcli billing list --start <YYYY-MM> --mine` |
-
-依据同 usage:Agent Plan 套餐覆盖三模态、Coding Plan 套餐只覆盖文本、Platform 无套餐。套餐账单走订阅类必须显式 `--product ark_subscription`(默认 scope 不含订阅,见下方「Agent 关键纪律」);endpoint 账单 `--mine` 的撞空 fallback 见下。**每条 `billing list` 必带 `--start <YYYY-MM>`(月单位,缺省即报 `--start is required`;查多月范围再加 `--end <YYYY-MM>`)。**
+- “我花了多少”先保留 `--mine`，按下面的本人资源流程查；用户要求订阅类账单时显式 `--product ark_subscription`，并解释其账号/订阅范围，不称为个人 Endpoint 用量。
+- “整个账号花了多少”才使用账号查询；Project 筛选按本次实际上下文说明，不能为补数擅自清空 Project、换 Profile 或换身份。
+- 每条 `billing list` 必带 `--start <YYYY-MM>`，跨月加 `--end <YYYY-MM>`。账期是月份，不是 Usage 的日级参数；T+1 及当期未出账部分必须披露。
+- 返回的账单数组是 `items`，不是 Endpoint 列表的 `Items`。解析失败、请求失败、截断与真实空列表分开报告。
 
 ## 快速决策
 
 | 用户问 | 命令 |
 |---|---|
-| **我**这个月 / 上个月花了多少 (含"我"语义) | **先过 Step 0(本文档顶部)**:plan profile(agent / coding-text)先 `arkcli billing list --start <YYYY-MM> --product ark_subscription` 套餐账单、再 `arkcli billing list --start <YYYY-MM> --mine` endpoint 账单;platform 或非覆盖模态直接 `arkcli billing list --start 2026-05 --mine` — 撞空有 fallback 流程见下 |
+| **我**这个月 / 上个月花了多少 | `arkcli billing list --start <YYYY-MM> --mine`；明确要订阅账单时按 Step 0 另选产品并披露范围 |
 | 整个账号花了多少 / 公司账号 / 整体 (无主语自指) | `arkcli billing list --start 2026-05` (账号维度全量) |
 | 这个 EP 花了多少 | `arkcli billing list --start 2026-05 --endpoint ep-...` |
 | 这把 key 花了多少 | `arkcli billing list --start 2026-05 --apikey ark-...` |
@@ -65,7 +60,7 @@ metadata:
 - **火山:** 先 `arkcli billing list --start <YYYY-MM> --mine`(默认 `--mine-by=endpoint`)
   - 有数据 → 用 `partial_failures` 检查截断后,告诉用户金额合计
   - 撞空 (`no endpoints owned by current sub-user`) → **立即重试** `--mine --mine-by=apikey`
-  - 仍撞空 → 报告用户"该子用户在该账号下零资源,账单可能是主账号 / 其他子用户产生的",问是否切主账号或换 profile
+  - 仍撞空 → 报告“在本次身份、范围和账期内未查到匹配账单”，核对时间、出账延迟和资源范围；不能据此宣称账号零资源或自动切身份
   - **⛔ 禁止退化为不带 `--mine` 的全量查询** — 全账号金额 ≠ "我花的",一旦丢 `--mine` 范围语义就跑偏(对齐 [arkcli-usage 的同条款](../arkcli-usage/SKILL.md))
 
 dim 间 fallback (endpoint→apikey) agent **可以自动重试**,因为同 mine 语义、不改查询范围;但**不能丢 `--mine` 退到全量**(那是改语义)。

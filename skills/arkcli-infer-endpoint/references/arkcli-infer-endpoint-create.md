@@ -24,6 +24,7 @@ Client Preview 的 `ModelReference` 与模型开通检查依赖在线信息，�
 `fidelity=partial` 并列出 `unresolved`。它不是服务端 validation，也不证明模型
 已开通或请求会被接受。
 
+
 ## 模型未指定时
 
 `--model` 是必填参数。用户已经明确选择脚本化 / CI / 无护栏 raw CRUD，但没有给模型或只给品牌、系列、家族名时，不要凭记忆补全，也不要先用缺失参数试跑 `--dry-run`：
@@ -60,6 +61,7 @@ arkcli infer endpoint create \
   --model doubao-seed-2-0-pro-260215 \
   --name my-token-endpoint \
   --billing-method token
+
 
 # 典型返回
 {

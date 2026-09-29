@@ -153,6 +153,16 @@ ARKCLI_NO_UPDATE_NOTIFIER=1 ARKCLI_CALLER_TYPE=ai_agent ARKCLI_CALLER_NAME=<agen
 | 上下文有限要读长文档 | 用 `--compact`，保留 snapshot 与续读元数据，读全前提与限制后再回答 |
 | 面包屑展示 | 首项是真实一级栏目（根节点已剥离），三条命令口径一致 |
 
-- 公共正文返回 `source_url` 时引用该 CDN 资源；续读仍用 `url` 和 `snapshot`。大纲不充当正文依据，MCP 没有该字段时沿用返回的 `url`。
+| 引用场景 | 期望行为 |
+|---|---|
+| 正文同时返回文档站 `url` 与 CDN Markdown `source_url`，用户要参数说明及依据链接 | 答案以文档标题链接到 `url`，不以 CDN 源文件替代文档页；续读仍用 `url` 和 `snapshot` |
+| 章节读取返回带锚点的 `url` | 引用原样保留该锚点，不根据标题另造锚点 |
+| 用户明确要原始 Markdown 或版本取证 | 额外提供实际 `source_url` 并标注为 Markdown 来源，不把它传给 `docs get` |
+| 只读了 `CreateModelCustomizationJob` 的 `apis spec`，尚无页面 URL | 按接口名或标题定位并读取对应参数页再引用；未找到时说明缺口，不从 `api_path` 拼链接，也不把 schema 独有细节归给未核实的正文 |
+| MCP 没有 `source_url` | 沿用返回的 `url`；只有大纲时继续读取正文，不把大纲当依据 |
+| 用户指定产品简介的“快速调用”章节，章节内含链接和示例 | 先读产品简介的该章节，照实描述链接及示例；另读快速入门时单独标注来源，不称原章节“只有链接” |
+| API schema 证实 `messages`、`model` 必填，但参数页当前正文块只读到 `messages` | 两字段可归因于 schema；正文只归因 `messages`，不称正文已核实 `model`；未经 `docs get` 核实的 `externalDocs.url` 不作为已验证页面 |
+| 请求 `docs list --query Responses --limit 2` 的前两页，但只执行第一页 | 只能列第一页；实际执行带同一 query、snapshot、offset 的第二页并读取 `items` 后才能列第二页，不能从 `has_more` 推断条目 |
+| 用户要“公开 API 契约目录”，Agent 先读根 help 或 `api --help` | 仍选 `docs apis list` 的发布目录；`api --list` 只枚举本机 Action，不能把本地注册清单当作公开契约交付 |
 
 - 消息 schema 按 role 分支：部分角色必填 content，另一角色允许 content 或 tool_calls 至少其一；不得概括为每条消息都必填 content。

@@ -9,11 +9,13 @@
 | 入口 | 触发方式 | 适用场景 |
 |------|---------|---------|
 | `arkcli models activate <name>` | 用户**主动**开通 | 提前为业务做好模型可用性准备；想试用新模型；先本地预览请求 |
-| `arkcli deploy ...` / `arkcli infer endpoint create ...` | **被动**触发：检测到模型未开通时自动 prompt | 用户的真实目标是 deploy / 创建端点，开通只是前置依赖 |
+| `arkcli +deploy ...` / `arkcli infer endpoint create ...` | **被动**触发：检测到模型未开通时自动 prompt | 用户的真实目标是 deploy / 创建端点，开通只是前置依赖 |
 
 `activate` 不会先 GetModelChargeItem 检测，而是直接发起 OpenModelChargeItem。重复对已开通模型调用是幂等的（后端处理）。
 
 ## 命令
+
+当生成任务明确报 `has not activated the model` 时，保留原生成目标，核对精确基础模型与当前身份后，说明需先开通；按共享宿主流程获得本次写入授权再执行 activate，成功后才继续原任务。不能静默补 `--yes` 或换另一费用身份，开通成功也不能替代正确模型 ID/版本。
 
 ```bash
 # 默认仅开通基础服务（推理 + 精调）— 等价于 SubServices=["base"]
@@ -93,6 +95,9 @@ Client Preview 返回结构：
 | `timed out waiting for model to become available` | 开通成功但 5 秒内未变 Available | 通常无害，稍后重试 `arkcli models get <name>` 看真实状态 |
 
 ## 注意事项
+
+- 开通实际返回 `OperationDenied.operate ... BalanceNotEnough` 且提示现金/可用代金券低于下单预留金额时，报告本次服务端拒绝原因，停止重复 activate，指向该账号充值/计费处理。门槛可能动态，不能照搬“充值约 100 元”作为当前保证；普通未激活错误本身也不能证明欠费。
+- `--dry-run` 不联网，不能探测余额、代金券、下单预留门槛或在线资格。只有实际返回的拒绝/计费信息才是这些判断的证据；用户处理完后再按授权恢复开通和原任务。
 
 - 子服务可以增量开通：先 `--sub-services base` 再 `--sub-services context-cache`，互不冲突
 - `--dry-run` 不联网、不开通、不计入用量；它是客户端预览，不是服务端合法性校验

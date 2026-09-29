@@ -146,6 +146,13 @@ Volc 默认使用二进制内置的 9 个 API Key 可分账产品白名单，已
 
 跨 fan-out (`--end` 跨月 / `--mine` 多资源) 的 `--limit/--offset` 是 **per-fan-out** 各 N 行 (returned ≤ limit × fanout_count); 每个 fan-out 在 `partial_failures` 各占一项,标 `period` / `resource` 字段。
 
+### 深分页与限流恢复
+
+- 多天明细或跨月深分页遇到服务端 offset 上限、429 或部分截断时，保留原始错误、已完成范围和剩余范围；不要继续无限增加 offset 或并发扫页。
+- 按原用户时间范围拆成 `--interval detail --day YYYY-MM-DD` 的逐日查询，保留原 Endpoint/API Key/产品过滤和身份，不擅自缩成最近几天或扩大账号范围。每片先检查退出码、业务错误、`is_truncated` 和 `partial_failures`，再汇总；失败片不按零计费。
+- 默认串行；429 按服务端等待提示退避，反复失败则交付已完成部分和缺口，不不断重放。若单日仍超过上限，按真实资源分片或说明当前导出边界，不能声称全量。
+- Vaka 1.0.32 曾记录 `offset=1800` 的上限，但当前客户端没有这一固定阈值，上游适用范围也尚未确认。不得把它承诺为所有账期/维度的统一上限；实际遇到该错误仍按上面的分片流程恢复。
+
 ## --output FILE 模式
 
 落盘大数据避免 stdout 灌爆 agent context。跟 `train finetune logs/metrics/trajectory` 的 `--output` 一致:

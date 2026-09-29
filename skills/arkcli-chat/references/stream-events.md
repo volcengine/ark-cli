@@ -23,6 +23,7 @@ description: arkcli +chat --include-events 用法 reference, 流式模式下输�
 
 ## 何时使用
 
+
 - **autotest** —— 自动化测试需要逐事件断言 (event type、usage、response id 等)
 - **agent / 程序化消费** —— 上游程序需要结构化解析流式输出, 而非从 human-readable 文本里正则提取
 - **调试** —— 想看服务端实际下发的每个事件类型和字段

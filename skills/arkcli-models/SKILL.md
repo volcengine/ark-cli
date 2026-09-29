@@ -1,7 +1,7 @@
 ---
 name: arkcli-models
 version: 1.0.6
-description: "arkcli 模型查询与基础模型服务激活能力：列出、搜索、获取火山公共基础模型详情，以及用户明确要求的开通/激活模型服务（`arkcli models activate`）；Volc 还支持 TTFT/TPOT 性能排名、延迟趋势和输入长度对比。激活已有基础模型服务不等于部署/创建 Endpoint，不得转成 `+deploy`。优先使用产品命令 `arkcli models ...`，而不是直接调用 Raw API。反触发：用户的最终目标是创建 / 部署 Endpoint 时，本 skill 只承担一次有界的只读候选查询，owning skill 由创建路径确定：普通产品创建走 arkcli-deploy；用户显式要求 raw CRUD / CI / 无守卫的 `infer endpoint create` 走 arkcli-infer-endpoint。候选查询只执行一次 `models search ... --size 10 --format json`，并把实时返回的 `name` 与非空 `primary_version` 组合成可直接传给 `--model` 的完整 ID，不能拉全量清单、把裸家族名当可部署 ID，或逐候选追加 `models get`。注意：查询/管理账号下自传或精调的自定义模型（`cm-xxx`）走 arkcli-custommodel。"
+description: "arkcli 模型查询与基础模型服务激活能力：列出、搜索、获取火山公共基础模型详情，以及用户明确要求的开通/激活模型服务（`arkcli models activate`）；Volc 还支持 TTFT/TPOT 性能排名、延迟趋势和输入长度对比。激活已有基础模型服务不等于部署/创建 Endpoint，不得转成 `+deploy`。优先使用产品命令 `arkcli models ...`，而不是直接调用 Raw API。反触发：用户的最终目标是创建 / 部署 Endpoint 时，本 skill 承担有界的只读候选查询，owning skill 由创建路径确定：普通产品创建走 arkcli-deploy；用户显式要求 raw CRUD / CI / 无守卫的 `infer endpoint create` 走 arkcli-infer-endpoint。候选首先执行 `models search ... --size 10 --format json`；成功完整结果直接复用，空结果与捕获缺损按 reference 有界恢复，并把实时返回的 `name` 与非空 `primary_version` 组合成可直接传给 `--model` 的完整 ID，不能拉全量清单、把裸家族名当可部署 ID，或逐候选追加 `models get`。注意：查询/管理账号下自传或精调的自定义模型（`cm-xxx`）走 arkcli-custommodel。"
 metadata:
   requires:
     bins: ["arkcli"]
@@ -22,17 +22,20 @@ metadata:
 
 ## 使用原则
 
+
 - 模型相关需求优先使用 `arkcli models ...`
 - 这些命令虽然是标准 CLI 类型，但实现入口仍然来自 `shortcuts/models/`
 - 只有产品命令无法覆盖时，才回退到 [`../arkcli-api-explorer/SKILL.md`](../arkcli-api-explorer/SKILL.md)
 - 本 skill 不是默认兜底入口；用户明确问模型查询、模型资产盘点、模型详情时才作为主路由。若是在为上游 `+chat` / `+gen` / Endpoint 创建挑模型，先加载并保留对应上游 skill，本 skill 只提供只读查询。普通 Endpoint 创建的 owning skill 是 `arkcli-deploy`；**显式 raw CRUD / CI / 无守卫的 Endpoint 创建意图必须切换到 `arkcli-infer-endpoint`**，并在查询候选前先加载它
-- **语音模型边界**：TTS / ASR / 播客 / 音色 / 实时语音交互等语音模型在 arkcli 中只支持广场检索与选型说明；`models search` 能搜到不代表可 `+deploy`、可 `+code-example`、可查 `usage` 或可查 `pricing`。除非用户另问官方文档，不要主动给控制台 / OpenAPI / SDK 等非 arkcli 接入步骤或链接。
+- **语音模型边界**：广场命中不证明 arkcli 支持该模型的调用、Endpoint 创建、示例或用量。TTS/ASR 等独立能力的接入应核对对应官方 API/SDK，不把裸名塞进 Responses。费用询价交给 `pricing models --modality Audio`，仅按当前计价项作答；未返回就说明价格源未覆盖。
+- **下线通知与广场目录是不同证据域**：用户提到短信/站内信、停服日期或「是否需要重新设置」时，先核对对应产品的官方下线公告，不要先查 `models search` 再用目录里的 `Published`/`Retiring` 反驳公告。若用户未说明使用 Agent Plan、Coding Plan 还是按量 Endpoint，分别标注各产品适用范围；Agent Plan 先看[模型下线公告](https://ark.volcengine.com/region:cn-beijing/docs/agent-plan-personal-model-deprecation-announcement)，Coding Plan 看[模型下线公告](https://ark.volcengine.com/region:cn-beijing/docs/coding-plan-personal-model-deprecation)，按量 Endpoint 看[平台模型下线公告](https://ark.volcengine.com/region:cn-beijing/docs/model-deprecation-notice)。只引用该产品公告中旧型号的具体行、时区与迁移目标，**再检查较新公告行中建议迁移型号是否也在下线**，给出仍受支持的下一站；不能把某套餐的日期套到另一产品。不明产品时给条件化结论。
+- 这类问题的最终目标是**迁移判断**，不是公共模型选型：先加载对应 `arkcli-plans` / `arkcli-infer-endpoint` owning Skill；公告回答后，才按用户实际配置区分 `auto`/`ark-code-latest`、写死的 Model Name、自建 `ep-...`。账号实时状态查询失败则明确未知，不能以公共目录状态代替。纯问公共目录生命周期才继续本 skill 的 `models search` 流程。
 
 ## 适用场景
 
 - 用户要搜索、筛选、对比方舟模型
 - 用户要查看模型详情、版本、上下文、模态或 lifecycle 状态
-- 用户要统计或列出"我的模型"、"自定义模型"、"最近创建的模型"
+- 用户要盘点公共基础模型目录；账号自传/精调资产走 `arkcli-custommodel`，套餐模型清单走 `arkcli-plans`
 - **仅 Volc**：用户要比较 TTFT/TPOT、首 Token 延迟、持续输出延迟、性能排行、延迟趋势或不同输入长度下的性能
 - 上游 `+chat` / `+gen` / `+deploy` 需要先确定可用模型名
 - 用户问语音模型是否存在、有哪些语音模型、TTS/ASR 模型在广场叫什么：只回答广场可搜事实和当前 arkcli 不支持后续场景能力的边界
@@ -53,7 +56,7 @@ metadata:
   - 给 `+deploy` 确认可部署模型
   - 给业务排障确认模型详情和版本
 - 除非用户明确就是在做模型查询，否则查完模型后应回到原始任务
-- **例外**：语音模型查询本身就是终点。查到 `doubao-seed-tts-*`、`doubao-seed-asr-*`、`seedasr-*`、播客、音色设计、实时语音交互等广场语音模型后，停在"可搜到但 arkcli 不支持调用/部署/示例/用量/费用"说明，不继续交给 `+deploy` / `+code-example` / `usage` / `pricing` / `onboard`，也不主动补非 arkcli 接入路径。
+- **语音后续路由**：只问目录就交付目录事实；要实际接入则说明独立 API 边界并引导官方契约核验，不生成未核实的调用/部署命令。要价格则转 pricing 的 Audio 查询，不能把“没有调用封装”反推成“不能查询价格”。
 
 ## 快速决策
 
@@ -79,7 +82,7 @@ metadata:
 
 | 用户这么说 | ❌ 别直接 | ✅ 第 0 步命中的场景标签 → 推荐 |
 |---|---|---|
-| "复杂推理 / 多步骤 / 效果最强的模型" | `search --capability thinking` | 复杂推理 / Agent 任务 → `doubao-seed-2-0-pro` |
+| "复杂推理 / 多步骤 / 效果最强的模型" | `search --capability thinking` | 复杂推理 / Agent 任务 → 查表，再以实时 lifecycle 排除下线候选 |
 | "做图片生成用哪个模型" | `resources list --modality image` 就收手 | 图片生成 → `doubao-seedream-5-0` |
 | "做视频 / 角色扮演 / 字段抽取" | `search --modality ...` | 视频生成 / 角色扮演 / 信息抽取 → 查表 |
 
@@ -89,7 +92,7 @@ metadata:
 - 用户给了**明确的数值/能力硬约束**（"200K 上下文"、"必须支持 functioncall"），且场景表没有对应标签；
 - 用户**点名第三方 / 开源 / 历史模型**（qwen、glm、Seedream 4.5…）——不强行替换。
 
-> 注意区分："复杂推理"是场景标签（查表 → pro），**不等于**用户给了 `thinking` 硬指标。前者走第 0 步，后者才走降级线。
+> 注意区分："复杂推理"是场景标签（先查表），**不等于**用户给了 `thinking` 硬指标。前者走第 0 步并校验实时 lifecycle，后者才走降级线；下线中的表内旧型号不能成为新接入推荐。
 
 **层级边界（重要，别串台）：场景表是"模型广场选型层"，回答"这个意图在广场上选哪个模型"，数据源永远是 `models search`（catalog）。** 它给的是 catalog 推荐模型名（如生图 → `doubao-seedream-5-0`）。
 
@@ -102,10 +105,10 @@ metadata:
 
 - 用户只知道模糊模型名 / 想按意图找（"最强生视频"、"200K 上下文 LLM"、"支持 thinking 的模型"）：用 `search` —— 它做关键词模糊 + modality/context/capability 结构化过滤
 - 需要按 modality / 分页参数枚举、或精确名匹配：用 `list`
-- 用户问"我的模型"、"自定义模型"、"最近创建了多少"、"列出来"、"统计数量"：这是模型资产盘点，不是找候选模型；先读 [`references/arkcli-models-list.md`](references/arkcli-models-list.md)，用 `arkcli models list --page-all` 拉取后做客户端过滤，不要跳到 Raw API Explorer
+- 公共目录全量盘点 → `models list --page-all`；“我上传/精调的模型”、`cm-*` → `arkcli custommodel list/get`；“我的 Plan 支持哪些模型” → `plans model-list --plan <plan>`。“我的模型”范围不明时先澄清，不拿公共目录冒充账号资产。
 - **仅 Volc**：性能排行、趋势或输入长度对比时，先读 [`references/arkcli-models-performance.md`](references/arkcli-models-performance.md)，再使用 `models performance rank`、`trend` 或 `input-length`
 - 已经有明确模型 ID：用 `get`
-- 只是为 `+chat` / `+gen` / Endpoint 创建找模型：先保留原任务的 owning skill，再只执行一次有界 `models search <keyword> --size 10 --format json`（无关键词时省略 `<keyword>`），从同一次结果形成精简选择列表后立即回原任务；不要改用 `list --page-all`，也不要逐候选循环 `models get`
+- 只是为 `+chat` / `+gen` / Endpoint 创建找模型：先保留 owning skill，初始只执行一次有界 `models search <keyword> --size 10 --format json`（无关键词时省略关键词），成功完整结果形成候选后立即回原任务；不逐候选循环 get。空结果、缺损捕获或需核对精确 API 的情况按 [search 恢复规则](references/arkcli-models-search.md#空结果规范化与证据冲突) 处理；不得把一次查询预算变成遗漏关键证据的理由。
 - 用户**主动**要开通某个基础模型（"先把 doubao-seed-1-6-flash 开通好"、"我想试用 fast-infer 子服务"、"先预览开通请求"）：用 `activate`，先读 [`references/arkcli-models-activate.md`](references/arkcli-models-activate.md)；如果用户只是要 deploy / 创建端点，由 deploy / infer-create 自行触发隐式开通即可，不要先单独 activate
 
 ## Agent 快速执行顺序
@@ -114,7 +117,7 @@ metadata:
 2. 用户描述带意图（modality / 数值容量 / capability / 缓存类别）时，用 `arkcli models search` + 对应 flag（`--modality`、`--min-context-window`、`--capability`、`--cache-type`...）；缓存能力必须看 `cache_types`，不要使用旧 `capabilities.caching`
 3. 用户只知道模糊名称时，仍用 `arkcli models search <keyword>`（默认返回全部命中，无分页）
 4. 需要按 modality 全量枚举或翻页统计时，用 `arkcli models list`
-5. 用户问"最近 N 天创建的自定义模型/我的模型"时，用 `arkcli models list --page-all --sort-by CreateTime --sort-order Desc --format json`，再在本地按 `create_time`、`model_type` / `customization_type` / `source_type` 等字段过滤；不要因为没有时间过滤 flag 就改探 `arkcli api --list`
+5. 用户问“最近 N 天创建的自定义模型/我的模型”时，转 `arkcli-custommodel` 查询账号资产；公共目录日期统计才使用 `models list --page-all`。过滤字段以所选命令实际输出为准，不能混用两类 schema
 6. 已有明确模型 ID，需要详情时，用 `arkcli models get`
 7. 用户明确要开通模型（主动激活，不是为了立刻 deploy）时，用 `arkcli models activate <name> [--sub-services ...]`；CI 场景加 `--yes`，本地请求预览用 `--dry-run`，但不得称为服务端校验
 8. 查到 / 激活完模型后，回到发起它的上游链路：`+chat` / `+gen` / `+deploy`
@@ -123,7 +126,7 @@ metadata:
 
 ### 0. 为数据面命令补全完整模型 ID（必做前置）
 
-`+chat` / `+gen` 的 `--model` 必须是 `<name>-<primary_version>` 完整形式（或 Endpoint ID `ep-xxx`）。**直接传族名会触发 `InvalidEndpointOrModel.NotFound` 404**。
+先保留用户给出的精确 Endpoint / Custom Model ID，以及当前资源目录返回的合法 Plan 调用名。**只有需要公共基础模型的版本化 ID 时**，才从本轮 `name` 与非空 `primary_version` 组合；Plan 的 `output_name` / 路由别名不是“漏版本”，不得机械追加日期。实际调用遵守 owning Skill 的执行上下文，目录命中本身不保证账号可调用。
 
 **`primary_version` 格式不固定**，**不要用正则自行判断"看起来像完整 ID"**。实际观察到的格式分布（~152 个模型中约半数非 6 位）：
 
@@ -177,6 +180,16 @@ arkcli models search --multimodal --output-modality text --strict-filter
 ```
 
 `--strict-filter` 强烈建议带上：默认行为是"缺数据保留"（避免误杀），加 strict 后只返回 100% 满足条件的模型。
+
+## 目录证据与上下文单位
+
+用户问参数支持、缺失参数的运行时行为、search/get 冲突或 NotFound 时，先读 [get 的证据与排障规则](references/arkcli-models-get.md#参数证据与查询冲突)。缺字段不能当否定证据，冲突必须分别标明来源；公共目录不能用来盘点账号自定义资产。
+
+- `models search/get` 证明公共目录与元数据，不证明 Endpoint 已创建、控制台候选可见、Key 有效、余额充足或当前账号有权限。绑定问题先用 `infer endpoint get` / `resources resolve` 获取真实绑定，再查模型详情；Custom Model 的 `base_model_*` 是 lineage，不能替换实际 `cm-*` 绑定。
+- `api_support` 按目标 API 项的 `supported` 判断；项缺失、capability 为 null/unknown 都是“证据不足”，不是 true 或 false。图像输入能力看 `input_modalities`，文本输出不能反证不支持读图。目录能力与本次调用结果分开报告。
+- `context_window` 保留精确整数用于筛选。展示缩写按 `1K = 1024`、`1M = 1048576` tokens：131072 → 128K，262144 → 256K，1048576 → 1M，同时给原值；不能整除时直接给精确 token 数，不把 262144 写成 262K。
+- 用户要求激活但未定模型时，按 [实时候选模板](references/arkcli-models-search.md#未定模型时的实时候选模板) 先查 10 项、投影真实字段、按目标展示 5–8 个代表；不足不编造，空/缺损按恢复规则处理。新接入不推荐 Shutdown/Retiring。0/1/N 选择与写入授权分开；开通子服务、激活基础模型、创建 Endpoint 不能互相替代。
+- 完整 ID、版本与展示名按当前 `get` reference 解析，不用“尾部六位数字”自行拆 ID，不靠换家族或反复激活修复 NotFound。
 
 ## 常见降级
 
@@ -275,13 +288,13 @@ update_time (同代同 tier 时，新者优先)
 
 ## 模型生命周期：Shutdown / Retiring / Published
 
-ArkModels 给每个模型打 `lifecycle_status`，三种值，Search 处理方式不同：
+ArkModels 给公共模型目录记录打 `lifecycle_status`，三种值，Search 处理方式不同。**这只描述目录视图，不是 Agent/Coding Plan 套餐或个人 Endpoint 的停服事实源**；目录 `Published` 不足以推翻产品下线公告：
 
 | status | 含义 | search 默认行为 |
 |--------|------|----------------|
-| `Published` | 正常服务 | ✓ 显示 |
-| `Retiring` | 正在下线（仍可调用，不建议新接入）| ✓ 显示，agent 应口头告诉用户 "X 正在下线，建议换 Y" |
-| `Shutdown` | 已下线（调用必失败）| **❌ 默认过滤掉**（加 `--include-deprecated` 才回来）|
+| `Published` | 公共目录正常展示，不代表任一套餐仍支持 | ✓ 显示 |
+| `Retiring` | 公共目录正在下线，不建议新接入；具体可调用性仍看产品与账号 | ✓ 显示，agent 应口头提醒并找替代 |
+| `Shutdown` | 公共目录已下线；不能据此推断另一产品的独立时间表 | **❌ 默认过滤掉**（加 `--include-deprecated` 才回来）|
 
 另外，`display_name` 含 `废弃` / `下线` / `已下架` / `deprecated` 关键词的模型也按 Shutdown 处理（兜底，因为有些遗留模型不在 ArkModels 元数据里，靠人工标记）。
 
@@ -300,7 +313,7 @@ ArkModels 给每个模型打 `lifecycle_status`，三种值，Search 处理方�
 - ❌ **不要为了"看 5 条最热门"而 `search` 不传 keyword** —— 现在不传 keyword 是返回**全量 152 条**按 UpdateTime 降序，不再是策展热门。需要少量结果用 `--size 5`。
 - ❌ **不要把 `lifecycle_status="Retiring"` 的模型推荐给用户做新接入** —— 这些虽然还能调，但 vendor 已经标记下线倒计时。看到 Retiring 候选时主动提示并搜更新版本。
 - ❌ **不要在 `search` 上做客户端二次过滤来弥补 list 的不足** —— 直接用 `search` 自带的 `--modality` / `--min-context-window` / `--capability` flag。
-- ❌ **不要为单个 model 信息直接 `get` 而不试 `search`** —— `search <name>` 一次返回所有候选 + enrich；只有需要计费/限流/详细能力描述时才用 `get`。
+- ❌ 不要把精确 ID / 指定版本核对强制变成搜索；此时直接 `get`。模糊名称或找候选才先 `search`。
 - ❌ **不要因为 `models list` 没有服务端时间过滤 flag 就去 `arkcli api --list` 探 Raw API** —— 先 `models list --page-all --format json`，再用本地 JSON 处理按 `create_time` 过滤。
 - ❌ **不要告诉用户"CLI 没有此能力，请去控制台"**，除非已经确认 `arkcli models list --help` 当前版本确实没有可枚举输出，且本地 JSON 过滤也无法完成用户要的统计。
 
@@ -308,7 +321,7 @@ ArkModels 给每个模型打 `lifecycle_status`，三种值，Search 处理方�
 - ✓ 按 `--modality` 做**全量穷举/审计**（不是为了"找最强"）
 - ✓ 需要 `total_count` 这种统计
 - ✓ `--name foo` 精确匹配（agent 几乎用不到，因为 search 也能命中）
-- ✓ 盘点"我的/自定义/最近创建"这类资产清单：用 `--page-all` 全量拉取，再按字段和时间窗口做客户端过滤
+- ✓ 盘点公共目录及其时间字段；账号自定义资产不能用公共 `models list` 替代
 
 ## 参考
 
