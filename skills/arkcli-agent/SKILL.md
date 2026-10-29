@@ -85,6 +85,7 @@ Environment 还是 Session。用户提供明确 ID 时直接查对应资源，�
 | 直接创建新会话并聊天 | `arkcli +new session <agent-id> --environment-id <env-id>` | [`references/events-chat.md`](references/events-chat.md) |
 | 给已有会话发消息或实时看回复 | 默认 `events send` 只负责写入；需要 SSE 回复时加 `--stream` 自动跟随 event cursor（`--wait` 保留为兼容别名），实时入口默认请求 `agent.message` / `agent.thinking` Event Deltas；也可使用 `+tail`/`events stream`，`--no-event-deltas` 回退完整事件；`+new session`/`+iterate` 内部自动使用补偿 channel | [`references/events-chat.md`](references/events-chat.md) |
 | 主动压缩会话上下文 | `arkcli agent session compact <session-id> [--instructions <text|@file>]` | [`references/events-chat.md`](references/events-chat.md) |
+| 配置自动上下文压缩（compaction） | Agent create/update `--context-management`；新 Session 的 `--agent-overrides` | [`references/context-management.md`](references/context-management.md) |
 | 看 session 诊断 / 导出诊断包 | `arkcli +debug <session-id>` / `arkcli +export <session-id>` | [`references/debug-export.md`](references/debug-export.md) |
 | 上传文件并挂到已有 session | `arkcli agent session resources add <session-id> --path <file>` | [`references/session-files.md`](references/session-files.md) |
 | 只上传 / 查询 Files API 文件 | `arkcli agent file upload/list/get/wait/delete` | [`references/session-files.md`](references/session-files.md) |

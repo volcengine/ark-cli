@@ -264,6 +264,7 @@ arkcli +gen --model "$MODEL" --input @ref.jpg "<prompt>"
 - Endpoint 的模态由 Step 1 权威元数据自动解析；仅在元数据为 `unknown` /
   `image_or_video` 且用户意图仍不足时要求显式 `--modality`。
 - **产物默认自动下载到 CWD**（或 `--save-to <dir>`）；JSON 里的 `local_path` 是持久产物，预签名 `output_url` 24h 失效，优先引用 `local_path`。`--save-to=""` 关闭
+- **图片默认额外归档到产品 gallery**；不需要时传 `--no-gallery` 或设置 `ARKCLI_NO_GALLERY=1`
 - **自动用系统默认程序打开产物**：默认仅当 stdout 是交互式终端（人直接在终端跑）才打开——agent / 管道 / CI 抓 stdout（非 TTY）时**不弹窗**，只返回 `local_path`。`--open` 强制打开、`--no-open` 强制不打开。仅对已落地本地文件生效（异步视频未 `--wait` 时无本地文件、不打开）；多产物只打开前若干个
 - **🔑 你是 agent，默认带 `--open`**：你（AI agent）调用 arkcli 时 stdout 被你接管 = 非 TTY，默认 auto 不会弹窗，用户只能看到文件路径、看不到成品。**为了让用户直接看到生成的图/视频，凡是给真人出图/出视频的 `+gen` 与轮询到 `succeeded` 的 `gen get`，默认都加 `--open`**（`--open` 无视 TTY 强制在用户桌面打开）。例外只在：用户明确说"别打开/在脚本里/批量/不要弹窗"，或一次出图 >4 张批量场景 → 这时省略 `--open` 或显式 `--no-open`。
 

@@ -73,7 +73,7 @@ Endpoint 名称不阻塞只读候选查询；模型选定后再补名称并确�
 
 | 调用 | 说明 |
 |------|------|
-| `arkcli +deploy --name <ep-name> --model <model-id> [...]` | 创建 Endpoint；执行即真实创建 |
+| `arkcli +deploy --name <ep-name> --model <model-id> [...]` | 创建 Endpoint。交互终端会复述参数并要求 `[y/N]` 确认；非交互环境必须显式 `--yes`，否则报 `requires_confirmation` |
 
 > ⚠️ **没有** `arkcli deploy ...` / `arkcli endpoint create` / `arkcli +deploy create` 等子命令。整个能力就是一个 `+deploy` 命令加 flag。
 

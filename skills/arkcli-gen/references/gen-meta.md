@@ -1,9 +1,9 @@
 ---
 name: gen-meta
-description: arkcli gen get / list / delete 三个标准 CRUD 命令的 reference, 与 +gen 工作流配套使用以管理已提交的异步生成任务（视频 / 3D / 未来扩展）。
+description: arkcli gen get / list / delete 与本地 gallery 管理命令的 reference, 与 +gen 工作流配套使用。
 ---
 
-# gen get / list / delete
+# gen get / list / delete / gallery
 
 这是 `+gen` 的"对账面"——`+gen` 负责提交生成任务；视频等异步任务默认返回 `task_id`，这三个命令负责事后查询任务状态、列出历史任务、删除已完成任务。
 
@@ -12,6 +12,8 @@ description: arkcli gen get / list / delete 三个标准 CRUD 命令的 referenc
 - `gen get <task-id>` —— 已经有 `task_id`，想拿回任务的最新状态（含 `output_url` / `usage` / `error`）。**任务一旦 `succeeded`，`gen get` 会把产物自动下载到本地**（默认当前目录，文件名 `<task-id>.mp4`），跟 `+gen --wait` 的落地行为一致；`--save-to=""` 可关闭。
 - `gen list` —— 列出当前账户下的异步任务，支持按 `status` / `model` / `service-tier` / `task-id` 过滤。
 - `gen delete <task-id>` —— 删除一个已完成的任务记录。**破坏性写操作，不可逆；非交互场景必须带 `--yes`**
+- `gen gallery list` —— 查看 `+gen` 自动归档的本地图片与磁盘占用。
+- `gen gallery clean --older-than 168h --yes` / `gen gallery clean --all --yes` —— 清理本地 gallery。
 
 ## 模态覆盖
 
@@ -151,6 +153,22 @@ done
 | `gen get <id>` | `arkcli api arkruntime.get_content_generation_task --params '{"id":"<id>"}'` |
 | `gen list ...` | `arkcli api arkruntime.list_content_generation_tasks --params '{"page_num":1,"filter":{...}}'` |
 | `gen delete <id>` | `arkcli api arkruntime.delete_content_generation_task --params '{"id":"<id>"}'` |
+
+### gen gallery
+
+`gen gallery` 只操作本地状态目录，不访问控制面：
+
+```bash
+arkcli gen gallery list
+arkcli gen gallery clean --older-than 168h --yes
+arkcli gen gallery clean --all --yes
+```
+
+| flag | 说明 |
+|---|---|
+| `--older-than <duration>` | 删除早于该时长的文件（Go duration，例如 `168h`；不支持 `30d`） |
+| `--all` | 删除 gallery 内全部普通文件；必须与 `--older-than` 二选一 |
+| `--yes` | 跳过交互确认；非交互场景必须显式传入 |
 
 CLI 子命令是 raw API 的人类友好包装；命令更短、flag 更直观。raw API 仍然是兜底通道。
 

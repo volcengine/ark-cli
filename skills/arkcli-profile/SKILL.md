@@ -126,7 +126,7 @@ Agent 行为约定：
 | type | 适用 | 数据面 base URL | 控制面 | 视觉模型 (image/video) |
 |------|------|----------------|--------|----------------------|
 | `platform` | 火山方舟 console 的标准用法 | `/api/v3` | OpenTOP | ✓ 默认 endpoint |
-| `agent-plan` | 火山方舟 Agent Plan 订阅（个人版） | `/api/plan/v3` | OpenTOP + Plan API | ✓ AgentPlanImage/VideoModels 硬编 |
+| `agent-plan` | 火山方舟 Agent Plan 订阅（个人版） | `/api/plan/v3` | OpenTOP + Plan API | ✓ tier 目录按 `OutputModalities` 动态过滤 |
 | `coding-plan` | 火山方舟 Coding Plan 订阅（个人版） | `/api/coding/v3` | OpenTOP + CodingPlan API | text: 套餐内文本模型；image/video: 借道 platform 数据面 + 用户 +deploy 的 endpoint id (S10, commit f69be53) |
 | `agent-plan-team` | Agent Plan 团队席位 | `/api/plan/v3` | OpenTOP + Plan API | text/image/video 都用套餐模型 + 团队席位 Key |
 | `coding-plan-team` | Coding Plan 团队席位 | `/api/coding/v3` | OpenTOP + CodingPlan API | text 用套餐模型 + 团队席位 Key；image/video 用 platform Endpoint + 后付费 API Key |

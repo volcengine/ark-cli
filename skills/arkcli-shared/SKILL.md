@@ -158,10 +158,19 @@ arkcli profile use <name>                                    # 切换默认 prof
 
 ## 输出规则
 
-- 全局 `--format` 支持 `json`、`yaml`、`table`、`csv`、`jsonl`、`pretty`；脚本场景优先用 `json`/`yaml`，需要抽字段时配合 `--transform`
+- 全局 `--format` 支持 `json`、`yaml`、`table`、`wide`、`csv`、`jsonl`、`pretty`；脚本场景优先用 `json`/`yaml`，需要抽字段时配合 `--transform`
 - `stdout` 只放结构化结果；解释 / 调试 / 错误都走 `stderr`
 - 消费结构化输出时，禁止先用 `head` / `tail` / `sed -n` / `head -c` 按行或字节截断再解析。这样既可能破坏 JSON，也会漏掉数组后部的目标项、default 标记或 warning 对应的数据。输出较大时，优先使用命令自己的 `--output <file>`；没有该 flag 时只把完整 stdout 重定向到文件，再用 `jq` / `yq` 提取所需字段。
 - 首次调用和决定结论的调用不得用 `2>/dev/null` 吞掉 stderr；scope 提示、软截断告警和可恢复错误可能只出现在 stderr。
+
+## TTY 表达力
+
+- 交互终端下，长任务会自动使用 Spinner、Heartbeat、下载/上传字节进度条和阶段标签；这些都是 `stderr` 装饰，不改变 stdout 契约，agent / pipe / CI 下静默降级。
+- 需要人读列表/详情时显式使用 `--format table`（策展列）或 `--format wide`（全列；嵌套结构转 Panel）；机器消费继续用 `json` / `yaml` / `csv` / `jsonl`。
+- 不要给脚本硬加 UI flag。需要一键关闭所有 TUI 装饰时设置 `ARKCLI_NO_TUI=1`；需要单独关闭某类效果时再使用细粒度逃生门：`ARKCLI_NO_SPINNER`、`ARKCLI_NO_PROGRESS`、`ARKCLI_NO_NOTES`、`ARKCLI_NO_CELEBRATE`、`ARKCLI_NO_INLINE_IMAGE`、`ARKCLI_NO_STEPPER`、`ARKCLI_NO_BADGE`、`ARKCLI_NO_CALLOUT`、`ARKCLI_NO_CODE_BLOCK`、`NO_COLOR`。
+- Stepper、Badge、Callout、CodeBlock 等结构化表达组件仅在交互终端生效；脚本 / Agent / 管道环境下通过 `NO_COLOR` 或对应 `ARKCLI_NO_*` 自动降级为纯文本，不改变 stdout JSON 契约。
+- 长下载、TOS 上传、`+gen` 自动下载、`gen get` 下载会显示字节进度；命令仍在等待但暂时没有字节时，先看 Spinner/Heartbeat 的 elapsed，不要因短暂无输出重复提交计费任务。
+- 裸 `arkcli` 的 TTY dashboard 会展示 workspace、profile defaults、gallery 占用和带解释的 next actions；Tab 补全覆盖模型、Profile、训练任务和生成任务。
 
 ## 安全规则
 

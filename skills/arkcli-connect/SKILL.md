@@ -57,6 +57,6 @@ metadata:
 - **多路径扫描特例**：Codex 同时扫 `~/.codex/skills`(CODEX_HOME) 和共享的 `~/.agents/skills`；Pi 同时扫 `~/.pi/agent/skills` 和共享的 `~/.agents/skills`。若两处都装 arkcli，会把每个 skill 列**两遍**或报同名冲突。因此 `+connect` 把 Codex / Pi 的 skill 都装进共享的 `~/.agents/skills`(与 cline/warp 去重成一份)，靠 `~/.codex` / `~/.pi/agent` 目录存在来检出对应 agent；legacy 私有目录只删除带旧 manifest 的 owned Skills，或与当前官方树逐字节一致的迁移副本，未知/修改过的同前缀条目保留
 - `list` 只扫描本地文件系统，不写入、不联网、不需要认证
 - 支持的 agent 列表硬编码在二进制里，新增 agent 需要重新编译
-- `npm install` arkcli 时 postinstall **会自动跑 `+connect`**：在能打开 `/dev/tty` 的交互式终端上按 authoritative catalog 规则更新检测到的所有 agent，无需用户确认；成功时只输出唯一安装目标数、对应 Agent 名称和安全卸载命令 `arkcli +connect uninstall`，不会逐目录展开进度明细。它不会执行 `--purge-prefix`。CI / 非交互终端 / 拿不到 `/dev/tty` 一律静默跳过；想完全静音可设 `ARKCLI_SKIP_POSTINSTALL=1`
+- `npm install` arkcli 时 postinstall **会自动跑 `+connect`**：在能打开 `/dev/tty` 的交互式终端上按 authoritative catalog 规则更新检测到的所有 agent，无需用户确认；成功时只输出唯一安装目标数、对应 Agent 名称和安全卸载命令 `arkcli +connect uninstall`，不会逐目录展开进度明细。**下载完成后无论是否检测到 agent，都会输出当前编译产品的登录 SOP**；产品文案按 locale 输出。它不会执行 `--purge-prefix`。CI / 非交互终端 / 拿不到 `/dev/tty` 一律静默跳过；想完全静音可设 `ARKCLI_SKIP_POSTINSTALL=1`
 
 详细行为、错误码、输出示例见 [`references/arkcli-connect.md`](references/arkcli-connect.md)。

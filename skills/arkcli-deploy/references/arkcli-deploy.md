@@ -18,7 +18,7 @@
 身份，不把基础模型 lineage 当成部署目标。
 
 - `--tags` 是 `[{"Key":"env","Value":"prod"}]` 对象数组，不是 `{"env":"prod"}`。
-- JSON flags 用单引号包住完整 JSON；`--view summary` 等单值 flag 必须有值。
+- JSON flags 用单引号包住完整 JSON；`--model <model-id>` 等单值 flag 必须有值。
 - 本地语法正确不代表服务端业务校验会通过；`+deploy` 不支持离线 preview，
   不得用不存在的 `--dry-run` 代替真实的只读核对。
 - 基准中 moderation 的业务经验保留为 Volc 选型提示：普通文本优先 `Default`，
@@ -76,7 +76,6 @@ arkcli +deploy --name my-custom-endpoint --model cm-xxxxx
 | `--description` | string | 接入点描述 |
 | `--rate-limit` | JSON string | 速率限制，如 `{"Rpm": 60, "Tpm": 10000, "Ipm": 100}` |
 | `--moderation` | JSON string | 审核配置。Strategy: `Basic` / `Customized` / `Default` / `Skip` |
-| `--view` | string | 创建后查看 Endpoint 详情 |
 
 
 
@@ -127,6 +126,7 @@ stdout 返回 `endpoint_id`、`model_type`、`status`、`reused`；示例代码�
 | 错误 | 原因 | 处理 |
 |------|------|------|
 | 缺少必填参数 | 未提供 `--name` 或 `--model` | 必须指定 |
+| requires_confirmation | 非交互环境未传 `--yes` | 把命令原样交还真人，由真人自行决定是否携带 `--yes` 重跑；agent 不得自行补 |
 | JSON 格式错误 | `--rate-limit` 等 JSON 参数格式不对 | 单引号包裹，字段用 PascalCase |
 | 模型不存在 | `--model` ID 无效 | `arkcli models search <keyword>` 找正确名字 |
 

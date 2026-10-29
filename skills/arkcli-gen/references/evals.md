@@ -46,7 +46,7 @@ CI 卡控在 arkcli-eval-kit 维护。记录宿主/模型、CLI ref、实际 Ski
 | 默认与数量 | 无模型、一个候选、多个候选、显式 EP；一张/多文件/一张多格；不偷改 default 或计费主体；因多候选停机询问时须一并说明固定默认的方式（支持该能力的产品），且不得自行写入或替用户预选 |
 | Profile/Key | Agent Plan/Team 预设与 Coding Plan/Team 后付费 EP 分流；失效/撤销/权限/用量分别处理，禁止自动轮转或跨身份兜底 |
 | 模型能力 | alias、精确版本、EP Foundation/Custom 绑定；unknown/error/空目录与 support=false 区分；能力查询 ID 不替换实际调用 ID |
-| 参数组合 | 每项公开参数及实际值/type/enum/range；显式 false、seed=0、数量/sequential、时长/frames、audio、首尾/参考素材角色、空 save-to |
+| 参数组合 | 每项公开参数及实际值/type/enum/range；显式 false、seed=0、数量/sequential、时长/frames、audio、首尾/参考素材角色、空 save-to、`--no-gallery` |
 | 视频输入角色 | 首帧用 `first_frame`、首尾用 `first_frame`+`last_frame`、多参考全部用 `reference_image`；带视频/音频的请求中每个素材都有 role；不默认第一张为首帧；Seedance 2.0 不混用首帧与多参考模式；角色不确定时先确认或只做本地 dry-run，不用付费任务反复试 |
 | 续写输入 | 本地 reference_video 走 TOS 上传后以预签名 URL 提交，不得再判为“不可直接提交”；账号未开通 TOS 时上传前失败并报告，不得改用 `--inline-local` 提交视频（会被数据面 400 拒绝），也不得用真实创建反复探错；已有可信远程 URL 可复用 |
 | 续写参数 | 固定比例与 adaptive 都按精确模型/EP 的值级能力和用户要求处理；不因“续写”静默改 ratio；优先验证原生目标时长，再决定是否分段 |

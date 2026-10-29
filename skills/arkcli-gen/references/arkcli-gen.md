@@ -13,7 +13,7 @@
 `+gen` **没有 `--no-progress` flag**；不要把 `+chat` 的心跳开关复制过来。需要脚本消费时分开捕获完整 stdout/stderr，不吞错误，也不把日志混成 JSON。用户在调 HTTP/SDK 请求时先读 [CLI 与 HTTP 参数边界](intent-and-validation.md#21-cli-参数与-http--sdk-请求不是同一层)，CLI 成功不能证明其原请求正确。
 
 `--model` 使用本次资源解析确认的调用 ID。套餐别名、版本化 ID 和 Endpoint 不是可任意互换的名称。
-Agent Plan / Team 的默认视觉别名保持原样，例如 `doubao-seedream-5.0-flash`；
+Agent Plan / Team 可用的视觉别名以 tier 目录动态下发为准（`arkcli resources list --modality image|video`），例如当前的 `doubao-seedream-5.0-pro`；
 `models get` 返回的规范 Name/Version 是能力查询身份，不能自动替换套餐调用 ID。
 Platform / Coding Plan / Coding Plan Team 生成使用已部署的 `ep-*` 和后付费凭证。
 只有用户给的是尚未解析的模型族名时，才查询权威模型详情与当前资源候选，不用正则猜版本，
@@ -223,6 +223,7 @@ arkcli +gen --model ep-... --api-key '<temporary-key>' "一只柴犬奔跑"
 | `--extra-body` | 否 | string（JSON 对象） | 视频任务 forward-compat 通道：传 JSON 对象字符串，里面的 key 会 merge 到 top-level 请求 body，让你不升级 arkcli 也能透传服务端新增字段。例：`--extra-body '{"new_field":"value"}'` |
 | `--tools` | 否 | string（可重复） | 工具开关，目前支持 `web_search` |
 | `--save-to` | 否 | string | 保存生成产物的本地目录，默认 `.`（当前目录）；传 `--save-to=""` 显式关闭自动下载。下载失败不阻塞主流程 |
+| `--no-gallery` | 否 | bool | 不把生成图片复制到产品状态目录的 gallery；也可设置 `ARKCLI_NO_GALLERY=1` |
 
 `--profile` / `--api-key` / `--base-url` 见共享
 [`global-flags.md`](../../arkcli-shared/references/global-flags.md)。

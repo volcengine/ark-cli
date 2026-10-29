@@ -19,15 +19,15 @@ profile.Type:
                unknown 保留但标 modality_confidence=unknown 并在 stderr 告警)
   agent-plan
     text     → ListAgentPlanVirtualModelID (Edition=personal, BizInfo=PlanTier)
-    image    → AgentPlanImageModels  (硬编 console snapshot)
-    video    → AgentPlanVideoModels  (硬编 console snapshot)
+    image    → 同接口 + ModelCapability.OutputModalities 含 image
+    video    → 同接口 + ModelCapability.OutputModalities 含 video
   coding-plan
     text     → ListCodingPlanVirtualModelID (Edition=personal, BizInfo=PlanTier)
     image    → 借道 platform ListEndpoints + modality filter (S10, commit f69be53)
     video    → 同 image
   agent-plan-team
     text     → ListAgentPlanVirtualModelID (Edition=enterprise, BizInfo=席位档位)
-    image/video → 与 Agent Plan 使用相同模型池，但凭证语义是 team_seat
+    image/video → 同接口 + OutputModalities 过滤；凭证语义是 team_seat
   coding-plan-team
     text     → ListCodingPlanVirtualModelID (Edition=enterprise, BizInfo=席位档位) + team_seat
     image/video → platform Endpoint；team_seat 不可调用，required_overrides=["api_key"]

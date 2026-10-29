@@ -20,6 +20,9 @@
 # 探到的桶才下发 usage 请求 — 一次拉全你账号下所有生效订阅的余额
 arkcli usage plan
 
+# 纯人读额度卡片 (不输出 JSON；管道下也去 ANSI)
+arkcli usage plan --render
+
 # 显式指定 product (跳过订阅探测,直接单桶查)
 arkcli usage plan --product agent-plan
 arkcli usage plan --product coding-plan
@@ -40,6 +43,7 @@ arkcli usage plan --product agent-plan-team --seat seat-001
 | `--product` | 否 | string | 显式 product id: `agent-plan` / `coding-plan` / `agent-plan-team` / `coding-plan-team`。不传则默认走自动探订阅 |
 | `--all` | 否 | bool | 强制查所有 4 个 product,没订阅的桶 endpoint 自己返 subscribed=false 行。**跟 `--product` 互斥** |
 | `--seat` | 否 | string | 仅 team product 有意义。不传时 service 层自动调 `GetSeatInfo` 找 caller 绑定的 seat;传了则跳过该 RPC,直接用提供的 SeatID(管理员视角查别人的 seat) |
+| `--render` | 否 | bool | 只输出人读额度卡片，不输出 JSON。TTY 下彩色，管道/重定向下保留 Unicode 进度条但去 ANSI；不能与显式 `--format` / `--transform` 混用 |
 
 ## 默认行为(无 `--product` / `--all`)
 
