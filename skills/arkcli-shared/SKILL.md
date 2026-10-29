@@ -115,7 +115,7 @@ arkcli profile use <name>                                    # 切换默认 prof
 |---|---|---|
 | 试用模型 / 快速验证效果 | `auth` → `resources` / `models`（可选）→ [`+chat`](../arkcli-chat/SKILL.md) / [`+gen`](../arkcli-gen/SKILL.md) | Plan lane 用模型名；Platform lane 用 Endpoint |
 | 专项多模态理解（转写/抽取/字幕/框目标…） | `auth` → [`+understand`](../arkcli-understand/SKILL.md) | 有明确产出形态时走 understand，不是 chat |
-| 语音模型发现 / 选型（TTS / ASR / 播客 / 音色 / 实时语音交互） | `auth` → [`models search`](../arkcli-models/SKILL.md) | **仅支持广场检索**；不支持 `+chat` / `+gen` / `+deploy` / `+code-example` / `usage` / `pricing` / `onboard` |
+| 语音合成 / TTS / 配音 / 朗读 | [`arkcli-gen`](../arkcli-gen/SKILL.md) 的 `+gen --modality audio` | 火山 Agent Plan 个人版/企业版的 seed-tts-2.0；原生 ASR 使用 `+understand asr/asr-align --audio-protocol ws-bidirectional|ws-unidirectional` |
 | 正式接入 / 稳定调用 | `auth` → `models` → [`infer endpoint list`](../arkcli-infer-endpoint/SKILL.md) → 没有就 [`+deploy`](../arkcli-deploy/SKILL.md) | 核心资源是 Endpoint，不是 +chat/+gen |
 | 模型精调 / SFT / LoRA / DPO / RL / 训练任务 / `mcj-*` | `auth` → [`arkcli-train-finetune`](../arkcli-train-finetune/SKILL.md) | **控制面 SSO/STS**；不是 `+chat`/`+gen`，也不走 Agent Plan 数据面；数据走 TOS 或 `--train-file` 自动上传 |
 | 排查存量调用 / 看消耗 | `auth` → [`usage`](../arkcli-usage/SKILL.md) | — |
@@ -127,7 +127,7 @@ arkcli profile use <name>                                    # 切换默认 prof
 - **列 / 绑 / 分 / 轮换席位 APIKey** → [`arkcli-plans`](../arkcli-plans/SKILL.md)；**用 / 消耗 / 还剩多少额度** → [`arkcli-usage`](../arkcli-usage/SKILL.md)
 - profile **写操作**（create/use/set-default/keys）→ [`arkcli-profile`](../arkcli-profile/SKILL.md)；配置**排障 / 老 yaml** → [`arkcli-config`](../arkcli-config/SKILL.md)
 - 开放式带图**对话** → `+chat`；**生成**图/视频 → `+gen`；有产出形态的**理解** → `+understand`
-- **语音合成 / TTS / 配音 / 朗读**、或用户点名 `doubao-seed-tts-*` 等广场语音模型 → 只允许 `models search` 做发现与选型说明；不要转 `+chat` / `+gen` / `+deploy` / `+code-example` / `usage` / `pricing`。不要主动补充控制台 / OpenAPI / SDK 等非 arkcli 接入路径或链接，除非用户另问"官方文档在哪里"。如果用户只是要"把一个音频文件转文字"且未要求使用广场语音模型，可另走 `+understand asr`；不要把 `+understand` 解释成支持广场 ASR 模型。
+- **语音合成 / TTS / 配音 / 朗读**：Agent Plan 个人版/企业版走 [`arkcli-gen`](../arkcli-gen/SKILL.md) 的 `+gen --modality audio`，执行前读其 `references/arkcli-gen-audio.md`。该命令使用已绑定 profile 的个人版专属 Key 或企业版席位 Key，不创建 Endpoint。原生 ASR 和打轴使用 `+understand asr/asr-align --audio-protocol ws-bidirectional|ws-unidirectional`，执行前读取 Understand 的语音 reference。其他广场语音模型只做发现。
 
 **命令选择顺序**（始终按此）：
 
@@ -212,8 +212,8 @@ arkcli profile use <name>                                    # 切换默认 prof
 - 不要把中间步骤当最终结果；登录、查模型、切 profile 完成后应回到用户原始任务
 - 不要在业务 skill 里重复共享规则；共享规则统一以本 skill（及其 references）为准
 - 不要一概声称“试用不需要 Endpoint”：Plan lane 使用模型名，Platform lane 必须使用 Endpoint。按 [`references/execution-context.md`](references/execution-context.md) 判断；正式接入仍走 `+deploy`
-- 不要把广场可搜到的语音模型误写成 arkcli 已支持调用、部署、示例、用量或费用查询；语音模型在 arkcli 当前只承认 `models search` 发现能力。
-- 不要把语音模型边界回答扩展成"去控制台开通 / 用 OpenAPI / 用 SDK 接入"的替代方案；当前 skill 只负责说明 arkcli 支持边界。
+- 广场可搜不证明某语音模型可调用。已实现的 TTS 入口为火山 Agent Plan 个人版/企业版 `+gen --modality audio`；不要把它扩展为 Platform、Coding Plan、Endpoint 或语音模型 usage 能力；原生 ASR 另走 `+understand` 的 WS 契约。
+- 语音生成按 `arkcli-gen` 的 `+gen --modality audio` 契约；其他未封装语音能力只说明支持边界，不擅自创建资源或改 Key。
 - 不要给业务命令增加临时 Project/Region override；根命令已删除 `--project-name` 与 `--region`。持久上下文通过 `arkcli profile create/use` 管理，单次切换使用 `--profile`。
 
 ## 参考

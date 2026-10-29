@@ -30,7 +30,7 @@ metadata:
 - 这些命令虽然是标准 CLI 类型，但实现入口仍然来自 `shortcuts/models/`
 - 只有产品命令无法覆盖时，才回退到 [`../arkcli-api-explorer/SKILL.md`](../arkcli-api-explorer/SKILL.md)
 - 本 skill 不是默认兜底入口；用户明确问模型查询、模型资产盘点、模型详情时才作为主路由。若是在为上游 `+chat` / `+gen` / Endpoint 创建挑模型，先加载并保留对应上游 skill，本 skill 只提供只读查询。普通 Endpoint 创建的 owning skill 是 `arkcli-deploy`；**显式 raw CRUD / CI / 无守卫的 Endpoint 创建意图必须切换到 `arkcli-infer-endpoint`**，并在查询候选前先加载它
-- **语音模型边界**：广场命中不证明 arkcli 支持该模型的调用、Endpoint 创建、示例或用量。TTS/ASR 等独立能力的接入应核对对应官方 API/SDK，不把裸名塞进 Responses。费用询价交给 `pricing models --modality Audio`，仅按当前计价项作答；未返回就说明价格源未覆盖。
+- **语音模型边界**：广场命中不证明支持调用或 Endpoint。火山 Agent Plan 个人版/企业版 TTS 已由 [`arkcli-gen`](../arkcli-gen/SKILL.md) 的 `+gen --modality audio` 提供；原生 ASR 由 [`arkcli-understand`](../arkcli-understand/SKILL.md) 的 `+understand asr/asr-align --audio-protocol ws-bidirectional|ws-unidirectional` 提供。其他语音能力仍核对独立边界。费用询价交给 `pricing models --modality Audio`，仅按当前计价项作答。
 - **下线通知与广场目录是不同证据域**：用户提到短信/站内信、停服日期或「是否需要重新设置」时，先核对对应产品的官方下线公告，不要先查 `models search` 再用目录里的 `Published`/`Retiring` 反驳公告。若用户未说明使用 Agent Plan、Coding Plan 还是按量 Endpoint，分别标注各产品适用范围；Agent Plan 先看[模型下线公告](https://ark.volcengine.com/region:cn-beijing/docs/agent-plan-personal-model-deprecation-announcement)，Coding Plan 看[模型下线公告](https://ark.volcengine.com/region:cn-beijing/docs/coding-plan-personal-model-deprecation)，按量 Endpoint 看[平台模型下线公告](https://ark.volcengine.com/region:cn-beijing/docs/model-deprecation-notice)。只引用该产品公告中旧型号的具体行、时区与迁移目标，**再检查较新公告行中建议迁移型号是否也在下线**，给出仍受支持的下一站；不能把某套餐的日期套到另一产品。不明产品时给条件化结论。
 - 这类问题的最终目标是**迁移判断**，不是公共模型选型：先加载对应 `arkcli-plans` / `arkcli-infer-endpoint` owning Skill；公告回答后，才按用户实际配置区分 `auto`/`ark-code-latest`、写死的 Model Name、自建 `ep-...`。账号实时状态查询失败则明确未知，不能以公共目录状态代替。纯问公共目录生命周期才继续本 skill 的 `models search` 流程。
 
@@ -67,7 +67,7 @@ arkcli api model.list_model_charge_items --params '{"PageNumber":1,"PageSize":10
 - 用户要盘点公共基础模型目录；账号自传/精调资产走 `arkcli-custommodel`，套餐模型清单走 `arkcli-plans`
 - **仅 Volc**：用户要比较 TTFT/TPOT、首 Token 延迟、持续输出延迟、性能排行、延迟趋势或不同输入长度下的性能
 - 上游 `+chat` / `+gen` / `+deploy` 需要先确定可用模型名
-- 用户问语音模型是否存在、有哪些语音模型、TTS/ASR 模型在广场叫什么：只回答广场可搜事实和当前 arkcli 不支持后续场景能力的边界
+- 用户只问语音模型目录：交付广场可搜事实；要求个人版/企业版 Agent Plan TTS 合成：转 `arkcli-gen` 的 `+gen --modality audio`；要求原生 ASR：转 `arkcli-understand` 的 WS 入口。
 
 ## 反唤起信号
 
@@ -85,7 +85,7 @@ arkcli api model.list_model_charge_items --params '{"PageNumber":1,"PageSize":10
   - 给 `+deploy` 确认可部署模型
   - 给业务排障确认模型详情和版本
 - 除非用户明确就是在做模型查询，否则查完模型后应回到原始任务
-- **语音后续路由**：只问目录就交付目录事实；要实际接入则说明独立 API 边界并引导官方契约核验，不生成未核实的调用/部署命令。要价格则转 pricing 的 Audio 查询，不能把“没有调用封装”反推成“不能查询价格”。
+- **语音后续路由**：个人版/企业版 Agent Plan TTS 转 `arkcli-gen` 的 `+gen --modality audio`；原生 ASR 转 `arkcli-understand` 的 `+understand asr/asr-align --audio-protocol ws-bidirectional|ws-unidirectional`；其他语音调用不构造未实现命令。价格查询仍转 pricing 的 Audio 查询。
 
 ## 快速决策
 

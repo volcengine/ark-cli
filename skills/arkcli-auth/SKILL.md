@@ -1,7 +1,7 @@
 ---
 name: arkcli-auth
 version: 1.3.0
-description: "arkcli 认证管理：交互式登录、Volc SSO 登录、查看状态、退出登录、生成 ARK API Key (apikey)、以及云开发机/CI 用 `arkcli init-volc` 从 VOLC_INIT_* 环境变量无交互引导 platform profile。0.1.16 起 SSO 登录走 Gate 1+2 自动绑定 Profile 切面 (type/region/project/owner_trn)；AK/SK login 通道暂关。当用户需要初始化凭证、排查鉴权问题、切换认证方式、生成或重选 ARK API Key、或在已注入凭证的环境无交互引导时使用。反触发：用户问 TTS/ASR/语音模型能力、接入或调用时，不要引导 `auth apikey`，只转 models search 说明 arkcli 当前仅支持广场发现。"
+description: "arkcli 认证管理：交互式登录、Volc SSO 登录、查看状态、退出登录、生成 ARK API Key (apikey)、以及云开发机/CI 用 `arkcli init-volc` 从 VOLC_INIT_* 环境变量无交互引导 platform profile。0.1.16 起 SSO 登录走 Gate 1+2 自动绑定 Profile 切面 (type/region/project/owner_trn)；AK/SK login 通道暂关。当用户需要初始化凭证、排查鉴权问题、切换认证方式、生成或重选 ARK API Key、或在已注入凭证的环境无交互引导时使用。反触发：用户问 TTS/ASR/语音模型能力、接入或调用时，不要引导 `auth apikey`，转 models search 做发现；火山 Agent Plan 个人版/企业版 TTS 使用 arkcli-gen 的 +gen --modality audio，原生 ASR 使用 arkcli-understand 的 WS 入口。"
 metadata:
   requires:
     bins: ["arkcli"]
@@ -79,7 +79,7 @@ metadata:
 - **v3 ve handoff 分支** (1.0.4 起, 仅火山 SSO 交互式登录): 检测到本机装有 `volcengine-cli >= 1.0.45` 且已 `ve login` 时, `arkcli auth login` 会先尝试借用其登录态直接落 arkcli identity (省一次浏览器授权)。落盘差异见 [`references/arkcli-auth-login.md`](references/arkcli-auth-login.md): 不落 `token.json` (IDToken/refresh_token/ClientID 由 ve SDK 管), 但落 `sts.json` + `metadata.json.source="ve"`; `auth whoami` 显示 `auth_method="sts"` 而非 `"sso"`, 是合法登录态。检测失败 / ve 未登录 → 自动降级 arkcli 原生 SSO OAuth。
 - `arkcli auth apikey` 只列举并选择**普通 API Key 池**，写入 identity/.env 兼容凭证；它不读取或修复 Agent Plan 专属 Key、也不读取团队席位 Key。当前是 Plan profile 时优先使用 `profile apikey refresh` 或对应 Plan 的轮转/席位流程，不能把 `auth apikey` 的 `saved=true` 解读为 Plan Key 已恢复。它也不能让广场语音模型获得 `+chat` / `+gen` / `+deploy` / `+code-example` / `usage` / `pricing` 能力。
 - `arkcli auth apikey create` 创建、验证并保存一把**普通 API Key**到当前 identity/.env 兼容凭证；TTY 必须确认，非交互环境收到 `requires_confirmation` 后必须走共享 Skill 的宿主确认流程；只发一次 `CreateApiKey`，随后最多做 3 次只读状态检查，成功输出不包含明文 Key。它同样不能创建或修复 Agent Plan 专属 Key、团队席位 Key；已有 Profile 要切换默认 Key 时仍用 `profile apikey refresh/use`。
-- 语音模型能力边界回答只说明 arkcli 不支持；不要主动给"先控制台开通再 API Key/SDK 调用"这类替代流程，除非用户另问官方接入文档。
+- 火山 Agent Plan 个人版/企业版 TTS 使用 `arkcli-gen` 的 `+gen --modality audio`；个人版使用专属 Key，企业版使用席位 Key，不能用 `auth apikey` 的普通 Key 替代。原生 ASR 同样使用已绑定的 Agent Plan Key，走 `+understand asr/asr-align --audio-protocol ws-bidirectional|ws-unidirectional`。其他未实现语音能力只说明边界。
 - **只查不切的 list API Key**(只想看 account 下有哪些 key,不想切换当前 key): 跑 `arkcli api apikey.list --params '{"PageSize":100}' --page-all --format json`,**不要**跑 `auth apikey` — 后者是交互式选择并写入凭证存储,会改变当前生效 key
 - **当前已选 key 的元信息**(name / suffix / project / 状态): 看 `auth status` 输出里的 `ark_api_key` 字段,不需要再调远端
 

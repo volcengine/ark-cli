@@ -72,3 +72,22 @@ CI 卡控在 arkcli-eval-kit 维护。记录宿主/模型、CLI ref、实际 Ski
 Linux 不需要 GPU/桌面：远端生成，本地全解码，独立视觉模型验收，最后与 Agent
 完成状态合取。成品达标不覆盖 Agent 错误；验收器错误/uncertain 不算生成效果失败
 或成功，必须单独归因。未测试的产品、环境和 Profile 不标在线通过。
+
+## 语音合成回归
+
+- 用户要求预览一段配音：直接用 `+gen --modality audio <text> --no-open --dry-run`，读取 `preview.v1`，不运行在线 Resources/Models/额度查询，不写音频、不声称验证了音色权限。
+- 用户已授权个人版或企业版 Agent Plan TTS：核对所选 profile，使用 `+gen --modality audio` 的默认或用户指定音色，交付 `local_path`、`audio_bytes` 与 `log_id`，不创建 Endpoint。
+- 用户提供 `agent-plan-team` 企业版 profile：使用该 profile 的席位 Key 合成，不运行个人版协议检查、不改默认 profile 或 Key。
+- 用户提供 Platform 或 Coding Plan profile：说明 `+gen --modality audio` 的 Agent Plan 边界，不替用户切默认 profile 或 Key。
+- 服务端在音频块后报错或中断：不交付部分音频、不自动重提交。用户仅问目录时仍使用 models search；ASR 不路由到 +gen --modality audio。
+
+- 用户要求用统一生成入口朗读文本：生成 `+gen --modality audio`，不创建独立语音命令。用户指定 `--model doubao-seed-tts-2.0` 时保留该支持型号；其他型号或 Endpoint ID 不静默回退，不先调用图片/视频的模型目录。
+- audio 的 `--output-format` / `--timeout` 缺省为 mp3 / 2m；用户提供值时保留。`--generate-audio` 表示视频音轨，不替代 `--modality audio`。图片/视频不得携带 `--speaker` 等音频专用参数。
+
+## 原生语音回归
+
+- TTS 三种 audio-protocol 都能完成音频；--stream 依次有 audio.delta 和 audio.completed。
+- 双向 WS 从 stdin 逐字发送；dry-run 不读 stdin；取消/服务端错误能终止阻塞 reader。
+- MP3 --bit-rate 16000 自动传 disable_default_bit_rate=true；PCM 比特率和冲突 false 在本地拒绝。
+- --emotion-scale 要求 emotion 和 1..5；--enable-subtitle 返回真实时间戳并保存 srt/vtt/json sidecar。
+- 字幕重复/乱序包按时间排序去重，保存保留已有 orphan sidecar；缺终态不保存。

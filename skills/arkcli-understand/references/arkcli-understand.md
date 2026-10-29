@@ -262,3 +262,7 @@ arkcli api arkruntime.create_responses --params '{
 - `--dry-run` 只在本地检查文件并输出引用摘要，不上传或内联文件；JSON 中可能包含本地绝对 `file://` 路径，分享日志前仍需脱敏。
 - `--debug` 会把请求/响应（可能含 base64 音频、file URL）打到 stderr；外发日志前先 redact。
 - `--store` 持久化的响应会留在服务端，按需用 `arkcli chat delete <id>` 清理。
+
+Agent Plan 原生 ASR/字幕使用 `asr` 或 `asr-align` 和显式 WS 协议，
+完整入口、输入格式、原生参数及 NDJSON 结果见 [arkcli-understand-asr.md](arkcli-understand-asr.md)。
+默认 Responses 配方行为保持不变。

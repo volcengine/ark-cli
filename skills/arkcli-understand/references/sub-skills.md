@@ -135,3 +135,7 @@
   arkcli +understand doc-extract --input @contract.pdf "抽取甲方、乙方、合同金额、签署日期" | jq -r .content | jq .
   ```
 - **自动路由**：省略 sub-skill 且首个 `--input` 是非图/视/音的文件（如 `.pdf`）时，兜底到本 sub-skill。
+
+Agent Plan 原生 ASR/字幕使用 `asr` 或 `asr-align` 和显式 WS 协议，
+完整入口、输入格式、原生参数及 NDJSON 结果见 [arkcli-understand-asr.md](arkcli-understand-asr.md)。
+默认 Responses 配方行为保持不变。

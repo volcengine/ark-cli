@@ -107,3 +107,13 @@ python3 -m scripts.run_arkcli_skill_benchmark \
   --runs-per-config 2 \
   --runtime claude
 ```
+
+## 原生语音回归
+
+- 原生 ASR 两种 WS 协议发送 gzip 元数据与音频，最终负序号结束；文本与同一素材一致。
+- asr-align 保留服务器毫秒级时间戳并生成 SRT/VTT；缺时间戳不可伪造字幕。
+- asr.delta 为当前完整文本，最后 metadata-only 包保留前面的转写与 utterances。
+- 显式 Seed ASR 模型选择双向 WS；不显式选择仍保持 Responses 既有 schema 和默认资源。
+- native dry-run 不加载 factory/profile、不读文件、不写目录；请求规范化与真实执行共用。
+- 个人版鉴权先于音频读取，企业版使用席位 Key 且不调用个人版协议；其他 Profile 本地拒绝。
+- 非 16k s16le WAV、无数据 chunk、result_type=single、冲突 model_name、字幕关闭 utterances 均拒绝。

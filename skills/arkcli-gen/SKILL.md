@@ -1,7 +1,7 @@
 ---
 name: arkcli-gen
 version: 2.1.4
-description: "火山方舟 Ark 图片/视频生成与编辑入口，包括对已交付媒体的后续修改和保留规格验收。支持 profile 默认资源与临时 API Key/Base URL/Endpoint；显式 Endpoint 不受当前 plan profile 误导。图片同步返回，视频异步轮询。"
+description: "火山方舟 Ark 图片/视频生成与编辑入口及 Agent Plan 个人版/企业版 HTTP/WS TTS 语音合成，包括对已交付媒体的后续修改和保留规格验收。支持 profile 默认资源与临时 API Key/Base URL/Endpoint；显式 Endpoint 不受当前 plan profile 误导。图片同步返回，视频异步轮询。"
 metadata:
   requires:
     bins: ["arkcli"]
@@ -11,6 +11,9 @@ metadata:
 # arkcli 生成工作流（+gen）
 
 **CRITICAL — 开始前 MUST 先用 Read 工具读取 [`../arkcli-shared/SKILL.md`](../arkcli-shared/SKILL.md)（认证闸门、模型查找回退、共享安全规则）。**
+
+**语音合成分支**：支持 HTTP、WS 单向/双向 TTS、增量文本流、比特率、情绪强度和字幕。TTS、配音、朗读使用 `arkcli +gen --modality audio <text>`；先读 [`references/arkcli-gen-audio.md`](references/arkcli-gen-audio.md)。该分支使用火山 Agent Plan 个人版或企业版 profile，音频参数与执行顺序见该参考；图片/视频按下文 Resources 和模型目录流程执行。只预览时直接执行叶子的 `--dry-run`，无需在线鉴权查询。
+
 
 **CRITICAL — 真实生成是工作流，不是猜一条命令：按 `Step 1 → Step 2 → 必要时 Step 2.5 → Step 3` 执行。用户只要求 `--dry-run` 时例外：全程本地，不先跑在线 Resources / Models / Usage 准入；在线未知项保留 `unresolved`。执行前务必读 [`references/arkcli-gen.md`](references/arkcli-gen.md)。**
 
