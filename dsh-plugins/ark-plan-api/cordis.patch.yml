@@ -22,8 +22,10 @@
 # `baseURL` straight to the Anthropic SDK, which appends `/v1/messages`, so the
 # base URLs below intentionally omit the `/v1` suffix.
 #
-# A row patch replaces the whole `config` of the targeted row; dsh-base mounts
-# `llm-pi-ai` with no config, so restating only `providers` here is safe.
+# DSH row patches replace the whole `config`. This is safe for a stock profile
+# where dsh-base mounts `llm-pi-ai` without config, but a later profile-level
+# `cordis.patch.yml` row for `llm-pi-ai` replaces this provider map wholesale.
+# See README for the required merge when a profile already configures providers.
 #
 # The leading `insert` adds this bundle's own inert carrier row (name:
 # '@volcengine/ark-plan-api', whose index.js exports name/apply and does nothing)
