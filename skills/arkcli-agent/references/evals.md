@@ -1,5 +1,14 @@
 # arkcli-agent 2026-08 最小评估用例
 
+## ENV OAuth 凭证（火山）
+
+- 用户要求浏览器授权后将 token 注入 Skill：查询 `CredentialType=env_oauth` 的真实 provider，调用 `agent vault env-oauth-flow create`，不用 `+mcp-login`，不要求 MCP URL。
+- 只返回 OAuthFlowId/RedirectUrl：告知用户仍需授权，完成后查 credentials 确认，不报告凭证已经可用，不重复创建 flow。
+- 用户提供自定义 OAuth 应用：四件套与 provider-name 二选一；成功页 RedirectUrl 不等于上游 callback URI，URL 白名单错误交给用户/管理员处理，不编造地址重试。
+- 已有 token：明确 `--auth-type env_oauth`，AccessToken/Refresh 用本地安全文件，不用 SecretValue，也不把 token 放进 metadata。
+- 仅要求预览：叶子 `--dry-run` 无网络，ClientSecret/AccessToken/RefreshToken 不进入明文输出；预览不替代创建授权。
+- 非当前产品：不推荐火山专属的 ENV OAuth flow 命令。
+
 ## Todo 配置决策
 
 - 用户只要求给已有 Agent 添加 Todo：先 get，合并到多模态 toolset；新添该 toolset 时 DefaultConfig.Enabled=false，只启用 todo_write，不查询工具模型、不加 Models、不丢失基础工具。

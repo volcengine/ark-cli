@@ -92,6 +92,7 @@ Environment 还是 Session。用户提供明确 ID 时直接查对应资源，�
 | 管理 memory store / memories | `arkcli agent memory-store ...` | [`references/interfaces-gaps.md`](references/interfaces-gaps.md) |
 | 整理会话记忆、创建或观察 Dream 任务（仅火山） | `arkcli agent dream create/list/get/cancel/wait` | [`references/dream.md`](references/dream.md) |
 | 查询可挂载 MCP / 管理 Vault / Credential / MCP OAuth | `arkcli agent vault oauth-provider list` / `arkcli agent vault ...` / `arkcli agent +mcp-login ...` | [`references/mcp-vault.md`](references/mcp-vault.md) |
+| 创建 ENV OAuth 凭证（火山） | 已有 token 用 `agent vault credentials create --auth-type env_oauth`；浏览器授权用 `agent vault env-oauth-flow create`，完成后查凭证确认 | [`references/mcp-vault.md`](references/mcp-vault.md) |
 
 ## 模型查询：主模型与工具模型
 
@@ -172,6 +173,7 @@ Environment 还是 Session。用户提供明确 ID 时直接查对应资源，�
 | `arkcli agent vault list/get/create/update/delete` | Vault CRUD |
 | `arkcli agent vault oauth-provider list` | 查询后端已注册 MCP Provider；返回的 MCP server 信息可用于 Agent `--mcp-server` |
 | `arkcli agent vault oauth-flow create` | 裸创建 Vault OAuth Flow，适合脚本自带 redirect URL |
+| `arkcli agent vault env-oauth-flow create` | 火山 ENV OAuth：返回授权链接；授权回调成功后才创建凭证，不使用 MCP login |
 | `arkcli agent vault credentials list/get/create/update/delete` | Credential CRUD |
 | `arkcli agent +mcp-login` | 托管 MCP OAuth 登录：本地 callback + CreateVaultOAuthFlow + 等待 credential 创建 |
 | `arkcli +chat <prompt>` | Responses API 快速对话；不要把它当 Managed Agent session 入口 |

@@ -212,7 +212,7 @@ DSH model/provider 写入还遵循以下 ownership 规则：`settings.yaml` 使�
 
 ## Platform Endpoint 配置
 
-Platform profile 不使用 Plan 模型列表，而是从本人创建的 Endpoint 中选择。只允许 `Running` 且模型明确为文本输出的 Endpoint；VLM 可用，生图/生视频/生 3D/音频/Embedding/未知模型均拒绝。
+Platform profile 不使用 Plan 模型列表，而是从本人创建的 Endpoint 中选择（Root 账户无子用户身份，改为列当前 project 下全部符合条件的 Endpoint）。只允许 `Running` 且模型明确为文本输出的 Endpoint；VLM 可用，生图/生视频/生 3D/音频/Embedding/未知模型均拒绝。
 
 ```bash
 arkcli helper configure codex \

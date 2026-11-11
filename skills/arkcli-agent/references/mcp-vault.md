@@ -46,6 +46,52 @@ arkcli agent vault credentials create <vault-id> \
 
 这会写入 `Auth.Refresh`，其中 client secret 位于 `TokenEndpointAuth.ClientSecret`，由后端负责托管换签。也可以继续使用 `--auth @./credential.json` 透传完整对象；快捷参数会覆盖对象中同名字段。
 
+## ENV OAuth（仅火山版）
+
+ENV OAuth 将 OAuth access token 作为 `SecretName` 指定的环境变量注入沙箱；它不是 MCP OAuth，不需要 `McpServerUrl`，不要使用 `+mcp-login`。
+
+### 用户需要浏览器授权
+
+先通过 `agent vault oauth-provider list` 查询，选择 `CredentialType=env_oauth` 的 provider，使用返回的真实名称，不要用 MCP provider 名称替代。确认目标 Vault、权限 scope 和出网范围后发起：
+
+```bash
+arkcli agent vault env-oauth-flow create \
+  --vault-id <vault-id> \
+  --display-name skill-oauth \
+  --provider-name <registered-env-oauth-provider-name> \
+  --secret-name SKILL_ACCESS_TOKEN \
+  --networking-type limited \
+  --allowed-host api.example.com \
+  --redirect-url <backend-allowed-business-success-url> \
+  --format json
+```
+
+- `--secret-name` 是沙箱环境变量名。`--networking-type limited` 配合真实目标域名的 `--allowed-host`；`unrestricted` 不传 host，不要为绕过校验扩大出网范围。
+- `--redirect-url` 是**授权完成后的业务成功页**，须符合后端允许列表；不是上游 OAuth 应用登记的 callback URI，不要自行拼本地 callback。上游 callback 由后端配置。
+- 预置模式传 `--provider-name`。自定义模式不传 provider-name，改为同时传 `--authorize-endpoint`、`--token-endpoint`、`--client-id`、`--client-secret @./client-secret.txt`；两种模式互斥。`--scope` 可选，`--source` 可标记调用来源。
+- 支持 `--file <JSON/YAML路径>` 提供完整 TOP CamelCase 请求，flags 覆盖同名字段；不接受 `--file -`。支持叶子 `--dry-run`，只生成脱敏客户端计划，不能验证 provider、URL 白名单或权限。
+- 返回 `Result.RedirectUrl` 和 `Result.OAuthFlowId` **只表示流程创建成功，不是凭证已创建**。请用户打开返回的授权链接；CLI 不自动启动浏览器或等待。用户完成后用 `agent vault credentials list <vault-id>` 确认新凭证，不因等待而重复创建流程。不打印 token 或 client secret。
+- 授权被拒绝、超时或后端报错时保留原错误并停止，不偷偷改用手工 token 模式。
+
+### 用户已有合法 token，需要直接保存
+
+```bash
+arkcli agent vault credentials create <vault-id> \
+  --display-name skill-oauth \
+  --auth-type env_oauth \
+  --secret-name SKILL_ACCESS_TOKEN \
+  --access-token @./access-token.txt \
+  --refresh-token @./refresh-token.txt \
+  --client-id <client-id> \
+  --client-secret @./client-secret.txt \
+  --token-endpoint https://example.com/oauth/token \
+  --networking-type limited \
+  --allowed-host api.example.com \
+  --format json
+```
+
+`--provider-name` 可选；`--access-token` 写入 `Auth.AccessToken`，不是 `SecretValue`。刷新配置写入 `Auth.Refresh`，仅在用户确有对应配置时传入；没有 refresh token 不要伪造。更新使用 `credentials update <vault-id> <credential-id>`，支持相同参数。`--auth`/`--file` 也可提供完整 Auth；混用快捷字段时保留显式 `Auth.Type=env_oauth`。建议始终明确传 `--auth-type env_oauth`，避免和普通 ENV 混淆。
+
 ## OAuth MCP 登录
 
 凭证必须与目标 provider 的服务语义匹配；不能为了让创建通过，把某服务的 Key 绑定到
