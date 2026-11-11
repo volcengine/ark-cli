@@ -109,6 +109,10 @@ arkcli train finetune create --help
 | `--resource-group`                                           | `resource-group list` 返回的稳定资源组 ID；按不透明字符串原样传入，CLI 会在 estimate 和真实提交前重新校验权限、任务资源需求与可用性 |
 | `--yes`                                                      | 跳过 CLI 确认；Agent 只能在用户二次确认/明确表示直接创建后添加                        |
 
+`--output-compression-strategies W4A8C16` 用于选择导出自动量化，前提是精确模型版本和训练方法声明支持该策略。可重复传入或用逗号分隔多个策略。创建和在线 `--estimate` 共用 `OutputConfig.OutputCompressionStrategies`；估算 JSON 的 `output_config` 和提交前摘要展示最终策略。这是产物配置，不是 `--hyperparameters` 中的训练超参。
+
+通过 `train finetune capability get` 的 `items[].quant_modes` 查询精确版本能力：LoRA 类训练使用 `LoraModelCompressionChoices`，全量训练使用 `FullModelCompressionChoices`。未指定参数时合并 `RequiredStrategies` 与 `DefaultChooseStrategies`；显式选择时保留全部必选项，可选范围来自默认推荐项和 `OptionalAllowedStrategies`。`--output-compression-strategies=` 表示只保留必选项。非法策略或显式选择所需能力缺失会在上传、开通及提交前停止；未指定且能力未返回时不发送产物配置。不根据模型名称猜测支持精度，也不假定所有模型支持 W4A8C16。自定义模型续训按其精确来源基础模型版本解析能力。
+
 ## 3. 获取并校验训练数据
 
 本 skill 不创建或维护平台 Dataset；只有独立 Dataset 生命周期操作或不涉及精调任务的独立校验才转 [`../../arkcli-datasets/SKILL.md`](../../arkcli-datasets/SKILL.md)。精调任务创建或预检所需的本地/TOS 数据校验继续留在本流程，直接使用下方 `arkcli dataset validate`。创建任务可接受：

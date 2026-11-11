@@ -12,3 +12,4 @@
 | remote-train-local-validation | 训练集为已存在的 TOS URI，验证集为本地文件 | 验证集仍上传并转换为 TOS 引用；缺失文件或上传失败时停止提交，不重放未知结果的创建。 |
 | volc-create-url | 用户确认提交，创建返回任务 ID | 只按返回 ID 和 `console.volcengine.com` URL 报告创建结果，不声称训练已完成。 |
 | unsupported-local-preview | 要求 `create --dry-run` | 说明当前命令不支持本地 Client Preview；在线 `--estimate` 有上传副作用，不静默替换执行。 |
+| export-auto-quantization | 用户在精调提交时选择 W4A8C16 | 按精确模型版本/训练方法能力使用 --output-compression-strategies，保留必选项，估算展示 output_config；非法选择在上传前停止，不放入 hyperparameters 或替换为事后 quantize。 |

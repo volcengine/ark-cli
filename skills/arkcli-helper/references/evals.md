@@ -28,6 +28,7 @@
 ## Guard / 守卫
 
 - `arkcli helper` 全域不支持 `--dry-run`；不得生成该组合。
+- Agent 主模型只选 Helper 已验证的文本对话模型；image/video/audio 输入可以保留，生图、生视频、Embedding、专用 TTS/ASR 和未知用途模型不能通过 `--model` 绕过过滤。套餐清单查询失败时停止，不以显式模型名绕过校验。
 - `helper mcp` 不传 `--capability` 必须保持存量整组 MCP 行为；显式传入时只配所选一项，不改模型、不捎带其它 Harness 工具。
 - Pi 没有 MCP 宿主：不得对 Pi 生成整组或 MCP capability 的 `helper mcp pi` / `--with-mcp`，也不得伪造 MCP 能力。唯一例外是 `helper mcp pi --capability cua`，它只安装 Skill。
 - 开启/关闭抵扣或超额后付费必须由真人在详情页二次确认；默认取消。

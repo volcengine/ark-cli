@@ -1,6 +1,6 @@
 ---
 name: arkcli-infer-endpoint
-version: 1.3.6
+version: 1.4.0
 description: "arkcli 推理接入点管理与显式 raw CRUD 创建能力。**正向触发：用户明确要求脚本化 / CI / 无护栏 / 原始 raw CRUD 创建 Endpoint 时，必须使用本 skill 的 `arkcli infer endpoint create` 路径，不能切到 `arkcli-deploy`**；模型缺失或只有品牌/家族名时仍留在本 skill，先执行实时有界候选与 0/1/N 澄清，模型未唯一确定前禁止 preview 或创建。本 skill 也负责对**已有** Endpoint 做获取、列表、启动、停止、删除、更新，以及在 NotFound 后用当前完整列表 + 历史 usage 判断 ID 是否不完整或仅有历史记录。普通的『创建/新建/部署一个 endpoint』仍走带产品护栏的 arkcli-deploy（`+deploy`），只有用户明确选择上述原始路径才例外。优先使用产品命令 `arkcli infer endpoint ...`，而不是 Raw API。TTS/ASR/语音模型连 raw create 也不要引导，只能转 models search 说明 arkcli 不支持 Endpoint 创建。"
 metadata:
   requires:
@@ -128,6 +128,21 @@ arkcli infer endpoint list --mine --page-all --page-size 100 --format json
 | `arkcli infer endpoint stop <endpoint-id>` | 停止推理接入点 |
 | `arkcli infer endpoint delete <endpoint-id>` | 删除推理接入点（**不可逆**，需二次确认；非交互环境需 `ARKCLI_ALLOW_HEADLESS_DELETE=1`，`--yes` 不授权） |
 | `arkcli infer endpoint update <endpoint-id>` | 更新推理接入点（名称 / 描述 / 限流） |
+| `arkcli infer endpoint rolling <verb> ...` | 滚动切换**已有**接入点绑定的模型版本（plan / create / get / list / cancel / rollback）；与 `update` 正交，不要把 `--model` 塞进 `update` |
+| `arkcli infer endpoint ptu rolling <verb> ...` | PTU 自定义模型切换（create / list / cancel） |
+| `arkcli infer endpoint ptu seamless-rolling <verb> ...` | PTU Seamless 自定义模型切换（create / get / list / cancel） |
+| `arkcli infer endpoint router rolling <verb> ...` | 智能路由模型切换（set / get） |
+
+## 滚动切换模型版本（rolling）
+
+替换**已有** Endpoint 绑定的模型版本用 `infer endpoint rolling`，不是 `update`（update 只改名称 / 描述 / 限流），也不是新建 Endpoint（新建走 `+deploy`）。
+
+- 先运行 `rolling plan` 做只读预检，展示目标模型、支持状态、阻断原因和 warning；`plan` 不写。
+- 写操作（`create` / `cancel` / `rollback`）需二次确认：交互终端提示 `Switch endpoint ep-xxx from A to B? This starts a rolling update.`，非交互须 `--yes`（仅授权本次滚动，不授权模型开通）。`plan` / `get` / `list` 只读不确认。
+- `create` 必填 `--model`；可选 `--security-level` 和 `--activate-target-model`。目标模型未开通时，只有显式传 `--activate-target-model` 才会进入独立开通确认；`--yes` 不授权开通。`--wait` 阻塞到终态（Succeeded / Reverted），`--wait-timeout` 默认 15m（0=不限），`--poll-interval` 默认 5s（最小 1s）；`--dry-run` 走本地零网络 Client Preview。
+- `create` 默认输出 JSON `{Id, EndpointId, Status}`；`list --format table` 列：`ID ENDPOINT STATUS GRAY ROLLING_IN ROLLING_OUT UPDATE_TIME`。
+- PTU 普通 rolling 使用 `ptu rolling`，Seamless 使用 `ptu seamless-rolling`；智能路由使用 `router rolling`。不要把这些入口混用。
+- 详细行为见 [`references/arkcli-infer-endpoint-rolling.md`](references/arkcli-infer-endpoint-rolling.md)。
 
 ## 参考
 
@@ -138,4 +153,5 @@ arkcli infer endpoint list --mine --page-all --page-size 100 --format json
 - [`references/arkcli-infer-endpoint-stop.md`](references/arkcli-infer-endpoint-stop.md)
 - [`references/arkcli-infer-endpoint-delete.md`](references/arkcli-infer-endpoint-delete.md)
 - [`references/arkcli-infer-endpoint-update.md`](references/arkcli-infer-endpoint-update.md)
+- [`references/arkcli-infer-endpoint-rolling.md`](references/arkcli-infer-endpoint-rolling.md)
 - [`../arkcli-code-example/SKILL.md`](../arkcli-code-example/SKILL.md)

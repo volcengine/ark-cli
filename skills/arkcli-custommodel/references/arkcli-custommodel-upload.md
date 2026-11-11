@@ -40,6 +40,13 @@ arkcli models custommodel upload \
 `upload` 会启动依赖 TOS 的异步导入，无法在不读取外部状态的条件下给出可靠计划，
 因此不注册 `--dry-run`。复述并确认 `name/base-model/tos/quantization` 后再真实执行。
 
+## 上传前检查
+
+- CLI 分页读取 TOS 目录，检查目录顶层的 `config.json`、至少一个 `*.safetensors`，以及 `tokenizer.json` / `tokenizer_config.json` 之一（与控制台实际校验规则一致）。嵌套目录、相邻前缀不算；仅有 `tokenizer.model` 不满足当前规则。
+- 目录无法读取、文件缺失或分页异常时停止，不调用 `UploadModel`。
+- 查询当前账号的 `Foundry` 功能资格；仅已启用时调用 `CheckCustomModel`。`Supported=false` 会在输出 `message` 中展示原因，仍按指定基础模型上传，不会误判为链接无效。检查请求失败或响应不完整时停止，修复后重试。
+- 检查不自动修改 `--base-model` / `--quantization`，也不代表异步导入已完成。不要用真实上传作为只读检查。
+
 ## Flags
 
 | 参数 | 必填 | 类型 | 说明 |

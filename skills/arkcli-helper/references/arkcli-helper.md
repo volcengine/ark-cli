@@ -171,6 +171,13 @@ Plan 模型列表必须区分两条来源：交互式「智能路由」只使用
 `ark-code-latest` 合成入口。可用的低/中/高负载只在服务端返回
 `Load.Status=1` 且 `Load.Level=1/2/3` 时展示。
 
+Helper 的具体候选、写入 Agent 的模型目录和 `configure --model` 共用文本对话资格校验：
+允许文本输出模型的 image/video/audio 输入；排除生图、生视频、Embedding、专用 TTS/ASR
+以及不能确认用途的条目。套餐 `ModelCapability` 优先，缺失字段才使用 ArkModels 元数据。
+输出模态缺失时，只有能匹配同套餐 LatestModel 文本路由候选的直接 ModelName 才保留；
+`ark-code-latest` 仍作为动态路由入口保留。清单查询失败或没有合格模型时，配置命令报错，
+不写 Harness 配置；显式 `--model` 也不能绕过当前套餐的合格清单。
+
 若 ZCode 报 `InvalidParameter` 400 且请求模型的输出上限超过网关限制，先使用新版本
 ArkCLI 重新执行原 `arkcli helper configure zcode --profile ... --model ...`，再完全退出
 ZCode 主进程、重新打开并新建会话；只切换模型或继续使用旧会话不会热加载 provider
