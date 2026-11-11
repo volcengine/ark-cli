@@ -36,6 +36,83 @@
 - `+iterate` 已支持 GetAgent 当前版本 -> 可选 UpdateAgent -> CreateSession -> `--message` one-shot / TTY REPL；`--environment-id/--env-id` 是可选参数，未传时真实执行会用 `ListEnvironments` 自动选择当前项目最近创建的 Environment；没有可用环境才要求用户创建或显式传入。
 - 火山新建 Agent 不传 `--tool` 时发送 `agent_toolset_20260916`，含 bash/read/write/edit/glob/grep/web_fetch/web_search；传 `--tool` 时按完整数组全量覆盖。旧版本不自动升级；BytePlus 默认仍为 `agent_toolset_20260701`。
 
+## Channel（火山）
+
+Channel 将飞书机器人消息路由到 Managed Agent Session，不是 CLI 自己监听飞书，也不是普通 Session 的别名。本节新命令仅在火山产品提供。
+
+| 命令 | 用途 |
+| --- | --- |
+| `agent channel create --file ./channel.json` | 创建绑定；也支持 `--name`、`--provider`、`--app-id`、`--policy`、`--session-config`、`--enabled` |
+| `agent channel get <id>` / `list` | 查询配置及 Validation；list 支持 `--name/--app-id/--agent-id/--provider/--enabled/--connection-status` |
+| `agent channel update <id> --file ./patch.json` | 更新；`--enabled=false` 明确禁用；Provider 不可修改 |
+| `agent channel delete <id> --yes` | 用户确认后删除绑定；不会删除历史 Session |
+| `agent channel validate --file ./credentials.json` | 校验未保存的 Provider + FeishuApp；带 `--id <id>` 则校验并更新已保存 Channel 的验证状态 |
+| `agent channel sessions list <id>` | 关联 Session 列表，支持 `--chat-type`、`--status`（重复）、`--keyword` |
+| `agent channel participants list <id> --session-id <session-id>` | 参与者列表，可加 `--keyword`；Session 列表的 Participants 只是摘要，不能据此声称已列全 |
+| `agent channel app register --app-name <name>` | 发起新应用注册，已有应用用 `--app-id`，两者不同时传 |
+| `agent channel app status <registration-id>` | 单次查询注册状态；严格按返回 PollInterval 间隔查询，在 ExpireIn 内等待用户授权；不是自动授权 |
+| `agent channel app config <id>` | 获取飞书应用回调/事件配置；默认脱敏；需要完整配置时按用户授权加 `--output ./private-channel.json` |
+
+所有命令支持显式 `--file` TOP JSON/YAML 对象；不隐式读取 stdin。列表使用 `--limit/--page`，`--page-all` 沿 NextPage 合并 `Result` 数组，并保留 Summary/ProjectionSyncedAt/ProjectionDelayed。ProjectionDelayed=true 表示投影延迟，不是会话不存在。
+
+创建请求示例（必须替换真实资源 ID，密钥不写在对话或命令参数中）：
+
+```json
+{
+  "Name": "arkcli-feishu-channel",
+  "Provider": "feishu",
+  "Enabled": true,
+  "FeishuApp": {"AppId": "<app-id>"},
+  "Policy": {
+    "Identity": {"Group": "bot", "P2P": "bot"},
+    "Group": {"Trigger": "mention", "ReplyMode": "thread"},
+    "Context": {"Enabled": true},
+    "Display": {"StreamFinalAnswer": true, "ShowToolCalls": false}
+  },
+  "SessionConfig": {
+    "Agent": {"Id": "<agent-id>", "VersionMode": "latest"},
+    "EnvironmentId": "<env-id>",
+    "MemoryIds": [],
+    "VaultIds": []
+  }
+}
+```
+
+```bash
+ARKCLI_NO_UPDATE_NOTIFIER=1 ARKCLI_CALLER_TYPE=ai_agent ARKCLI_CALLER_NAME=codex ARKCLI_SKILL_NAME=arkcli-agent arkcli agent channel create --file ./channel.json --app-secret-env FEISHU_APP_SECRET --dry-run --format json
+```
+
+`FEISHU_APP_SECRET` 由用户在安全环境预置，不输出它。用户确认实际接入飞书后才去掉 dry-run。SessionConfig.Agent.VersionMode 为 latest 时省略 Version；pinned 时使用已核实的正整数 Version。MemoryIds/VaultIds 空数组表示不绑定；SessionConfig 是整体替换，更新应提交完整对象。Policy 中显式提供的子对象也是完整替换，不把局部字段当深层合并。
+
+update/delete/已保存的 validate/app config 接受 `--config-version`。省略时 CLI 仅 GetChannel 一次补当前 ConfigVersion；冲突保留错误，不自动刷新后重试。dry-run 会展示依赖查询和占位版本，不实际调用。
+
+凭证 Valid 不表示机器人已连通：分别检查 Validation.Credential 和 Validation.Connection，再让用户从飞书发一条测试消息并回查关联 Session。Enabled=true 也不等于验证通过。失败时保留错误码和当前版本，不反复重建机器人。
+
+注册返回 pending/succeeded/denied/expired/failed；仅 succeeded 表示授权完成。AppSecret、EncryptKey、VerificationToken 默认脱敏，成功凭证需要用户授权后用 status/config 的 `--output` 保存至新的 0600 文件，不能覆盖现有文件或把文件正文贴到对话。注册凭证有有效期，不承诺过期后可重复获取。
+
+用户打开授权页后，按返回的 PollInterval 主动轮询 `app status`，无需等用户再次说“完成了”；以 ExpireIn 为截止时间，遇到 succeeded/denied/expired/failed 停止。pending 时不重复注册；过期或拒绝后先向用户说明，不自动重新申请授权。
+
+### 已创建但连接失败：手动配置与复验
+
+CLI 在 Connection=failed 或获取应用配置时增加顶层 `Guidance`，包含下一步命令；后端 `Result` 和错误码保持原样。退出码 0 只说明本次 API 调用成功，不代表飞书消息链路已接通。保留已有 Channel ID，不重新创建应用或 Channel。
+
+1. 沿用创建时的 profile、环境，执行 `agent channel app config <id> --output ./channel-config.private.json`。文件必须是新路径，完整配置仅保存在本地私密文件中。
+2. 打开对应应用的“事件与回调”，先核对安全配置，再配置地址。字段对应如下：
+
+| 飞书页面配置 | 导出文件字段 |
+| --- | --- |
+| Encrypt Key | `Result.FeishuConfig.EncryptKey` |
+| Verification Token | `Result.FeishuConfig.VerificationToken` |
+| 事件订阅：发送到开发者服务器 | `Result.FeishuConfig.EventRequestUrl` |
+| 回调配置：发送到开发者服务器 | `Result.FeishuConfig.CallbackRequestUrl` |
+
+3. 按页面可编辑项完成配置；不把默认脱敏输出中的 `[REDACTED]` 当真实值。宿主要求人工填写敏感字段时，把这一步交给用户；不要把文件正文、EncryptKey 或 VerificationToken 发到对话中。按页面要求保存、发布。
+4. 执行 `agent channel validate --id <id>`，分别查看 Credential 和 Connection。仍失败时保留错误码、RequestId 和当前版本，不能声称已连通。最后从飞书发送测试消息，执行 `agent channel sessions list <id>`，核实对应 Session 和回复。
+
+自动配置报 `app_config_permission_denied`、缺少 `application:application:patch` 时，不要求用户反复搜索一个可能未对其开放的同名权限；可尝试上述手动配置。页面提示“Challenge code 没有返回”表示地址校验未通过，需核对安全参数、地址及服务端响应；仅凭该提示不能断定是密钥错误，也不要通过重复创建 Channel 解决。
+
+不实现未公开的 ResetMapping、Retry 或内部文件投递策略命令；不调用飞书内部 API 绕过服务端权限。
+
 ## 当前 Gap
 
 - PRD 中 `arkcli +new-agent "..."` 的 CLI 内置 LLM draft + confirm 未实现；当前由调用 arkcli 的 AI agent 负责自然语言理解、模型/skill/tools 选择，再调用结构化 `+new-agent` 或 `agent agent create`。

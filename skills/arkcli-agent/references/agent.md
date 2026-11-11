@@ -425,6 +425,49 @@ arkcli agent agent create \
 
 如果用户要求多个工具不同策略，同样在这一个完整 `agent_toolset_20260916` 的 `Configs` 里同时改，不要拆成多个 `agent_toolset`。
 
+## Multiagent 配置
+
+本节新协议仅用于支持该功能的火山后端；BytePlus 不据此宣称已支持。
+新协议还有账号/项目级特性门禁。返回 `MultiagentNotEnabled` 时停止并说明当前 scope 未开放，不能用 MA 服务开通、切账号或自动降级成 coordinator 来绕过；`MultiagentPolicyUnavailable` 表示策略查询暂不可用，不等于未开白。更新时即使只改其他字段，只要最终配置仍保留新协议，也可能触发该门禁。
+创建与更新共用 `--multiagent '<JSON/YAML 对象>'` 或 `--multiagent @./multiagent.json`，完整请求文件使用 `Multiagent`。
+先读现有配置，不自动把旧 `coordinator` / `Agents` 转换成新协议。
+
+```json
+{
+  "Type": "multiagent_20261001",
+  "Subagents": {
+    "Type": "enabled",
+    "InlineAgents": {"Type": "enabled"},
+    "PredefinedAgents": [
+      {"Type": "self"},
+      {"Type": "agent", "Id": "<已确认的-agent-id>", "Version": 1}
+    ]
+  }
+}
+```
+
+| 字段 | 含义与处理 |
+| --- | --- |
+| `Type` | 新协议 `multiagent_20261001`；旧协议值及 `Agents` 保持原样，不自动迁移 |
+| `Subagents.Type` | `enabled` / `disabled`，是否允许子 Agent 能力 |
+| `Subagents.InlineAgents.Type` | `enabled` / `disabled`，是否允许运行中动态定义子 Agent |
+| `Subagents.PredefinedAgents` | 用户选定的完整 Agent 引用数组；`Type=agent` 使用真实 `Id` 和已确认版本；`Type=self` 表示复用自身，不是新建资源 |
+| `Agents` | 旧协议字段，不能用它替代新协议的 `Subagents.PredefinedAgents` |
+
+省略、`null`、`[]` 不互换：更新省略 `Multiagent` 保留配置；显式 `--multiagent null` 向后端发送清除意图；`PredefinedAgents: []` 是显式空列表。嵌套字段省略与 `null` 原样传递，由后端执行当前版本的 patch 语义，不能一概解释成“合并”或“保留”。仅改模型时不要添加 `Multiagent: null`。
+
+Session 的一次性覆盖写在 `--agent-overrides` 的 `Multiagent` 中，不修改原 Agent：
+
+```bash
+ARKCLI_NO_UPDATE_NOTIFIER=1 ARKCLI_CALLER_TYPE=ai_agent ARKCLI_CALLER_NAME=codex ARKCLI_SKILL_NAME=arkcli-agent arkcli agent session create --agent-id <agent-id> --environment-id <env-id> --agent-overrides @./agent-overrides.json --format json
+```
+
+文件形如 `{"Multiagent":{"Type":"multiagent_20261001","Subagents":{"Type":"enabled","InlineAgents":{"Type":"enabled"},"PredefinedAgents":[]}}}`。引用的权限、循环依赖、模型兼容性由后端验证，CLI 不另做白名单拦截。创建/更新后必须 get 回读，配置保存成功不等于实际委派成功。
+
+运行时用已有 `session threads list/get` 和 `session events list/stream` 观察线程及任务事件，保留服务端的新字段。没有独立的 thread create/archive 命令。普通消息发给主线程；不要把面向整个 Session 的用户消息伪造成子线程输入。工具结果使用真实 `custom_tool_use_id`，服务端决定 owner；只有从事件确认归属时才传 `session_thread_id`，不要默认填主线程。
+
+等待整个 Session 时，子线程 idle/failed 不表示整个任务结束；显式按线程等待才使用该线程终态。需要人工审批时先处理审批，不宣称任务成功。中断线程与归档资源不同，不因一次子线程失败自动中断所有线程。
+
 ## 示例
 
 ```bash

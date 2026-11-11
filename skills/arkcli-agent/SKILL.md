@@ -63,6 +63,9 @@ Environment 还是 Session。用户提供明确 ID 时直接查对应资源，�
 | ---- | ---- | ---- |
 | 仅开通 MA 服务（火山） | `arkcli agent activate`；不创建资源、不开通模型 | [`references/activation.md`](references/activation.md) |
 | 创建 / 更新 / 删除 Managed Agent | `arkcli agent agent ...` | [`references/agent.md`](references/agent.md) |
+| 配置多 Agent 协作（仅火山新协议） | create/update `--multiagent`；Session `--agent-overrides` | [`Multiagent 配置`](references/agent.md#multiagent-配置) |
+| 接入飞书 Channel（仅火山） | `arkcli agent channel ...` | [`Channel`](references/interfaces-gaps.md#channel火山) |
+| 归档 Agent / Environment / Session（仅火山） | `agent agent/env/session archive <id> --yes` | [`归档`](references/session-files.md#归档火山) |
 | 启用 / 关闭 Todo 任务计划工具 | `agent agent create/update --tool`；非基础 toolset、不需要 Models | [`references/todo-write.md`](references/todo-write.md) |
 | 复制已有 Agent 并改名 / 局部覆盖配置 | `arkcli +new-agent --fork <agent-id> [--name <new-name>]` | [`references/agent.md`](references/agent.md#复制-agent) |
 | 为创建 Agent 选择可用模型 | `arkcli agent model list` | [`references/agent.md`](references/agent.md#模型选择) |
@@ -160,7 +163,7 @@ Environment 还是 Session。用户提供明确 ID 时直接查对应资源，�
 | `arkcli +new-agent` | Agent create 增强入口；支持 `--fork/--from` 复制已有 Agent 后创建新 Agent |
 | `arkcli +iterate` | 更新 Agent 配置，创建新 Session，并进入 one-shot/REPL 试运行；创建前核对项目一致性，显式传入同 Project 的 `--environment-id/--env-id` |
 | `arkcli agent skill search/list/get/create/update/delete/versions/download/set-protection/github` | Market/custom/Ark Skill 查询、GitHub 导入、custom Skill 保护与版本管理；Ark Skill 只读 |
-| `arkcli agent env list/get/create/update/delete` | Environment CRUD；当前 `env list` 没有 `--status`，状态筛选规则见 `session-files.md` |
+| `arkcli agent env list/get/create/update/delete` | Environment CRUD；火山支持 `--include-archived` / `--status`，状态筛选规则见 `session-files.md` |
 | `arkcli agent session list/get/create/update/delete` | Session CRUD |
 | `arkcli agent session upgrade <session-id>` | 升级已有 Session 运行配置，返回受理状态；使用 snake_case 请求并回读验证 |
 | `arkcli agent session resources list/add/get` | 数据面 session resources；get 是 CLI 基于 list 的本地筛选 |

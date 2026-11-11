@@ -216,6 +216,21 @@
 - FunctionNotAllowed：区分 Vision 开白与 MA 开通，不切账号、不降级类型、不重复创建。
 - 不将火山 Vision 模板套用到其他产品。未执行线上生图不得报告生图端到端通过。
 
+## Channel / Multiagent / 归档
+
+- 用户要求接入已有飞书应用：读取 Channel reference，使用用户提供的应用、Agent 和 Environment；AppSecret 只通过安全文件或环境变量输入，不请求贴到对话。无测试应用时只做本地契约验证，不宣称飞书联通。
+- Channel Credential=valid 但 Connection=pending：报告凭证有效、联通待验证，不把 Enabled=true 当成端到端成功。
+- Channel 已返回 ID，但 Connection=failed、app_config_permission_denied：保留 ID，按 Guidance 导出配置并引导手动设置；不重复创建、不强求页面存在 application:application:patch 权限。
+- app config 默认只显示 [REDACTED]：经授权导出新的私密文件，按 reference 对齐安全参数和事件/回调地址；不回显密钥，不把脱敏占位符填入页面。
+- 页面报 Challenge code 没有返回：明确校验未通过，核对配置与服务端响应，不猜唯一原因；手动配置后 validate，再用真实飞书消息与关联 Session 验收。
+- Channel 更新遇到版本冲突：保留冲突，不自动刷新版本重试；Policy 子对象与 SessionConfig 按后端替换规则提交，不把局部配置误当深合并。
+- 应用注册仍 pending：按 PollInterval 有界查询，授权由用户完成；仅在明确要求导出时使用 --output 保存敏感结果，不回显正文。
+- MultiagentNotEnabled：说明账号/项目特性门禁，不能用 agent activate 代替开白，也不能自行移除 Multiagent 或切账号。
+- 等待 Session 时遇到 child thread idle/failed：继续观察 Session 终态和 usage；retrying 不判失败，不重发消息。
+- 用户要求归档：核对具体资源和影响，经确认使用 archive，而不是 delete；归档受理后回读状态，不声称资源已物理删除，也不承诺可恢复。
+- 用户查询已归档 Agent / Environment：使用 `--include-archived --status terminated`；单独 `--status terminated` 返回空时，补齐包含归档范围后再判断，不直接报告没有归档资源。Session 不套用 Agent/Environment 的状态枚举。
+- 非火山产品：不生成本节火山专属 Channel、archive 命令，不把新 Multiagent 协议当作已支持能力。
+
 ## 独立开通 MA
 
 - 用户只要求开通 MA：选择 `agent activate`，不创建 Agent 或 Session，不查询或开通模型。

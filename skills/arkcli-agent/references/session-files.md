@@ -71,7 +71,7 @@ arkcli agent env create \
 
 override 模型运行参数前，按[模型参数 metadata](model-config.md)查询目标模型；切换模型需重新查询，不自动注入默认值。
 
-Session 创建可以对已有 Agent / Environment 做一次性配置覆盖。override 内的 `System`、`Tools`、`McpServers`、`Skills`、`Multiagent` 和 Environment `Config` 是服务端定义的替换语义，非 nil 字段不会与基 Agent 自动合并；传数组时要传完整数组。
+Session 创建可以对已有 Agent / Environment 做一次性配置覆盖。override 内的 `System`、`Tools`、`McpServers`、`Skills` 和 Environment `Config` 是服务端定义的替换语义，非 nil 字段不会与基 Agent 自动合并；传数组时要传完整数组。`Multiagent` 按字段是否出现区分省略、`null` 和空数组，不能一概当作整对象替换；具体配置和语义见 [Multiagent](agent.md)。
 
 ```bash
 arkcli agent session create \
@@ -88,25 +88,26 @@ arkcli agent session create \
 
 上述模型结构归一化同时适用于 `--agent-overrides`、`--agent-overrides @file` 以及通用 `session create --file` 内的 `AgentWithOverrides`。显式空值 `--agent-overrides=` / `--environment-overrides=` 是无效输入，CLI 返回 validation error，不创建 Session。
 
-### Environment 状态筛选
+### 归档（火山）
 
-当前 `arkcli agent env list` **没有注册 `--status`**，不要生成下面这种命令：
-
-```bash
-arkcli agent env list --status active
-```
-
-`ListEnvironments` 后端请求也没有 `Status` 过滤字段；返回的 Environment 对象只有可选的 `ArchiveTime`。需要按状态找环境时，先拉全量，再由调用 arkcli 的 AI Agent 本地筛选：
+`agent agent archive <agent-id>`、`agent env archive <env-id>`、`agent session archive <session-id>` 是不可逆归档，不是删除，也不自动中断任务。先 get 核对目标，再取得用户对归档的明确确认，才加 `--yes`。不要因为归档失败自动改用 delete 或 interrupt；没有恢复命令。
 
 ```bash
-arkcli agent env list --page-all --format json
+ARKCLI_NO_UPDATE_NOTIFIER=1 ARKCLI_CALLER_TYPE=ai_agent ARKCLI_CALLER_NAME=codex ARKCLI_SKILL_NAME=arkcli-agent arkcli agent session archive <session-id> --dry-run --format json
+ARKCLI_NO_UPDATE_NOTIFIER=1 ARKCLI_CALLER_TYPE=ai_agent ARKCLI_CALLER_NAME=codex ARKCLI_SKILL_NAME=arkcli-agent arkcli agent session archive <session-id> --yes --format json
 ```
 
-- `ArchiveTime` 非空：`archived`
-- `ArchiveTime` 为空或字段缺失：`active`
-- 前端领域类型虽然预留了 `updating`，但当前返回契约没有可可靠推导它的字段；不要声称支持 `updating` 筛选。
-- 不要只过滤默认第一页；状态筛选必须配合 `--page-all`，并关注全局 `--page-limit` 是否导致结果仍被截断。
-- env `--page-all` 默认使用 `Limit=100`，并把每页响应的 `NextPage` 作为下一次请求的 `Page`；`--page-limit` 限制的是最多请求页数，不是结果条数。
+Agent 归档不产生新版本，保留历史配置；Environment 归档不删除数据。已有 Session 的行为以服务端为准，不承诺停止运行或释放费用。Session 归档要求满足后端状态前提，运行中拒绝时先汇报，不能擅自结束用户任务。
+
+火山三类 `list` 默认排除归档资源，查询归档资源必须带 `--include-archived`。Agent / Environment 另支持 `--status active` 或 `--status terminated`，可重复；只查归档资源时同时传 `--include-archived --status terminated`。单独传 `--status terminated` 不会自动包含归档资源，空结果不能据此判断没有归档资源。这里 `terminated` 是后端归档筛选值，不写成 `archived`。Session `--status` 仍使用它原有的运行状态枚举，不套用 Agent/Env 枚举。
+
+```bash
+ARKCLI_NO_UPDATE_NOTIFIER=1 ARKCLI_CALLER_TYPE=ai_agent ARKCLI_CALLER_NAME=codex ARKCLI_SKILL_NAME=arkcli-agent arkcli agent env list --include-archived --page-all --format json
+ARKCLI_NO_UPDATE_NOTIFIER=1 ARKCLI_CALLER_TYPE=ai_agent ARKCLI_CALLER_NAME=codex ARKCLI_SKILL_NAME=arkcli-agent arkcli agent agent list --include-archived --status terminated --page-all --format json
+ARKCLI_NO_UPDATE_NOTIFIER=1 ARKCLI_CALLER_TYPE=ai_agent ARKCLI_CALLER_NAME=codex ARKCLI_SKILL_NAME=arkcli-agent arkcli agent env list --include-archived --status terminated --page-all --format json
+```
+
+看实际 `ArchiveTime` / `Status` 判断归档结果；旧响应缺字段不推断为已经归档。若服务端版本尚不支持 Status，不把空结果当作“没有归档资源”。`--page-limit` 是最多请求页数，达到上限后检查 NextPage。BytePlus 不新增上述 flags/命令，继续使用旧查询方式。
 
 ## Files 与 Session Resources
 

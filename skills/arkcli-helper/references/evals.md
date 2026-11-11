@@ -3,6 +3,7 @@
 ## 覆盖目标
 
 - 区分真人 TTY Harness 矩阵与 Agent 可执行的非交互子命令。
+- 用户两次运行真人向导之间开通个人套餐或获分配团队席位时，引导再次运行 `arkcli helper`；在线查询成功后会自动补建 profile，本次即可选。已回收的个人套餐和已撤销的团队席位应显示原因、跳过选择，续费后复用原 profile；查询失败时提示状态待确认。
 - 区分服务端权益开关与所选 AI Agent 的本地配置状态。
 - 区分“本次配置 Checkbox”与“当前配置状态”，并锁定 disabled 行不可选择。
 - 保持计费写操作确认、团队权限范围和未知 Harness fail-safe。
@@ -23,7 +24,7 @@
 
 - 仅查询套餐持有、购买、续费或席位列表时转 `arkcli-plans`。
 - 仅查询模型目录或能力推荐时转 `arkcli-models`。
-- Agent 自动化不得尝试发送按键操纵 `arkcli helper` TTY 菜单；应选择 `helper configure/mcp/supabase/list/reset` 的最具体子命令。
+- Agent 自动化不得尝试发送按键操纵 `arkcli helper` TTY 菜单；应选择 `helper configure/mcp/supabase/list/status/reset` 的最具体子命令。
 
 ## Guard / 守卫
 
@@ -46,6 +47,10 @@
 
 ```bash
 arkcli helper list --format json
+arkcli helper status codex --format json
+arkcli helper configure codex --profile <agent-plan-profile> --model <model-id>
+arkcli helper configure codex --profile <platform-profile> --endpoint <ep-id>
+arkcli helper configure pi --profile <plan-profile> --model <model-id>
 arkcli helper configure codex --profile <agent-plan-profile> --model <model-id> --with-mcp
 arkcli helper configure codex --profile <agent-plan-profile> --model <model-id> --with-mcp --keep-native-websearch
 arkcli helper configure codex --profile <agent-plan-profile> --model <model-id> --with-mcp --with-supabase
@@ -56,7 +61,6 @@ arkcli helper mcp codex --profile <agent-plan-profile> --capability datapro
 arkcli helper mcp codex --profile <agent-plan-profile> --capability web-search
 arkcli helper mcp codex --profile <agent-plan-profile> --capability agent-memory --ov-resource <database-name>
 arkcli helper mcp codex --profile <agent-plan-large-or-max-profile> --capability cua
-arkcli helper configure pi --profile <plan-profile> --model <model-id>
 ```
 
 `arkcli helper` 无子命令的 Harness 矩阵只允许真人在 TTY 中运行，不纳入 Agent 自动执行的 happy path。

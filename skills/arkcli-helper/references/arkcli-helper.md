@@ -16,9 +16,33 @@
 [`../../arkcli-plans/references/arkcli-plans-agreement-signing.md`](../../arkcli-plans/references/arkcli-plans-agreement-signing.md)。
 
 执行 `configure/reset/mcp/supabase` 前，Agent 必须展示准确 target、
-profile、scope 与文件落点并取得确认；只能用 `helper list` 做只读检查。
+profile、scope 与文件落点并取得确认；只能用 `helper list` / `helper status` 做只读检查。
 不要生成 `arkcli --dry-run helper ...` 或
 `arkcli helper ... --dry-run`。
+
+## IPC / Pipe 调用契约
+
+Helper 作为第三方 Agent 的本地能力入口时，按进程契约消费，不要解析人类可读表格：
+
+- **成功**：业务 JSON 只写 stdout，进程退出码 `0`；进度/提示写 stderr，不得混入 stdout。
+- **失败**：错误信封只写 stderr，stdout 保持为空。信封固定为
+  `{"ok": false, "error": {"type": "...", "message": "...", "trace_id": "..."}}`。
+  退出码按错误类别：`1` 一般错误、`2` 参数/资格校验、`3` 认证、`4` 网络、`5` 服务端 API。
+- 调用方必须同时捕获 stdout 与 stderr；只读 stdout 会把失败误判为“无输出”。
+- 只读探测（`helper list` / `helper status`）不联网、不刷新凭证、不写文件；
+  写命令（`configure` / `mcp` / `reset` / `setup`）成功后附带
+  `transaction: {"status": "committed", "files": <n>, "paths": [...]}`。
+- `transaction.paths[]` 是本命令实际改写/删除过的全部本地文件（按首次写入顺序），
+  `transaction.files` 是同一集合的数量。MCP 注入、shell rc、Skill 凭证等
+  非 configurator 主配置的写入也包含在这里，是 IPC 调用方判断“哪些文件变了”的
+  权威来源。
+- 成功 JSON 的 `files[]` 是 configurator 主配置落点（模型/provider，以及 MCP-only
+  host 的主文件）；`helper mcp` 不返回 `files[]`，用 `mcp_servers[]` +
+  `transaction.paths[]`。不要把 `files[]` 当成完整写入集合。
+- 非交互调用必须显式传 target；账号存在多个 Agent Plan profile 时必须显式传
+  `--profile`。不要依赖宿主环境变量探测，也不要依赖 TTY 交互。
+- 写命令失败时，本次命令已写入的本地配置按事务回滚；错误消息会追加回滚结果
+  （含回滚失败的文件）。调用方应把 `ok=false` 视为“可能已回滚”，不要假设部分配置已生效。
 
 ## `arkcli helper mcp [target]`
 
@@ -132,6 +156,9 @@ openviking-dataplane 的 `Authorization: Bearer <key>` 绑定到具体 OpenVikin
 | trae | 默认 `~/.trae/mcp.json`(`mcpServers.*`,与 claude 同构);`--scope project` → `./.trae/mcp.json` | 全局:去「设置 → MCP」确认 MCP 已启用 + 重启;项目级:开「启用项目级 MCP」开关 + 重开项目 |
 | deepseek-harness | 默认 `$DSH_HOME/profiles/<name>/cordis.patch.yml`(`--dsh-profile <name>` 必填);`--dsh-config-scope home` → `$DSH_HOME/cordis.patch.yml` | 重启 `dsh --profile <name>`(profile scope);home 层全局生效 |
 | zcode | `$ZCODE_HOME/cli/config.json`（默认 `~/.zcode/cli/config.json`，`mcp.servers.*`）；model/provider 在 `$ZCODE_HOME/v2/config.json` | 完全退出 ZCode 主进程后重新打开并新建会话；旧会话不会热加载 provider 配置 |
+| kimi-code | `$KIMI_CODE_HOME/mcp.json`（默认 `~/.kimi-code/mcp.json`）；model/provider 在 `$KIMI_CODE_HOME/config.toml` | 重启 KimiCode |
+| cursor | `~/.cursor/mcp.json`（`mcpServers.*`，MCP-only） | 重启 Cursor / 重载 MCP |
+| grok | `$GROK_HOME/mcp.json`（默认 `~/.grok/mcp.json`）；model/provider 在 `$GROK_HOME/config.toml` | 重启 Grok |
 | workbuddy | 同时写 `~/.workbuddy-ai/mcp.json`、`~/.workbuddy/mcp.json` 与 `~/.codebuddy/mcp.json`(`mcpServers.*`,与 claude 同构);model 清单写各自 `models.json`(OpenAI 兼容,arkcli 项打 `arkcliManaged` marker) | 重启 CodeBuddy IDE |
 
 ### 原生 WebSearch 的选择与精确落点
@@ -152,7 +179,7 @@ TTY 配置豆包搜索时，在 MCP 与 Skill 都成功后展示“关闭原生 
 
 触发条件：只有豆包搜索被选择、MCP/Skill 配置成功且用户未选择保留时才写上述配置。普通 `helper configure`、Platform/Coding Plan、选择跳过豆包搜索、MCP 注入失败或传 `--keep-native-websearch` 都保持原路径不变。若关闭原生搜索失败，命令明确输出“豆包搜索已配置，但原生搜索关闭失败”，不得把部分成功包装成全部成功。
 
-### ZCode 模型 limit 与网关边界
+## ZCode 模型 limit 与网关边界
 
 `helper configure zcode` 写 `$ZCODE_HOME/v2/config.json`（默认
 `~/.zcode/v2/config.json`）。Plan 模型的 `limit` 优先来自套餐模型接口的
@@ -183,6 +210,67 @@ ArkCLI 重新执行原 `arkcli helper configure zcode --profile ... --model ...`
 ZCode 主进程、重新打开并新建会话；只切换模型或继续使用旧会话不会热加载 provider
 配置。不要把 `limit.context` 一并改成十进制，也不要长期手改生成配置。
 
+## `arkcli helper status <harness>`
+
+这是面向 Agent / IPC / Pipe 调用方的**只读体检入口**：只读本机文件，不读账号、
+不刷新凭证、不联网、不写文件、不触发安装或子进程。
+
+```bash
+arkcli helper status <harness>
+```
+
+人类可读输出是一行表格（`HARNESS / INSTALLED / CONFIGURED / MODEL / MCP / SEARCH /
+SETTINGS`）。`--format json` 返回稳定字段：
+
+| 字段 | 语义 |
+|---|---|
+| `harness` / `display_name` | 稳定 harness ID 与展示名 |
+| `installed` | 按 `detect_command` 在 PATH 上探测到的结果 |
+| `installed_known` | 是否存在可靠探测命令；`false` 时 `installed` 无意义（Trae / WorkBuddy / DSH 等无 CLI 或推荐 npx 运行） |
+| `detect_command` | 实际用于探测的命令；空表示不探测 |
+| `configured` | 是否检测到 ArkCLI 托管的配置标记（model/provider 或 MCP） |
+| `supports_model` / `supports_mcp` | 当前**编译产品**与 harness 共同决定的能力 |
+| `native_search_supported` | harness 是否具备 ArkCLI 可管理的原生搜索关闭能力 |
+| `settings_path` / `mcp_path` | 主配置与 MCP 配置落点；不适用时为空 |
+| `files[]` | `path` / `exists` / `mode`（四位八进制）/ `size`；始终返回数组 |
+| `mcp_servers[]` | ArkCLI 内置 MCP server 状态对象数组：`name` / `transport` / `installed` / `key_state`（`real`/`placeholder`/`absent`）；`supports_mcp=false` 时为空数组 |
+| `mcp_status_error` | MCP 状态读取失败原因；不能把失败当作“未注入” |
+
+边界：
+
+- `configured=false` 只表示没有 ArkCLI 托管标记，不表示 Agent 不能工作。
+- `installed=false && installed_known=true` 才能提示“未安装”；`installed_known=false`
+  时必须提示“无法自动判定”。
+- `files[].mode` 用于发现 `0644` 等过宽权限；凭证文件预期为 `0600`。
+- 该命令不接受 `--dry-run`，也不替代 `configure/reset` 的写前确认。
+
+## 本地写入事务与回滚
+
+`helper configure` / `helper mcp` / `helper reset` / 交互向导把**整条命令**视为一个本地文件事务：
+
+- 每个文件在第一次被改写或删除前先做内存快照（同一路径只快照一次）；
+- 命令成功时提交，所有写入保留；
+- 命令任意一步失败时，按写入逆序恢复所有已改文件、删除本次新建的文件、重建本次删除的文件（保留原权限）；
+- 回滚失败不会吞掉原错误：命令仍返回原错误，并追加一条本地化提示，列出未能恢复的文件；
+- 快照失败会拒绝写入，避免留下无法回滚的半套配置。
+
+边界：
+
+- 事务只覆盖 ArkCLI 通过统一原子写与受控删除写入的本机配置文件（含 Skill 凭证 `.env`）；Agent 安装、`npm` / `npx skills add` 下载、外部 CLI 登录态等外部副作用**不在事务内**，只能 best-effort。
+- DSH 的 `settings.yaml` + `.credentials.yaml` 双文件仍有自己的原子事务；它嵌套在命令级事务内，由命令级事务统一收口。
+- `--dry-run` 不写入，也不开启事务。
+
+非 human 格式下，`configure` / `mcp` / `reset` 成功输出新增：
+
+```json
+"transaction": {"status": "committed", "files": 3, "paths": ["/home/u/.claude/settings.json", "/home/u/.claude.json", "/home/u/.claude/skills/byted-web-search/.env"]}
+```
+
+`files` 是本命令实际快照过的不同路径数；`paths` 是同一集合的完整路径（按首次写入
+顺序）；`0` / `[]` 表示命令成功但没有改写任何本地配置（例如 CUA 只安装外部 Skill）。
+快照可能包含为回滚而记录、但最终内容未变的文件；调用方以 `paths` 作为“本命令涉及
+哪些本地文件”的权威集合。
+
 ## 错误与边界 case
 
 | 现象 | 原因 | 处理 |
@@ -190,8 +278,8 @@ ZCode 主进程、重新打开并新建会话；只切换模型或继续使用�
 | `未知 --capability` | 传了服务端 HarnessName、MCP server ID 或 `all` | 只用 `datapro` / `web-search` / `agent-memory` / `cua`；要整组时去掉该 flag |
 | `agent-memory 仅支持 Agent Plan 个人版` | `--profile` 指向 `agent-plan-team` | 换个人版 profile；团队版不含 OpenViking |
 | `cua 仅支持 Agent Plan 个人版 Medium/Large/Max` | profile 是团队版或个人版 Small | 换合格的个人版 profile，不要改用 `configure --with-cua` 绕过资格闸 |
-| `无法确定要配置哪个 agent` | host 不是可检测的 3 个 / 信号冲突 / 无信号(含 Codex / Trae / DSH / ZCode / WorkBuddy 等) | 显式 `arkcli helper mcp <claude-code\|codex\|opencode\|openclaw\|trae\|deepseek-harness\|zcode\|workbuddy>` |
-| `<X> 暂不支持 MCP 注入` | target 是 hermes 或未来不支持的 agent | 仅 claude-code/codex/opencode/openclaw/trae/deepseek-harness/zcode/workbuddy 可注入 |
+| `无法确定要配置哪个 agent` | host 不是可检测的 3 个 / 信号冲突 / 无信号(含 Codex / Trae / DSH / ZCode / WorkBuddy 等) | 显式 `arkcli helper mcp <claude-code\|codex\|opencode\|openclaw\|trae\|deepseek-harness\|zcode\|kimi-code\|cursor\|grok\|workbuddy>` |
+| `<X> 暂不支持 MCP 注入` | target 是 hermes / pi 或未来不支持的 agent | 仅 claude-code/codex/opencode/openclaw/trae/deepseek-harness/zcode/kimi-code/cursor/grok/workbuddy 可注入 |
 | `--scope project 仅 Trae 支持` | 对非 Trae agent 传了 `--scope project` | 去掉 `--scope`(其它 agent 一律用户级全局) |
 | `--codex-config-scope / --codex-profile 仅 Codex harness 支持` | 对非 Codex agent 传了 Codex 专属 flag | 去掉 Codex flag,或 target 改为 `codex` |
 | `--dsh-config-scope / --dsh-profile 仅 DeepSeek Harness 支持` | 对非 DSH agent 传了 DSH 专属 flag，或给 `--capability cua` 传了 MCP 配置 flag | 去掉 DSH flag，或对 MCP capability 将 target 改为 `deepseek-harness`；CUA 只安装 Skill，不接受这些 flag |
@@ -206,9 +294,9 @@ ZCode 主进程、重新打开并新建会话；只切换模型或继续使用�
 | TRAE 显示 Hook 文件已写但原生搜索仍可调用 | 项目 Hooks 尚未在 IDE 中启用 | 在 `TRAE Settings > Hooks` 启用当前项目并重开 |
 | reset 未恢复原生搜索 | 用户原本就已关闭，或配置后同一字段被外部修改 | ArkCLI 不接管原有禁用；冲突时保留用户当前值并输出警告 |
 | DSH 提示检测到旧版配置或 flat credentials | 旧版 ArkCLI 写入格式与当前 DSH provider / credentials 契约不兼容；flat key 可能单独存在，也可能残留在 version 1 文档顶层 | 先运行 `arkcli helper reset deepseek-harness`，再重新执行 `configure`；不要手工删除 `apiKeyEnv` |
+| ZCode 调用 `glm-5.2` 等模型时报 `InvalidParameter` / token 上限 400 | 旧配置把 ArkModels 的 `131072` 等二进制近似值直接作为 `limit.output` 发给十进制网关 | 升级 ArkCLI 后重跑 `helper configure zcode` 并重启 ZCode；确认 `limit.output=128000`，但保留权威 `limit.context` |
 
 DSH model/provider 写入还遵循以下 ownership 规则：`settings.yaml` 使用独立的 `llm-pi-ai.providers.arkcli-<planType>`，凭据使用 `.credentials.yaml` version 1 文档的 `refs.ARKCLI_<PLAN>_API_KEY`，让 DSH credentials service 能按 provider 的 `apiKeyEnv` 解析。两个文件按一个可回滚事务更新。检测到纯 flat credentials、version 1 文档顶层残留的 legacy credential key，或 `llm-deepseek` 同时具有 `apiKeyEnv: DEEPSEEK_API_KEY` 与精确 Ark 数据面 HTTPS URL 的旧 ArkCLI 指纹时，`configure` fail-fast，不做隐式迁移，并明确要求先运行 `arkcli helper reset deepseek-harness`；该 reset 兼容读取旧格式并清理旧 ArkCLI 内容。不要把自定义 `apiKeyEnv` 当成 ArkCLI ownership。`helper reset deepseek-harness` 仅移除 fingerprint 仍完整匹配的 provider、对应凭据以及仍指向该 provider 的 `agent-default-model`。
-| ZCode 调用 `glm-5.2` 等模型时报 `InvalidParameter` / token 上限 400 | 旧配置把 ArkModels 的 `131072` 等二进制近似值直接作为 `limit.output` 发给十进制网关 | 升级 ArkCLI 后重跑 `helper configure zcode` 并重启 ZCode；确认 `limit.output=128000`，但保留权威 `limit.context` |
 
 ## Platform Endpoint 配置
 
