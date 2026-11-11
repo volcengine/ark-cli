@@ -146,8 +146,8 @@ Environment 还是 Session。用户提供明确 ID 时直接查对应资源，�
 - 只对网络超时、连接中断、429 或 5xx 做有限重试；参数校验、鉴权失败、未开通、权限不足和明确业务错误直接抛出，不要重试。
 - `session create` 超时后结果可能未知。先用 `session list/get` 按返回的标题、Agent、环境和创建时间检查是否已经创建，再决定是否重试；没有幂等键时不要盲目重复创建。
 - `events send` 超时后也可能已经被服务端接收。先用返回的 event cursor、发送时间或最近的 user event 查询 `events list`；确认没有接收记录后才允许重试，避免重复发送用户消息。
-- `events send --stream` 达到 stream 等待上限后会自动切换为 events list polling，默认再等待 120 秒；`--wait` 保留相同行为作为兼容别名。两阶段都超时才返回带 cursor 恢复命令的非 0 错误。此时不要重发原消息，继续 list/poll 同一个 cursor。
-- `events list/get` 属于只读请求，可以使用有限次数、指数退避的重试；继续使用同一个 `after` cursor，不要因为重试而从历史开头重新读取。
+- `events send --stream` 达到 stream 等待上限后自动转为 events list polling，默认再等待 120 秒。两阶段都超时后只读恢复，不重发；再次执行 `events send --poll` 会发送新消息，不是续等。
+- 原始 `events list --after` 可能返回历史，不能用旧 idle 判本轮完成。异步或超时恢复必须按[事件只读恢复流程](references/events-chat.md#异步发送后的只读恢复)分页定位发送 ID、去重并核对本轮 Session 终态；没有精确边界就报告未确认。
 - 每一步都要保留步骤名、Session ID、event cursor、尝试次数和最后错误；达到重试上限后抛出带上下文的错误，不要把超时伪装成成功。
 
 ## 命令速查

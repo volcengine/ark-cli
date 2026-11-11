@@ -13,7 +13,9 @@
 - 用户提供 MA 数据面地址和临时 Key 挂载文件：使用 `session resources add`，随后用 `resources list/get` 核对；不误用 BYOK 模型地址，也不要求修改全局 Profile。
 
 - 假 BYOK 凭证：`events send --stream/--wait/--poll` 收到模型失败与 `retries_exhausted`，应识别退出码 5 和 `agent_execution_failed`；说明消息已受理、执行失败，不自动重发。
-- SSE 超时转轮询：先收到 `session.error`，补偿阶段才收到 idle，仍报告执行失败。
+- SSE 超时转轮询：先收到 exhausted/terminal 或无 retry_status 的 `session.error`，补偿阶段才收到 idle，仍报告执行失败；retrying 后正常 end_turn 则不误报失败。
+- 无历史上下文恢复：用户仅提供 Session ID 和发送 event ID；首轮列表只有旧 idle，后续分页才出现发送 ID、回复、thread idle、usage、session idle。先定位精确边界再处理，不排序、不重复输出、不在 thread idle 提前完成，不重发 send。
+- after 被忽略、边界未落库或分页截断：不能宣称任务完成；有界补查仍无边界时报告未确认。没有发送 ID 且多条同文 user event 时先消歧。
 - 工具报错后正常 `end_turn`：不因单次 `is_error=true` 把整轮判失败；`requires_action` 则报告待确认，不宣称已完成。
 - 不带等待参数：退出码 0 只代表受理，不宣称模型已成功回复。
 
@@ -44,7 +46,7 @@
 - “升级到 Agent 最新版本，同时保留我指定的 override”：先查真实版本号，显式 --agent-version；说明切版本会更换基线，不能靠省略 version 表示最新；只发送用户明确的 overrides，确认后执行。
 - “清空 Skills，别动工具”：--agent '{skills: []}'，不注入 tools/defaults；null 不等同清空。--file、@file 和 inline 保留原生 snake_case 与工具 schema 内的属性名。
 - “改环境变量和依赖”：说明 env/packages 合并、空对象不清空；self_hosted 不发送 Sandbox 运行配置，不换 environment id。
-- “刷新 Vault”：只发送当前绑定集合，不创建凭证或更换绑定。initial_events 可省略，--compact 为显式选择。
+- “刷新 Vault”：发送当前绑定集合；“更换/解绑 Vault”：先确认目标全集及差异，再发送目标数组或 `[]`，不自动创建凭证；回读验证，不能仅凭受理成功声称已生效。initial_events 可省略，--compact 为显式选择。
 - “返回 upgrading，算成功了吗”：只报告受理，单独回读状态和目标模型/版本/配置，不查询虚构 task；超时先查后重试，升级中不发送消息。
 - BYOK：Agent create/update、Session override/upgrade 均保留显式模型接入字段；请求凭证只在 events send、compact、+new session 使用 `--model-header-env`，不写入静态 Headers。Preview 只读取引用。
 

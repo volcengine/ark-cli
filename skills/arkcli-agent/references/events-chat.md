@@ -4,6 +4,10 @@
 
 ## Event / Chat 体验
 
+### 没有历史上下文时
+
+先核对 `arkcli --version` 与本次加载的 Skill 来源，不能假定升级二进制会同步已安装的 Skill。按 shared 完成认证检查，确认当前账号、项目、环境和 MA 可用的普通 API Key/Profile；不从旧对话复制 ID 或密钥。用户给了 Session ID 就先 `session get` 核对；没给时查询 `session list` 并确认目标，有多个候选不能随便选。新建资源按 session-files.md 的流程与授权执行。发送前确认 Session 不在上一轮运行或升级中，避免将并发消息的终态当作本轮完成。
+
 ### 发送与执行的退出码
 
 不带等待参数时，退出码 0 只表示消息受理成功。`events send --stream` / `--wait` / `--poll`（含 SSE 超时后的轮询补偿）会检查本轮终态：执行失败、终止或非正常 stop_reason（如 `retries_exhausted`）返回退出码 5、`agent_execution_failed`。错误提示保留 Session ID、发送 cursor，并明确消息已受理，不要自动重发。原始错误事件仍保留在事件输出中。
@@ -19,6 +23,14 @@
 | 大 payload（约 50KB 以上）或长耗时调研/报告任务 | `agent session events send <session-id> ... --poll` | CLI 只轮询 `events list`，不建立 stream；更长任务仍可不带 `--stream/--poll`，由调用方分步轮询 |
 | 只投递事件，不等待 Agent | `agent session events send ...` | 仅适用于用户明确要求异步投递或脚本写入 |
 | 观察已有 Session 的实时事件 | `arkcli +tail <session-id>` | 持续读取到终态或明确错误 |
+
+### 服务端重试与事件顺序
+
+`session.error.error.retry_status.type=retrying` 表示服务端正在重试，继续等待，不重发用户消息；随后正常 `end_turn` 不算整轮失败。`exhausted` / `terminal` 或异常终态仍按失败处理；旧事件缺少 retry_status 时保持保守判断。超时仍是超时，不能凭 retrying 报成功。
+
+补偿列表按后端 `order=asc` 的返回顺序消费并去重；不要按 event ID 或 `processed_at` 再排序，也不要从 ID 中推导时间过滤。相同时间戳的 usage 和 idle 顺序也由服务端确定。
+
+内部等待会沿分页查找最后已知的持久化事件 ID，跳过该 ID 之前的历史；尚未落库时继续等待，不拿旧 idle 报成功。增量帧不作为列表游标。未指定线程时等待 Session 级终态，不能只看到 thread idle 就停止，否则会漏掉随后返回的 usage。原始 `events list --after` 仍受服务端契约限制，不能假定返回数据均为新事件。
 
 ### Event Deltas
 
@@ -46,7 +58,7 @@ arkcli agent session events stream <session-id> --no-event-deltas
 
 `events list` 是历史回查接口，不发送 `event_deltas`；断线补偿会继续按 cursor 拉取已落库的完整事件。增量帧与最终事件的重复投递由 CLI 按事件类型、事件 id 和增量内容去重。
 
-**硬规则：用户说“询问 Agent”“让 Agent 分析/回复/执行”时，不能把 write-only 的 `events send` 当作完整流程。短请求使用 `--stream`；大 payload 或长任务优先使用 `--poll`，更长任务使用不带 `--stream/--poll` 的 send，再用 `events list --after` 轮询或 `+tail` 读取回复。**
+**用户需要 Agent 回复时，不能把 write-only 的 `events send` 当作完整流程。短请求使用 `--stream`；大 payload 或长任务优先使用 `--poll`。必须拆开发送与等待时，按下方“异步发送后的只读恢复”处理，不把 `--after` 当作可靠的服务端过滤。**
 
 - `agent session list --agent-id <agent-id>` 按 Agent 过滤；CLI 会按 `ListSessionsForTop` 契约发送 `AgentIds` 数组。
 - Session 列表使用页码分页：`--page` 对应 `PageNumber`，`--limit` 对应 `PageSize`。需要遍历时使用全局 `--page-all`，并通过 `--page-limit` 控制最多页数。
@@ -65,13 +77,19 @@ arkcli agent session events send <session-id> --type user.message --text "帮我
 - `--stream` 适合短、边界明确的请求；它先在前台消费事件 stream，默认最长 120 秒（CLI 本地默认值，可用 `--wait-timeout` 覆盖）。stream 等待超时后会自动切换为基于 cursor 的 events list polling，默认再持续 120 秒，可用 `--wait-fallback-timeout` 覆盖；两阶段都超时才返回带 cursor 的非 0 错误。显式 `--stream` 即使 payload 约 50KB 以上也会建立 SSE；只有旧 `--wait` 兼容模式可能直接返回。长任务仍优先使用 `--poll`。
 - `--poll` 会在发送成功后只轮询 `/events` 列表，不建立 `/events/stream` 长连接；它仍会占用当前 CLI 进程直到终态，但更适合规避 stream 连接不稳定的长请求。默认每 2 秒轮询，可用 `--poll-interval` 调整。
 - `events send --stream` 和 `+new session` 也支持 `--max-event-chars` 控制 pretty 输出；该参数只影响终端展示，不改变发送给 Agent 的原始 payload。`--raw` 仍输出完整事件，适合机器留档。
-- 长任务推荐“send + cursor 轮询”：先发送并保留返回中的最后一个 event id，再每隔 2-5 秒执行 `agent session events list <session-id> --after <event-id> --order asc --limit 100 --format json`；读取新增 `agent.message`、`tool`、`thinking` 等事件，直到 `idle`、`requires_action`、`failed`、`terminated` 或 `archived`。需要实时人类可读输出时改用 `arkcli +tail <session-id>`。
+- 长任务优先使用 `events send --poll --wait-timeout <seconds>`，等待时间应在宿主进程预算内。无法持续占用进程时，使用下方只读恢复流程；不要再次执行 `events send --poll` 来“续等”，它会再发送一条消息。
 - 轮询单次超时或连接中断时，可以保留同一个 cursor 重试；遇到鉴权、权限、参数、开通状态或其他明确业务错误时立即停止。轮询达到总超时时间后必须报错并保留最后状态，不要报告为 Agent 已完成。
-- 推荐的长任务流程：
-  1. **单独执行** `arkcli agent session events send <session-id> --type user.message --text "..." --poll`；如果任务可能超过当前 shell/tool 超时时间，则不要传 `--poll`，改为不带等待的 send。
-  2. **单独执行解析步骤**，从发送响应提取 event cursor；如果响应没有 cursor，改用发送时间或最近一条 user event 作为回查起点，并避免从 session 历史开头读取。
-  3. **单独执行并重复轮询** `arkcli agent session events list <session-id> --after <cursor> --order asc --limit 100 --format json`，每轮处理新增事件并更新 cursor；发现终态后停止。
-  4. **单独执行** `arkcli agent session get <session-id> --format json`，需要最终 Session 元数据时再调用。
+### 异步发送后的只读恢复
+
+适用于 send 已受理但没有等待、等待超时或进程退出。先保存 Session ID、发送响应中的持久化 user event ID 和发送时间；恢复只做读取，不重发。
+
+1. 执行 `arkcli agent session events list <session-id> --order asc --limit 100 --page-all --page-limit 10 --format json`。按 `next_page` 检查分页是否完整；有后续页时不能凭当前页报告整轮完成。可按需提高页数预算。
+2. 按返回顺序找到发送事件 ID 的**精确匹配**，忽略它及之前的全部历史。不能按 ID 字典序、ID 中的时间或事件时间戳排序/比较来代替边界定位。`--after` 即使传入，也不能省略此检查。
+3. 边界未找到时，不消费列表中的旧 idle。可能是尚未落库或分页未覆盖；在限定总时长内继续读取，仍找不到则报告“本轮结果未确认”。没有发送 ID 时，用发送时间、原文和线程回查定位唯一 user event；有歧义先确认，不能直接选择最近一条，也不能重发。
+4. 仅处理边界之后的完整事件，按事件身份（type + id）去重并保留顺序；忽略增量帧作为持久化游标。重查时保留已见集合和整轮错误状态。Session 级成功需收到本轮正常 `session.status_idle`/`end_turn` 并核对回复，不能在 `session.thread_status_idle` 提前停止；保留期间的 usage。`retrying` 可恢复，exhausted/terminal/未知旧错误仍保守判失败，`requires_action` 是待确认。
+5. 每隔 2–5 秒进行有限读取；超时报告最后状态和发送 ID，不宣称完成。`session get` 的 idle 只用于辅助核对，不替代本轮事件证据。只读 `+tail`/`events stream` 的退出码 0 也不证明本轮推理成功，仍须检查事件与错误。
+
+### 其他事件操作
 - 不要写成下面这种串联命令：`SID=$(...); arkcli session create ...; arkcli events send "$SID" ...; arkcli events list "$SID" ...`。如果 create 卡住，后面的 send/list 根本不会执行，也无法判断卡点。
 - `session create` 或 `events send` 出现超时后，不要立即重试写请求：先单独执行 `session get/list` 或 `events list` 判断第一次请求是否已生效。只有确认未生效，或服务端提供幂等键并已使用时，才可重试。
 - `session get` 只返回 Session 状态、配置和关联信息，不包含 Agent 的完整自然语言回复；回复必须从 `agent.message` 等事件中读取。不要用 `session get` 替代 events stream。
@@ -81,7 +99,7 @@ arkcli agent session events send <session-id> --type user.message --text "帮我
 - 不要把这种 CLI 兼容行为理解成服务端已经支持原子 batch；如果业务必须原子提交，应等待服务端支持多事件请求。
 - 多事件可以包含不同 `type`，CLI 不会按类型重排。例如先发送 `user.message` 再发送 `user.interrupt`，服务端会先启动消息对应的 turn，再处理 interrupt；回查时应看到原始 `user.message`、`user.interrupt`，以及被中断的 model request。`user.interrupt` 要在存在 active turn 时发送；对 idle session 发送会产生 `session.error: no active turn to cancel`。
 
-- `events list` 拉历史，支持 `--after/--before` event cursor，`--since/--created-after/--created-before` 时间过滤，`--type` 可重复或逗号分隔。加全局 `--page-all` 后默认 `limit=100`，沿响应 `next_page -> page` 拉取并合并 `data`。
+- `events list` 拉历史，提供 `--after/--before` flags，但不能据此保证服务端按事件 ID 过滤。另有 `--since/--created-after/--created-before` 时间条件和可重复或逗号分隔的 `--type`。恢复整轮时不要只筛回复或 idle 而漏掉错误事件。加全局 `--page-all` 后默认 `limit=100`，沿响应 `next_page -> page` 拉取并合并 `data`。
 - `threads list` 同样支持全局 `--page-all` 和 `next_page -> page`；`resources list` 当前没有分页契约，不要伪造 page 参数。
 - `events stream` 输出机器友好的 SSE data / NDJSON 行。
 - 已知 session-id 时优先使用主动压缩命令：`arkcli agent session compact <session-id> [--instructions <text|@file>] [--session-thread-id <id>]`。它先确认 Session 为 idle，再发送前端同款 slash envelope，并从发送响应最后一个 event id 之后等待。正常的 `session.thread_status_idle(stop_reason=end_turn)` 与 `session.status_idle(stop_reason=end_turn)` 表示手动 compact 命令执行完成；`agent.thread_context_compacted` 是可选的“实际发生压缩”确认，后端在没有可压缩消息时可能不返回它。失败/终止事件或超时返回非 0。

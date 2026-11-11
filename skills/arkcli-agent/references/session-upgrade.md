@@ -32,7 +32,7 @@ arkcli agent session upgrade <session-id> \
 | `--agent-version <int>` | 覆盖 `agent.version`；不传或 0 保留当前快照，不会选择最新版本 |
 | `--model <id或object>` | ID 只覆盖 `agent.model.id`；对象或 `@file` 替换请求中的 model 对象 |
 | `--speed/--thinking/--reasoning-effort/--service-tier` | 覆盖 `agent.model` 同名 snake_case 字段；显式空字符串会保留在请求中 |
-| `--vault-ids <array>` | JSON/YAML 数组或 `@file`；刷新既有绑定，不是新增/解绑 Vault |
+| `--vault-ids <array>` | JSON/YAML 数组或 `@file`；目标用户 Vault 绑定全集，非增量；`[]` 清空用户绑定 |
 | `--initial-events <array>` | JSON/YAML 数组或 `@file`；可省略或为 `[]`；非空时后端仅接受一条固定的 `/compact` 事件 |
 | `--compact[=false]` | true 构造固定 `/compact` initial event；false 显式设置 `initial_events: []`；与 `--initial-events` 互斥 |
 
@@ -48,7 +48,7 @@ arkcli agent session upgrade <session-id> \
 - `agent.model` 支持 `id/provider/protocol/base_url/headers/token_limits/input_modalities` 和四个运行参数；创建 override 同样支持这些字段。upgrade 使用 snake_case，不改写 Headers 的 key/value。详见 [BYOK](byok.md)；不为省略字段补默认值。
 - cloud `config.networking` 整块替换；`config.env` 按 key 合并，本次同 key 覆盖旧值；`config.packages` 按包名合并，本次同名包替换旧 spec。空 env/packages 不会清空历史项。`setup_script` 显式值替换，空字符串可传。只给 environment id 不代表从 Environment 资源拉取最新配置；应明确提供期望 config。
 - self_hosted Session 可以升级 Agent；不支持 cloud/self_hosted 类型互切，不应发送自托管 Sandbox 的 networking/packages/env/setup_script。用户 TOS 配置不可通过升级修改。
-- `vault_ids` 必须与当前绑定集合一致（忽略顺序/重复）；`[]` 仅适用于原本没有绑定的 Session。不发送凭证密文；不要把刷新误称为更换绑定。
+- `vault_ids` 非空数组替换用户 Vault 绑定全集，可新增、移除或更换；保留某项时必须把它包含在目标数组中。省略或完整请求中的 `null` 保留原绑定，`[]` 清空用户绑定；服务端内部授权 Vault 保留。相同集合可用于刷新凭证。后端校验 Vault 是否存在及账号/项目权限，不自动创建 Vault，不发送凭证密文。执行前展示绑定差异并取得确认，执行后回读核对；旧服务端若拒绝更换，报告兼容性问题，不自动改成其他操作。
 
 ## 执行与结果核对
 
